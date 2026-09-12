@@ -78,7 +78,7 @@ export const CIPHER_SPECS: CipherSpec[] = [
     method: 'base64',
     methodLabel: 'Base64',
     d: 1,
-    learn: 'Base64 non è crittografia! È solo una codifica: chiunque può decodificarla. Se vedi testo che finisce con "=" e usa A-Z a-z 0-9 + /, prova Base64. In un terminale: echo "..." | base64 -d',
+    learn: 'Base64 non è crittografia! È solo una codifica: chiunque può decodificarla. Usa l\'alfabeto A-Z a-z 0-9 + / e la lunghezza è multipla di 4; a volte (non sempre) termina con uno o due "=" di padding. In un terminale: echo "..." | base64 -d',
     glossary: ['base64', 'encoding'],
     gen: (r) => {
       const pt = r.pick([...MESSAGES_EASY, ...FLAGS]);

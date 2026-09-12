@@ -355,10 +355,10 @@ export function genPassword(r: RNG, d: number, opts?: Record<string, unknown>): 
   const candidates = r.shuffle([answer, ...others]);
   return {
     ...base, mode, title: 'Cracking: trova la password', hash, candidates, answer,
-    brief: `Hai rubato un hash da un backup: \n${hash}\nConfronta questo hash con quelli del tuo "dizionario" di password comuni. Quale password lo genera? (È così che funziona un attacco a dizionario: l'hash da solo non si "inverte", ma si provano password note finché l'hash combacia.)`,
+    brief: `Hai rubato un hash da un backup: \n${hash}\nConfronta questo hash con quelli del tuo "dizionario" di password comuni. Quale password lo genera? (È così che funziona un attacco a dizionario: l'hash da solo non si "inverte", ma si provano password note finché l'hash combacia.)\n[Nota: qui l'hash è didattico e semplificato; nel mondo reale sono MD5, SHA-1/256, bcrypt o Argon2 e si usano strumenti come hashcat o John the Ripper.]`,
     ruleHint: 'Il gioco calcola l\'hash di ogni candidato: clicca quello il cui hash corrisponde.',
-    hints: ['Gli attacchi reali provano milioni di password comuni. Qui il dizionario è piccolo: prova i candidati.', `La password è una di quelle comuni/deboli. ${d <= 2 ? 'È tra le più usate al mondo.' : 'Contiene un anno o un nome.'}`],
-    learn: 'Un hash NON si "decifra" (è a senso unico). Si craccano provando password candidate, calcolandone l\'hash e confrontando. Ecco perché servono password lunghe, uniche, con SALT e algoritmi lenti (bcrypt/Argon2): rallentano enormemente questo processo.',
+    hints: ['Gli attacchi reali (con hashcat/John) provano milioni di password al secondo da wordlist come rockyou.txt. Qui il dizionario è piccolo: prova i candidati.', `La password è una di quelle comuni/deboli. ${d <= 2 ? 'È tra le più usate al mondo.' : 'Contiene un anno o un nome.'}`],
+    learn: 'Un hash NON si "decifra" (è a senso unico). Si craccano provando password candidate, calcolandone l\'hash e confrontando (attacco a dizionario/brute force). In pratica si usano hashcat o John the Ripper su hash reali (MD5, SHA-256, bcrypt…). Difesa: password lunghe e uniche + SALT per utente + algoritmi lenti come bcrypt, scrypt o Argon2, che rendono ogni tentativo costoso.',
     glossary: ['hash', 'salt'],
   };
 }

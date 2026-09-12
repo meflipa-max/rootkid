@@ -130,7 +130,7 @@ export const LOG_SCENARIOS: LogScenario[] = [
       const r = new RNG(seed);
       const internal = `10.0.${r.int(1, 10)}.${r.int(10, 99)}`;
       const c2 = randIp(r);
-      const port = r.pick([4444, 8443, 9001, 1337, 31337]);
+      const port = r.pick([4444, 6667, 9001, 1337, 31337]);
       const lines: string[] = [];
       for (let i = 0; i < 4; i++) {
         lines.push(`ALLOW ${internal} -> ${randIp(r)}:443 TCP (HTTPS)`);
