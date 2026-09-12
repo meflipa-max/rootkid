@@ -287,11 +287,11 @@ export function recordChallenge(s: SaveState, ch: Challenge, res: ChallengeResul
       if (!s.glossary.includes(g)) { s.glossary.push(g); glossaryUnlocked.push(g); }
     }
   }
-  // etica
+  // etica (delta: white +3, grey -1, black -4). Il grigio NON conta come "black hat".
   if (res.ethicsDelta) {
     s.ethics = Math.max(-50, Math.min(100, s.ethics + res.ethicsDelta));
     if (res.ethicsDelta > 0) s.stats.whiteHatChoices++;
-    if (res.ethicsDelta < 0) s.stats.blackHatChoices++;
+    else if (res.ethicsDelta <= -3) s.stats.blackHatChoices++;
   }
   if (t === 'sniffer' && typeof res.snifferScore === 'number') {
     s.stats.snifferBest = Math.max(s.stats.snifferBest, res.snifferScore);
@@ -299,45 +299,65 @@ export function recordChallenge(s: SaveState, ch: Challenge, res: ChallengeResul
   return glossaryUnlocked;
 }
 
+// È la prima volta che si completa questa missione? (story già fatte e daily già fatta oggi = replay)
+export function isFirstClear(s: SaveState, mission: Mission): boolean {
+  if (mission.kind === 'story') return !s.completedMissions.includes(mission.def.id);
+  if (mission.kind === 'daily') return !s.daily.done;
+  return true; // bounty, training, exam: sempre "nuovi"
+}
+
+// Ricompensa effettiva: riduce i replay (per evitare farming) e applica i bonus. Usata sia dalla logica sia dall'UI.
+export function effectiveReward(s: SaveState, mission: Mission, totalHints: number): { xp: number; credits: number; rep: number; firstClear: boolean } {
+  const firstClear = isFirstClear(s, mission);
+  let { xp, credits, rep } = mission.def.reward;
+  if (!firstClear) {
+    // i replay danno solo un po' di XP per allenarsi, niente crediti/reputazione
+    xp = Math.round(xp * 0.2);
+    credits = 0;
+    rep = 0;
+  }
+  if (totalHints === 0) { xp = Math.round(xp * 1.15); credits = Math.round(credits * 1.1); }
+  if (firstClear && mission.def.final && s.tools.includes('c2')) rep = Math.round(rep * 1.2);
+  return { xp, credits, rep, firstClear };
+}
+
 export function completeMission(s: SaveState, mission: Mission, allSuccess: boolean, totalHints: number): ApplyResult {
   const r: ApplyResult = { leveledUp: false, newLevel: levelFromXp(s.xp), newAchievements: [], glossaryUnlocked: [] };
   if (!allSuccess) return r;
 
   const beforeLevel = levelFromXp(s.xp);
-  let { xp, credits, rep } = mission.def.reward;
-  // bonus nessun hint
-  if (totalHints === 0) { xp = Math.round(xp * 1.15); credits = Math.round(credits * 1.1); }
-  // bonus strumento c2 sulle finali
-  if (mission.def.final && s.tools.includes('c2')) rep = Math.round(rep * 1.2);
+  const eff = effectiveReward(s, mission, totalHints);
 
-  s.xp += xp;
-  s.credits += credits;
-  s.reputation += rep;
+  s.xp += eff.xp;
+  s.credits += eff.credits;
+  s.reputation += eff.rep;
 
   if (mission.kind === 'story') {
-    if (!s.completedMissions.includes(mission.def.id)) s.completedMissions.push(mission.def.id);
-    s.missionsDone++;
+    if (eff.firstClear) {
+      s.completedMissions.push(mission.def.id);
+      s.missionsDone++;
+    }
   } else if (mission.kind === 'bounty') {
     s.bountiesDone++;
     const maxD = Math.max(...mission.challenges.map((c) => c.difficulty));
     s.stats.bestBountyDifficulty = Math.max(s.stats.bestBountyDifficulty, maxD);
   } else if (mission.kind === 'daily') {
+    if (eff.firstClear) updateStreakOnDaily(s);
     s.daily.done = true;
   }
 
   const afterLevel = levelFromXp(s.xp);
   if (afterLevel > beforeLevel) { r.leveledUp = true; r.newLevel = afterLevel; }
 
-  // promozione azienda
-  if (mission.kind === 'story' && mission.def.final && companyCompleted(s, mission.def.companyId)) {
+  // promozione azienda: solo alla PRIMA volta che si finisce l'ultima missione (niente offerte duplicate al replay)
+  if (eff.firstClear && mission.kind === 'story' && mission.def.final && companyCompleted(s, mission.def.companyId)) {
     const next = nextCompany(mission.def.companyId);
     if (next) {
       const can = canJoinCompany(s, next.id);
-      // messaggio di offerta indipendentemente
       pushInbox(s, {
         from: `${next.contact} — ${next.name}`,
         subject: `Offerta di lavoro: ${next.jobTitle}`,
-        body: next.intro + (can.ok ? '\n\nPuoi accettare subito dalla sezione Aziende.' : `\n\nRequisiti non ancora soddisfatti: ${can.reason}. Continua a crescere!`),
+        body: next.intro + (can.ok ? '\n\nPuoi accettare subito dalla sezione Carriera.' : `\n\nRequisiti non ancora soddisfatti: ${can.reason}. Continua a crescere!`),
         kind: 'offer',
       });
     }

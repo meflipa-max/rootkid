@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import type { Mission, ChallengeResult, SaveState } from '../../game/types';
 import { ChallengeView, TYPE_META } from '../challenges';
-import { recordChallenge, completeMission, levelFromXp } from '../../game/engine';
+import { recordChallenge, completeMission, levelFromXp, effectiveReward } from '../../game/engine';
 import type { Toast } from '../useGame';
 
 export function MissionRunner({
@@ -20,6 +20,7 @@ export function MissionRunner({
   const [idx, setIdx] = useState(0);
   const [results, setResults] = useState<ChallengeResult[]>([]);
   const [finished, setFinished] = useState(false);
+  const [earned, setEarned] = useState<{ xp: number; credits: number; rep: number; firstClear: boolean } | null>(null);
   const ch = mission.challenges[idx];
 
   const totalHints = useMemo(() => results.reduce((a, r) => a + r.hintsUsed, 0), [results]);
@@ -39,17 +40,17 @@ export function MissionRunner({
       const success = newResults.every((r) => r.success);
       const hints = newResults.reduce((a, r) => a + r.hintsUsed, 0);
       const beforeLevel = levelFromXp(save.xp);
+      // calcolo la ricompensa effettiva PRIMA di applicarla (dipende dallo stato pre-mutazione: replay vs primo completamento)
+      const eff = success ? effectiveReward(save, mission, hints) : { xp: 0, credits: 0, rep: 0, firstClear: true };
+      setEarned(eff);
       mutate((s) => {
         completeMission(s, mission, success, hints);
       });
       // toasts
       if (success) {
-        const r = mission.def.reward;
-        const xpGain = hints === 0 ? Math.round(r.xp * 1.15) : r.xp;
-        const credGain = hints === 0 ? Math.round(r.credits * 1.1) : r.credits;
-        const bonus = hints === 0 ? ' · bonus no-hint!' : '';
-        pushToast({ kind: 'credit', icon: '💰', title: `+${credGain} crediti · +${xpGain} XP`, body: mission.def.title + bonus });
-        const after = levelFromXp(save.xp + xpGain);
+        const bonus = (hints === 0 ? ' · bonus no-hint!' : '') + (!eff.firstClear ? ' · replay' : '');
+        pushToast({ kind: 'credit', icon: '💰', title: `+${eff.credits} crediti · +${eff.xp} XP`, body: mission.def.title + bonus });
+        const after = levelFromXp(save.xp + eff.xp);
         if (after > beforeLevel) {
           setTimeout(() => pushToast({ kind: 'lvl', icon: '⬆️', title: `Livello ${after}!`, body: 'Nuove missioni e strumenti disponibili.' }), 500);
         }
@@ -77,8 +78,9 @@ export function MissionRunner({
             </div>
             {allSuccess ? (
               <div className="result-banner ok" style={{ marginTop: 16 }}>
-                Ricompensa: <b>+{mission.def.reward.xp} XP · +{mission.def.reward.credits} crediti · +{mission.def.reward.rep} reputazione</b>
-                {mission.def.final && <div style={{ marginTop: 6 }}>🏁 Hai completato l'ultima missione di questo datore di lavoro! Controlla le offerte nella posta.</div>}
+                Ricompensa: <b>+{earned?.xp ?? mission.def.reward.xp} XP · +{earned?.credits ?? mission.def.reward.credits} crediti · +{earned?.rep ?? mission.def.reward.rep} reputazione</b>
+                {earned && !earned.firstClear && <div className="dim" style={{ marginTop: 6, fontSize: 13 }}>♻️ Missione già completata: ricompensa ridotta (allenamento).</div>}
+                {earned?.firstClear && mission.def.final && <div style={{ marginTop: 6 }}>🏁 Hai completato l'ultima missione di questo datore di lavoro! Controlla le offerte nella posta.</div>}
               </div>
             ) : (
               <div className="result-banner bad" style={{ marginTop: 16 }}>

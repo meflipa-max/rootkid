@@ -2,7 +2,7 @@ import React from 'react';
 import type { SaveState, Mission, MissionDef } from '../../game/types';
 import {
   companyById, storyMissionsForCurrentCompany, nextStoryMission, buildMission,
-  buildBounty, buildDaily, buildTraining, levelFromXp, rank, ALL_TYPES, updateStreakOnDaily,
+  buildBounty, buildDaily, buildTraining, levelFromXp, rank, ALL_TYPES,
 } from '../../game/engine';
 import { todayKey, randomSeed, hashString } from '../../game/rng';
 import { Diff } from '../components/common';
@@ -18,11 +18,8 @@ export function Dashboard({ save, onPlay, mutate }: { save: SaveState; onPlay: (
     onPlay(buildMission(def, hashString(def.id) ^ (save.createdAt & 0xffff)));
   }
   function playDaily() {
-    updateStreakOnDaily0();
+    // la streak si aggiorna al COMPLETAMENTO della daily (in completeMission), non alla semplice apertura
     onPlay(buildDaily(todayKey()));
-  }
-  function updateStreakOnDaily0() {
-    mutate((s) => updateStreakOnDaily(s));
   }
   function playBounty() {
     onPlay(buildBounty(save, randomSeed()));

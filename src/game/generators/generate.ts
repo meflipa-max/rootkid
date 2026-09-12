@@ -340,10 +340,11 @@ export function genPassword(r: RNG, d: number, opts?: Record<string, unknown>): 
     glossary: ['hash', 'salt'],
   };
   if (mode === 'rank') {
-    const pool = r.shuffle([r.pick(WEAK_PW), r.pick(WEAK_PW), r.pick(MID_PW), r.pick(STRONG_PW)]);
-    const uniq = Array.from(new Set(pool)).slice(0, 4);
-    while (uniq.length < 4) uniq.push(r.pick([...WEAK_PW, ...MID_PW, ...STRONG_PW]));
-    const passwords = uniq.map((pw) => ({ pw, score: pwScore(pw) }));
+    // una password distinta da ciascuna fascia + una quarta a caso, così l'ordinamento ha sempre varietà di robustezza
+    const chosen = [r.pick(WEAK_PW), r.pick(MID_PW), r.pick(STRONG_PW)];
+    const extraPool = [...WEAK_PW, ...MID_PW, ...STRONG_PW].filter((p) => !chosen.includes(p));
+    chosen.push(r.pick(extraPool));
+    const passwords = r.shuffle(chosen).map((pw) => ({ pw, score: pwScore(pw) }));
     return { ...base, mode, title: 'Ordina per robustezza', brief: 'Trascina o usa le frecce per ordinare queste password dalla PIÙ DEBOLE (in alto) alla PIÙ FORTE (in basso).', passwords, hints: ['Lunghezza > complessità. Una frase lunga batte 8 caratteri complicati.', 'Le parole del dizionario, i nomi e le date sono deboli, anche con numeri aggiunti.'], learn: 'La robustezza di una password dipende soprattutto dalla LUNGHEZZA e dall\'imprevedibilità. "correct-horse-battery-staple" (4 parole casuali) è più forte di "Tr0ub4dor&3" ed è più facile da ricordare. Meglio ancora: un password manager + 2FA.', glossary: ['hash'] };
   }
   // crack: semplificato — associa hash a password dato un piccolo dizionario
