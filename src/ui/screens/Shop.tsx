@@ -21,6 +21,7 @@ export function Shop({ save, mutate, pushToast }: { save: SaveState; mutate: (fn
       <div className="wrap">
         <h1 className="h1">🧰 Arsenale</h1>
         <p className="sub">Gli strumenti veri del mestiere. Ognuno sblocca missioni o ti dà un vantaggio nelle sfide. (Ispirati a tool reali che userai da professionista.)</p>
+        <div className="chip credits-chip">💰 {save.credits} crediti</div>
         <div className="grid cols2">
           {TOOLS.map((t) => {
             const owned = save.tools.includes(t.id);

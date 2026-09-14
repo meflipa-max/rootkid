@@ -77,7 +77,7 @@ export default function App() {
             <span className="bar-label">XP {lp.into}/{lp.need}</span>
           </div>
 
-          <div className="stat hide-sm">
+          <div className="stat">
             <span className="k">Crediti</span>
             <span className="v" style={{ color: 'var(--yellow)' }}>💰 {save.credits}</span>
           </div>
@@ -85,7 +85,7 @@ export default function App() {
             <span className="k">Reputazione</span>
             <span className="v" style={{ color: 'var(--cyan)' }}>⭐ {save.reputation}</span>
           </div>
-          <div className="stat">
+          <div className="stat hide-sm">
             <span className="k">Etica</span>
             <span className="v" style={{ color: save.ethics >= 0 ? 'var(--green)' : 'var(--red)' }}>🕊️ {save.ethics}</span>
           </div>

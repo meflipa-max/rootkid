@@ -31,7 +31,7 @@ export function WorldMap({ save, mutate, pushToast, onJoined }: { save: SaveStat
               <h1 className="h1" style={{ margin: '4px 0 2px', fontSize: 21 }}>{save.handle}</h1>
               <div className="dim" style={{ fontSize: 13 }}>{rank(level)} · Lv {level} · ⭐ {save.reputation} reputazione</div>
             </div>
-            <div className="chip">{curIdx + 1}/{COMPANIES.length} tappe</div>
+            <div className="chip hide-narrow">{curIdx + 1}/{COMPANIES.length} tappe</div>
           </div>
         </div>
 

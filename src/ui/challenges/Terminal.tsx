@@ -118,7 +118,8 @@ export default function Terminal({ challenge, onDone, tools }: ChProps<TerminalC
         </div>
         {!done && (
           <div className="inputrow">
-            <span className="ps">{pwPrompt ? `${pwPrompt.user}@${pwPrompt.ip}'s password:` : ps}</span>
+            <span className="ps ps-long">{pwPrompt ? `${pwPrompt.user}@${pwPrompt.ip}'s password:` : ps}</span>
+            <span className="ps ps-short">{pwPrompt ? 'password:' : '~$'}</span>
             <input
               ref={inRef}
               value={input}

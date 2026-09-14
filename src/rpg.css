@@ -388,3 +388,54 @@
   .hub-spot-desc { display: none; }
   .dlg { margin-bottom: 0; border-radius: 14px 14px 0 0; }
 }
+
+/* ===================== MOBILE: arena compatta ===================== */
+@media (max-width: 620px) {
+  /* il nemico occupava mezzo schermo prima ancora di vedere la sfida */
+  .arena { padding: 10px 11px 8px; margin-bottom: 10px; }
+  .arena-row { gap: 9px; }
+  .arena-row .daemon { transform: scale(0.66); margin: -18px -16px; }
+  .boss-taunt { display: none; }
+  .boss-name { font-size: 14px; letter-spacing: 0; }
+  .boss-title { font-size: 10.5px; }
+  .bar-label { font-size: 9.5px; }
+  .bar { height: 10px; }
+
+  /* le abilità restano riconoscibili: nome visibile ma compatto */
+  .abilities { gap: 5px; margin-top: 8px; padding-top: 7px; }
+  .ability { padding: 4px 7px; font-size: 11px; gap: 4px; border-radius: 7px; }
+  .ability-name { display: inline; }
+  .ability-cost { font-size: 9.5px; }
+  .energy { font-size: 11.5px; padding: 3px 7px; }
+  .combo-badge { font-size: 10px; margin-left: 5px; }
+}
+@media (max-width: 400px) {
+  .ability-name { display: none; }  /* schermi molto stretti: solo icona + costo */
+}
+
+/* ===================== MOBILE: input e terminale ===================== */
+.ps-short { display: none; }
+@media (max-width: 620px) {
+  /* iOS ingrandisce la pagina se il campo ha meno di 16px: lo evitiamo */
+  .inp, textarea.inp, select.inp, .terminal input { font-size: 16px; }
+  /* il prompt lungo mangiava quasi tutto lo spazio per scrivere */
+  .terminal .inputrow .ps-long { display: none; }
+  .terminal .inputrow .ps-short { display: inline; }
+  .terminal { font-size: 12.5px; }
+  .terminal .inputrow { padding: 8px 10px; }
+}
+
+/* ===================== MOBILE: navigazione leggibile ===================== */
+@media (max-width: 640px) {
+  /* con 9 voci, sole icone = indovinelli. Etichetta piccola sotto ogni icona. */
+  .nav { padding: 5px 8px; gap: 2px; }
+  .nav button { flex-direction: column; gap: 1px; padding: 5px 7px; min-width: 52px; }
+  .nav button .lbl { display: inline; font-size: 9px; letter-spacing: 0.2px; line-height: 1.1; }
+  .nav button.active .lbl { display: inline; }
+  .nav .badge { top: -2px; right: 0; }
+}
+
+/* elementi secondari che su schermi stretti rubano spazio al testo */
+@media (max-width: 560px) { .hide-narrow { display: none !important; } }
+
+.credits-chip { display: inline-block; color: var(--yellow); border-color: rgba(255,209,102,0.35); margin-bottom: 14px; }

@@ -96,7 +96,7 @@ export function Logs({ challenge, onDone, tools }: ChProps<LogsChallenge>) {
         </div>
         <div className="mono scrolltip" style={{ maxHeight: 260, overflowY: 'auto', fontSize: 12.5, padding: '8px 12px', background: '#05090d', lineHeight: 1.7 }}>
           {shown.map((l, i) => (
-            <div key={i} style={{ color: hasSiem && suspicious(l) ? 'var(--orange)' : suspicious(l) ? '#c9d6e0' : '#8399a8', background: hasSiem && suspicious(l) ? 'rgba(255,158,100,0.07)' : undefined, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+            <div key={i} style={{ color: hasSiem && suspicious(l) ? 'var(--orange)' : suspicious(l) ? '#c9d6e0' : '#8399a8', background: hasSiem && suspicious(l) ? 'rgba(255,158,100,0.07)' : undefined, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
               {l}
             </div>
           ))}

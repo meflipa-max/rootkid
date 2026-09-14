@@ -44,7 +44,7 @@ const ABILITIES: Ability[] = [
   { id: 'firewall', icon: '🛡️', name: 'Firewall', cost: 2, desc: 'Annulla il prossimo attacco del boss.' },
   { id: 'debug', icon: '⏱️', name: 'Debug', cost: 3, desc: 'Azzera la carica del boss: ti compri tempo.' },
   { id: 'patch', icon: '💊', name: 'Patch', cost: 3, desc: 'Recuperi 30 PV.' },
-  { id: 'overclock', icon: '⚡', name: 'Overclock', cost: 4, desc: 'Il prossimo colpo fa danno doppio.' },
+  { id: 'overclock', icon: '💥', name: 'Overclock', cost: 4, desc: 'Il prossimo colpo fa danno doppio.' },
 ];
 
 export function MissionRunner({
@@ -174,7 +174,7 @@ export function MissionRunner({
         break;
       case 'overclock':
         setOverclock(true);
-        spawn('OVERCLOCK ⚡', 'crit', 40, 46);
+        spawn('OVERCLOCK 💥', 'crit', 40, 46);
         break;
     }
   }
@@ -484,14 +484,14 @@ function Arena(props: {
           <div className="bar-label">
             PV {playerHp}/{playerMax}
             {combo >= 2 && <span className="combo-badge">COMBO x{combo}</span>}
-            {overclock && <span className="combo-badge oc">⚡ OVERCLOCK</span>}
+            {overclock && <span className="combo-badge oc">💥 OVERCLOCK</span>}
           </div>
         </div>
       </div>
 
       {/* abilità */}
       <div className="abilities">
-        <span className="energy" title="Energia: la guadagni colpendo il nemico">⚡ {energy}</span>
+        <span className="energy" title="Energia: la guadagni colpendo il nemico">⚡ {energy}/{ENERGY_MAX}</span>
         {ABILITIES.map((a) => {
           const off = disabled || energy < a.cost || (a.id === 'firewall' && shield) || (a.id === 'overclock' && overclock);
           return (

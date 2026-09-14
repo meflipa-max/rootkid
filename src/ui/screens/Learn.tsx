@@ -66,6 +66,7 @@ export function Academy({ save, mutate, pushToast }: { save: SaveState; mutate: 
       <div className="wrap">
         <h1 className="h1">🎓 Accademia</h1>
         <p className="sub">Studia la teoria: è ciò che trasforma uno script kiddie in un professionista. Ogni corso sblocca conoscenze usate nelle missioni.</p>
+        <div className="chip credits-chip">💰 {save.credits} crediti</div>
         <div className="grid cols2">
           {COURSES.map((c) => {
             const owned = save.courses.includes(c.id);
@@ -164,6 +165,7 @@ export function Certifications({ save, mutate, pushToast }: { save: SaveState; m
       <div className="wrap">
         <h1 className="h1">📜 Certificazioni</h1>
         <p className="sub">Gli esami ufficiali del mondo ROOTKID. Superarli sblocca le aziende più prestigiose. Costano crediti per tentativo: preparati bene!</p>
+        <div className="chip credits-chip">💰 {save.credits} crediti</div>
         <div className="grid cols2">
           {CERTS.map((c) => {
             const owned = save.certs.includes(c.id);
