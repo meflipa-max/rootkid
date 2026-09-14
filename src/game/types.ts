@@ -319,6 +319,6 @@ export interface SaveState {
     snifferBest: number;
   };
   inbox: InboxMsg[];
-  settings: { sound: boolean; crt: boolean; bigFont: boolean };
+  settings: { sound: boolean; crt: boolean; bigFont: boolean; calm: boolean };
   pledged: boolean;
 }

@@ -162,6 +162,17 @@ export function Codex({ save, mutate, onReset }: { save: SaveState; mutate: (fn:
                 <input type="checkbox" checked={save.settings.bigFont} onChange={(e) => mutate((s) => { s.settings.bigFont = e.target.checked; })} style={{ width: 20, height: 20 }} />
               </label>
             </div>
+            <div className="card" style={{ marginBottom: 12 }}>
+              <label className="row" style={{ justifyContent: 'space-between', cursor: 'pointer', alignItems: 'flex-start' }}>
+                <span style={{ flex: 1 }}>
+                  🧘 Modalità tranquilla
+                  <div className="dim" style={{ fontSize: 12.5, marginTop: 2 }}>
+                    Il boss non attacca a tempo: puoi ragionare e studiare senza pressione. Consigliata se vuoi imparare con calma.
+                  </div>
+                </span>
+                <input type="checkbox" checked={save.settings.calm} onChange={(e) => mutate((s) => { s.settings.calm = e.target.checked; })} style={{ width: 20, height: 20, marginLeft: 12 }} />
+              </label>
+            </div>
             <div className="card" style={{ borderColor: 'var(--red)' }}>
               <b style={{ color: 'var(--red)' }}>Zona pericolosa</b>
               <p className="dim" style={{ fontSize: 13 }}>Cancella tutti i progressi e ricomincia da zero. Non si può annullare.</p>

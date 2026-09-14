@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Avatar } from '../art/Avatar';
 import { rank } from '../../game/engine';
 
@@ -37,11 +37,13 @@ export function Floaters({ items }: { items: Floater[] }) {
 let floatSeq = 0;
 export function useFloaters() {
   const [items, setItems] = useState<Floater[]>([]);
-  function spawn(text: string, kind: Floater['kind'] = 'dmg', x = 50, y = 45) {
+  // spawn deve essere STABILE: altrimenti gli effetti che lo usano come
+  // dipendenza (es. il timer del combattimento) si ricreano a ogni render.
+  const spawn = useCallback((text: string, kind: Floater['kind'] = 'dmg', x = 50, y = 45) => {
     const id = ++floatSeq;
     setItems((p) => [...p, { id, text, kind, x, y }]);
     setTimeout(() => setItems((p) => p.filter((i) => i.id !== id)), 1300);
-  }
+  }, []);
   return { items, spawn };
 }
 

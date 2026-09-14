@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import type { Mission, ChallengeResult, SaveState } from '../../game/types';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { Mission, ChallengeResult, SaveState, ChallengeType } from '../../game/types';
 import { ChallengeView, TYPE_META } from '../challenges';
 import { PrimerView } from '../challenges/Primer';
 import { recordChallenge, completeMission, levelFromXp, effectiveReward } from '../../game/engine';
@@ -10,14 +10,44 @@ import { Bar, Floaters, useFloaters } from '../components/rpg';
 import type { Toast } from '../useGame';
 
 const PLAYER_MAX = 100;
-const HIT_TO_PLAYER = 34;
+const FAIL_DMG = 22; // danno quando sbagli una sfida
+const BOSS_DMG = 14; // danno di un attacco del boss
+const ENERGY_MAX = 12;
+const ENERGY_PER_HIT = 3;
+
+// Quanto tempo ha il boss per caricare un attacco, per tipo di sfida (ms).
+// Le sfide che richiedono più lettura/ragionamento danno più respiro.
+const CHARGE_MS: Record<ChallengeType, number> = {
+  terminal: 150000,
+  logs: 120000,
+  codereview: 105000,
+  weblab: 105000,
+  quiz: 95000,
+  cipher: 90000,
+  password: 90000,
+  binary: 85000,
+  network: 85000,
+  phishing: 75000,
+  ethics: Infinity, // sulle scelte morali non si mette fretta
+  sniffer: Infinity, // ha già un timer suo
+};
+
+interface Ability {
+  id: 'firewall' | 'overclock' | 'patch' | 'debug';
+  icon: string;
+  name: string;
+  cost: number;
+  desc: string;
+}
+const ABILITIES: Ability[] = [
+  { id: 'firewall', icon: '🛡️', name: 'Firewall', cost: 2, desc: 'Annulla il prossimo attacco del boss.' },
+  { id: 'debug', icon: '⏱️', name: 'Debug', cost: 3, desc: 'Azzera la carica del boss: ti compri tempo.' },
+  { id: 'patch', icon: '💊', name: 'Patch', cost: 3, desc: 'Recuperi 30 PV.' },
+  { id: 'overclock', icon: '⚡', name: 'Overclock', cost: 4, desc: 'Il prossimo colpo fa danno doppio.' },
+];
 
 export function MissionRunner({
-  mission,
-  save,
-  mutate,
-  pushToast,
-  onExit,
+  mission, save, mutate, pushToast, onExit,
 }: {
   mission: Mission;
   save: SaveState;
@@ -31,11 +61,16 @@ export function MissionRunner({
   const [earned, setEarned] = useState<{ xp: number; credits: number; rep: number; firstClear: boolean } | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
 
-  // --- stato "combattimento" ---
+  // --- stato di combattimento ---
   const boss = useMemo(() => bossFor(mission), [mission]);
   const dmgPer = Math.ceil(100 / mission.challenges.length);
   const [bossHp, setBossHp] = useState(100);
   const [playerHp, setPlayerHp] = useState(PLAYER_MAX);
+  const [energy, setEnergy] = useState(4);
+  const [combo, setCombo] = useState(0);
+  const [shield, setShield] = useState(false);
+  const [overclock, setOverclock] = useState(false);
+  const [charge, setCharge] = useState(0); // 0..1
   const [fx, setFx] = useState<'idle' | 'hit' | 'dead'>('idle');
   const [shake, setShake] = useState(false);
   const [flash, setFlash] = useState(false);
@@ -44,21 +79,106 @@ export function MissionRunner({
 
   const ch = mission.challenges[idx];
   const level = levelFromXp(save.xp);
-  const totalHints = useMemo(() => results.reduce((a, r) => a + r.hintsUsed, 0), [results]);
-  const allSuccess = useMemo(
-    () => results.length === mission.challenges.length && results.every((r) => r.success),
-    [results, mission.challenges.length],
-  );
+  const enraged = bossHp <= 50 && bossHp > 0;
+  const calm = !!save.settings.calm;
+  const needsPrimer = !save.seenPrimers.includes(ch.type);
+
+  // --- refs per il ciclo in tempo reale (evitano closure stantie) ---
+  const chargeRef = useRef(0);
+  const shieldRef = useRef(false);
+  const pausedRef = useRef(false);
+  const resultsRef = useRef<ChallengeResult[]>([]);
+  const deadHandled = useRef(false);
+  const finishedRef = useRef(false);
+  resultsRef.current = results;
+  shieldRef.current = shield;
+  finishedRef.current = finished;
+
+  const chargeMs = (CHARGE_MS[ch.type] ?? 90000) * (enraged ? 0.62 : 1);
+  const chargeMsRef = useRef(chargeMs);
+  chargeMsRef.current = chargeMs;
+
+  // il timer si ferma durante lezioni, aiuto, animazioni e a fine missione
+  pausedRef.current = !!resolving || needsPrimer || helpOpen || finished;
+
+  const bossAttack = useCallback(() => {
+    if (shieldRef.current) {
+      setShield(false);
+      spawn('BLOCCATO 🛡️', 'heal', 24, 52);
+      return;
+    }
+    setPlayerHp((hp) => Math.max(0, hp - BOSS_DMG));
+    setCombo(0);
+    setShake(true);
+    setTimeout(() => setShake(false), 400);
+    spawn(`-${BOSS_DMG}`, 'dmg', 14, 58);
+  }, [spawn]);
+
+  // ciclo di carica dell'attacco nemico.
+  // Dipende SOLO da `calm`: l'azione passa da una ref, così l'intervallo
+  // non viene ricreato a ogni render (cosa che falsava la velocità).
+  const bossAttackRef = useRef(bossAttack);
+  bossAttackRef.current = bossAttack;
+  useEffect(() => {
+    if (calm) return;
+    const TICK = 100;
+    const id = setInterval(() => {
+      if (pausedRef.current || finishedRef.current) return;
+      const ms = chargeMsRef.current;
+      if (!isFinite(ms) || ms <= 0) return;
+      chargeRef.current += TICK / ms;
+      if (chargeRef.current >= 1) {
+        chargeRef.current = 0;
+        bossAttackRef.current();
+      }
+      setCharge(chargeRef.current);
+    }, TICK);
+    return () => clearInterval(id);
+  }, [calm]);
+
+  // sconfitta del giocatore
+  useEffect(() => {
+    if (playerHp <= 0 && !finished && !deadHandled.current) {
+      deadHandled.current = true;
+      finishMission(resultsRef.current, true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playerHp, finished]);
+
+  function resetCharge() {
+    chargeRef.current = 0;
+    setCharge(0);
+  }
+
+  function useAbility(a: Ability) {
+    if (energy < a.cost || resolving || finished) return;
+    setEnergy((e) => e - a.cost);
+    switch (a.id) {
+      case 'firewall':
+        setShield(true);
+        spawn('FIREWALL ATTIVO', 'heal', 30, 50);
+        break;
+      case 'debug':
+        resetCharge();
+        spawn('CARICA AZZERATA', 'heal', 30, 50);
+        break;
+      case 'patch':
+        setPlayerHp((hp) => Math.min(PLAYER_MAX, hp + 30));
+        spawn('+30 PV', 'heal', 18, 58);
+        break;
+      case 'overclock':
+        setOverclock(true);
+        spawn('OVERCLOCK ⚡', 'crit', 40, 46);
+        break;
+    }
+  }
 
   function finishMission(newResults: ChallengeResult[], playerDead: boolean) {
     const success = !playerDead && newResults.length === mission.challenges.length && newResults.every((r) => r.success);
     const hints = newResults.reduce((a, r) => a + r.hintsUsed, 0);
-    const beforeLevel = levelFromXp(save.xp);
     const eff = success ? effectiveReward(save, mission, hints) : { xp: 0, credits: 0, rep: 0, firstClear: true };
     setEarned(eff);
-    mutate((s) => {
-      completeMission(s, mission, success, hints);
-    });
+    mutate((s) => { completeMission(s, mission, success, hints); });
     if (success) {
       const bonus = (hints === 0 ? ' · bonus no-hint!' : '') + (!eff.firstClear ? ' · replay' : '');
       pushToast({ kind: 'credit', icon: '💰', title: `+${eff.credits} crediti · +${eff.xp} XP`, body: mission.def.title + bonus });
@@ -69,27 +189,35 @@ export function MissionRunner({
   function handleDone(res: ChallengeResult) {
     const newResults = [...results, res];
     setResults(newResults);
-    mutate((s) => {
-      recordChallenge(s, ch, res);
-    });
+    mutate((s) => { recordChallenge(s, ch, res); });
+    resetCharge();
 
     let playerDead = false;
     if (res.success) {
+      const newCombo = combo + 1;
+      setCombo(newCombo);
+      const comboMult = 1 + Math.min(newCombo - 1, 3) * 0.25;
       const crit = !!res.perfect;
-      const dmg = crit ? Math.ceil(dmgPer * 1.4) : dmgPer;
+      let dmg = Math.round(dmgPer * comboMult * (crit ? 1.4 : 1) * (overclock ? 2 : 1));
+      if (overclock) setOverclock(false);
       setBossHp((hp) => Math.max(0, hp - dmg));
+      setEnergy((e) => Math.min(ENERGY_MAX, e + ENERGY_PER_HIT));
       setFx('hit');
       setFlash(true);
-      spawn(`-${dmg}${crit ? ' CRITICO!' : ''}`, crit ? 'crit' : 'dmg', 46, 34);
+      spawn(`-${dmg}${crit ? ' CRITICO!' : ''}`, crit || overclock ? 'crit' : 'dmg', 46, 32);
       setTimeout(() => setFlash(false), 340);
       setTimeout(() => setFx((f) => (f === 'hit' ? 'idle' : f)), 460);
-      setResolving({ success: true, text: `${ATTACK_NAME[ch.type]}${crit ? ' — colpo critico!' : ' a segno!'}` });
+      setResolving({
+        success: true,
+        text: `${ATTACK_NAME[ch.type]}${crit ? ' — colpo critico!' : ' a segno!'}${newCombo >= 2 ? `  ·  COMBO x${newCombo}` : ''}`,
+      });
     } else {
-      const np = Math.max(0, playerHp - HIT_TO_PLAYER);
+      setCombo(0);
+      const np = Math.max(0, playerHp - FAIL_DMG);
       setPlayerHp(np);
       playerDead = np <= 0;
       setShake(true);
-      spawn(`-${HIT_TO_PLAYER}`, 'dmg', 12, 62);
+      spawn(`-${FAIL_DMG}`, 'dmg', 12, 60);
       setTimeout(() => setShake(false), 400);
       setResolving({ success: false, text: playerDead ? 'Sei stato sopraffatto…' : 'Il colpo è mancato: subisci danni.' });
     }
@@ -97,9 +225,10 @@ export function MissionRunner({
     const lastOne = idx + 1 >= mission.challenges.length;
     setTimeout(() => {
       setResolving(null);
-      if (playerDead || lastOne) {
-        if (!playerDead && res.success) setFx('dead');
-        setTimeout(() => finishMission(newResults, playerDead), playerDead || !res.success ? 0 : 750);
+      if (playerDead) return; // ci pensa l'effetto sulla sconfitta
+      if (lastOne) {
+        if (res.success) setFx('dead');
+        setTimeout(() => finishMission(newResults, false), res.success ? 750 : 0);
       } else {
         setHelpOpen(false);
         setIdx((i) => i + 1);
@@ -111,6 +240,7 @@ export function MissionRunner({
   if (finished) {
     const won = results.filter((r) => r.success).length;
     const perfect = results.filter((r) => r.perfect).length;
+    const allSuccess = results.length === mission.challenges.length && results.every((r) => r.success);
     return (
       <div className="runner">
         <div className="body">
@@ -136,19 +266,19 @@ export function MissionRunner({
             <div className="kpi">
               <div className="b"><div className="n" style={{ color: 'var(--green)' }}>{won}/{mission.challenges.length}</div><div className="l">Colpi a segno</div></div>
               <div className="b"><div className="n" style={{ color: 'var(--cyan)' }}>{perfect}</div><div className="l">Critici 💎</div></div>
-              <div className="b"><div className="n" style={{ color: 'var(--yellow)' }}>{totalHints}</div><div className="l">Aiuti usati</div></div>
+              <div className="b"><div className="n" style={{ color: 'var(--yellow)' }}>{results.reduce((a, r) => a + r.hintsUsed, 0)}</div><div className="l">Aiuti usati</div></div>
             </div>
 
             {allSuccess ? (
               <div className="result-banner ok" style={{ marginTop: 16 }}>
-                <b>🎁 Bottino:</b> +{earned?.xp ?? mission.def.reward.xp} XP · +{earned?.credits ?? mission.def.reward.credits} crediti · +{earned?.rep ?? mission.def.reward.rep} reputazione
+                <b>🎁 Bottino:</b> +{earned?.xp ?? 0} XP · +{earned?.credits ?? 0} crediti · +{earned?.rep ?? 0} reputazione
                 {earned && !earned.firstClear && <div className="dim" style={{ marginTop: 6, fontSize: 13 }}>♻️ Nemico già sconfitto in passato: bottino ridotto (allenamento).</div>}
                 {earned?.firstClear && mission.def.final && <div style={{ marginTop: 6 }}>🏁 Hai chiuso l'ultimo contratto di questo datore di lavoro! Controlla le offerte nella posta.</div>}
               </div>
             ) : (
               <div className="result-banner bad" style={{ marginTop: 16 }}>
                 {playerHp <= 0
-                  ? 'Hai esaurito i punti vita: il contratto si chiude qui. Nessuna penalità permanente — riprova quando vuoi, ogni tentativo ti insegna qualcosa.'
+                  ? 'Hai esaurito i punti vita. Nessuna penalità permanente: riprova quando vuoi — e ricorda che puoi usare le abilità (🛡️ ⏱️ 💊) per reggere più a lungo.'
                   : 'Non tutte le sfide sono state superate, quindi niente bottino pieno. Riprova quando vuoi.'}
               </div>
             )}
@@ -162,7 +292,6 @@ export function MissionRunner({
     );
   }
 
-  const needsPrimer = !save.seenPrimers.includes(ch.type);
   const bigArena = !needsPrimer && (!!resolving || !(ch.type === 'terminal' || ch.type === 'sniffer'));
   const noscroll = !needsPrimer && !resolving && (ch.type === 'terminal' || ch.type === 'sniffer');
 
@@ -193,21 +322,16 @@ export function MissionRunner({
           <>
             <div className="chwrap" style={{ marginBottom: 0, width: '100%' }}>
               <Arena
-                boss={boss}
-                bossHp={bossHp}
-                playerHp={playerHp}
-                level={level}
-                fx={fx}
-                shake={shake}
-                flash={flash}
-                floats={floats}
-                compact={!bigArena}
-                resolving={resolving}
+                boss={boss} bossHp={bossHp} playerHp={playerHp} level={level}
+                fx={fx} shake={shake} flash={flash} floats={floats}
+                compact={!bigArena} resolving={resolving}
+                charge={charge} showCharge={!calm && isFinite(chargeMs)}
+                enraged={enraged} combo={combo} energy={energy}
+                shield={shield} overclock={overclock}
+                onAbility={useAbility} disabled={!!resolving}
               />
             </div>
-            {!resolving && (
-              <ChallengeView key={ch.id} challenge={ch} onDone={handleDone} tools={save.tools} />
-            )}
+            {!resolving && <ChallengeView key={ch.id} challenge={ch} onDone={handleDone} tools={save.tools} />}
           </>
         )}
       </div>
@@ -224,33 +348,48 @@ export function MissionRunner({
 }
 
 // ---------------- Arena ----------------
-function Arena({
-  boss, bossHp, playerHp, level, fx, shake, flash, floats, compact, resolving,
-}: {
-  boss: Boss;
-  bossHp: number;
-  playerHp: number;
-  level: number;
-  fx: 'idle' | 'hit' | 'dead';
-  shake: boolean;
-  flash: boolean;
+function Arena(props: {
+  boss: Boss; bossHp: number; playerHp: number; level: number;
+  fx: 'idle' | 'hit' | 'dead'; shake: boolean; flash: boolean;
   floats: ReturnType<typeof useFloaters>['items'];
-  compact: boolean;
-  resolving: null | { success: boolean; text: string };
+  compact: boolean; resolving: null | { success: boolean; text: string };
+  charge: number; showCharge: boolean; enraged: boolean; combo: number; energy: number;
+  shield: boolean; overclock: boolean;
+  onAbility: (a: Ability) => void; disabled: boolean;
 }) {
+  const {
+    boss, bossHp, playerHp, level, fx, shake, flash, floats, compact, resolving,
+    charge, showCharge, enraged, combo, energy, shield, overclock, onAbility, disabled,
+  } = props;
+
   return (
-    <div className={'arena' + (shake ? ' shake' : '')}>
+    <div className={'arena' + (shake ? ' shake' : '') + (enraged ? ' enraged' : '')}>
       <span className={'arena-flash' + (flash ? ' on' : '')} />
       <Floaters items={floats} />
+
       <div className="arena-row">
         <Daemon boss={boss} state={fx} size={compact ? 72 : 132} />
         <div className="arena-info">
-          <div className="boss-name" style={{ color: boss.color }}>{boss.name}</div>
+          <div className="row" style={{ gap: 8, alignItems: 'baseline' }}>
+            <span className="boss-name" style={{ color: boss.color }}>{boss.name}</span>
+            {enraged && <span className="tag enrage-tag">IN FURIA</span>}
+          </div>
           <div className="boss-title">{boss.title}</div>
           <div style={{ margin: '8px 0 4px' }}>
             <Bar value={bossHp} max={100} kind="boss" />
           </div>
           <div className="bar-label">INTEGRITÀ {bossHp}%</div>
+
+          {showCharge && (
+            <div style={{ marginTop: 8 }}>
+              <div className="charge">
+                <i style={{ width: `${Math.round(charge * 100)}%` }} />
+              </div>
+              <div className="bar-label" style={{ color: charge > 0.75 ? 'var(--red)' : undefined }}>
+                {shield ? '🛡️ prossimo attacco bloccato' : `⚔️ carica attacco ${Math.round(charge * 100)}%`}
+              </div>
+            </div>
+          )}
           {!compact && !resolving && <div className="boss-taunt">{boss.taunt}</div>}
         </div>
       </div>
@@ -264,10 +403,35 @@ function Arena({
       {/* riga giocatore */}
       <div className="row" style={{ marginTop: 10, gap: 10, position: 'relative', zIndex: 1 }}>
         <Avatar level={level} px={compact ? 2 : 2.6} />
-        <div style={{ flex: 1, minWidth: 120 }}>
+        <div style={{ flex: 1, minWidth: 110 }}>
           <Bar value={playerHp} max={PLAYER_MAX} kind="hp" shine />
-          <div className="bar-label">PV {playerHp}/{PLAYER_MAX}</div>
+          <div className="bar-label">
+            PV {playerHp}/{PLAYER_MAX}
+            {combo >= 2 && <span className="combo-badge">COMBO x{combo}</span>}
+            {overclock && <span className="combo-badge oc">⚡ OVERCLOCK</span>}
+          </div>
         </div>
+      </div>
+
+      {/* abilità */}
+      <div className="abilities">
+        <span className="energy" title="Energia: la guadagni colpendo il nemico">⚡ {energy}</span>
+        {ABILITIES.map((a) => {
+          const off = disabled || energy < a.cost || (a.id === 'firewall' && shield) || (a.id === 'overclock' && overclock);
+          return (
+            <button
+              key={a.id}
+              className={'ability' + (off ? ' off' : '')}
+              disabled={off}
+              onClick={() => onAbility(a)}
+              title={`${a.name} (${a.cost}⚡) — ${a.desc}`}
+            >
+              <span style={{ fontSize: 15 }}>{a.icon}</span>
+              <span className="ability-name">{a.name}</span>
+              <span className="ability-cost">{a.cost}</span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );

@@ -100,7 +100,7 @@ export function newSave(handle: string): SaveState {
         kind: 'mentor',
       },
     ],
-    settings: { sound: true, crt: true, bigFont: false },
+    settings: { sound: true, crt: true, bigFont: false, calm: false },
     pledged: false,
   };
 }
