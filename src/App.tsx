@@ -118,7 +118,7 @@ export default function App() {
         ) : screen === 'dashboard' ? (
           <Dashboard save={save} onPlay={setMission} mutate={mutate} />
         ) : screen === 'career' ? (
-          <WorldMap save={save} mutate={mutate} pushToast={pushToast} />
+          <WorldMap save={save} mutate={mutate} pushToast={pushToast} onJoined={() => setScreen('dashboard')} />
         ) : screen === 'academy' ? (
           <Academy save={save} mutate={mutate} pushToast={pushToast} />
         ) : screen === 'certs' ? (

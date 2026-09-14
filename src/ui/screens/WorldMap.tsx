@@ -5,7 +5,7 @@ import { Avatar } from '../art/Avatar';
 import { Modal } from '../components/common';
 import type { Toast } from '../useGame';
 
-export function WorldMap({ save, mutate, pushToast }: { save: SaveState; mutate: (fn: (s: SaveState) => void) => void; pushToast: (t: Omit<Toast, 'id'>) => void }) {
+export function WorldMap({ save, mutate, pushToast, onJoined }: { save: SaveState; mutate: (fn: (s: SaveState) => void) => void; pushToast: (t: Omit<Toast, 'id'>) => void; onJoined?: () => void }) {
   const level = levelFromXp(save.xp);
   const curIdx = COMPANIES.findIndex((c) => c.id === save.companyId);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -14,8 +14,10 @@ export function WorldMap({ save, mutate, pushToast }: { save: SaveState; mutate:
   function join(id: string) {
     mutate((s) => { joinCompany(s, id); });
     const c = COMPANIES.find((x) => x.id === id)!;
-    pushToast({ kind: 'lvl', icon: '💼', title: `Assunto da ${c.name}!`, body: c.jobTitle });
+    pushToast({ kind: 'lvl', icon: '💼', title: `Assunto da ${c.name}!`, body: `Sei ${c.jobTitle}. Ti porto al quartier generale: il primo contratto ti aspetta.` });
     setOpenId(null);
+    // porta subito il giocatore dove si trovano le missioni, altrimenti resta sulla mappa senza sapere che fare
+    onJoined?.();
   }
 
   return (

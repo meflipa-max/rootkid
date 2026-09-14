@@ -46,7 +46,39 @@ export function Dashboard({ save, onPlay, mutate }: { save: SaveState; onPlay: (
           <div className="dim" style={{ fontSize: 12, marginTop: 6 }}>— {company.contact}, {company.contactRole}</div>
         </div>
 
-        {/* quick actions */}
+        {/* La cosa da fare ORA: sempre in cima, così si capisce subito come proseguire */}
+        {next ? (
+          <>
+            <h2 className="h2">🎯 Il tuo prossimo contratto</h2>
+            <div className="card hover" style={{ borderColor: 'var(--green-dim)', marginBottom: 20 }}>
+              <div className="row" style={{ justifyContent: 'space-between' }}>
+                <h3>{next.title}</h3>
+                <Diff n={Math.max(...next.specs.map((s) => s.difficulty))} />
+              </div>
+              <div className="meta">da {next.contact} · {company.name}</div>
+              <p style={{ fontSize: 14, margin: '10px 0' }}>{next.brief}</p>
+              <div className="row" style={{ marginBottom: 10 }}>
+                {next.specs.map((s, i) => (
+                  <span className="tag" key={i}>{TYPE_META[s.type]?.icon} {TYPE_META[s.type]?.label}</span>
+                ))}
+              </div>
+              <div className="row" style={{ justifyContent: 'space-between' }}>
+                <span className="dim" style={{ fontSize: 13 }}>Ricompensa: +{next.reward.xp} XP · +{next.reward.credits} 💰 · +{next.reward.rep} rep</span>
+                <button className="btn primary" onClick={() => playStory(next)} disabled={!!next.requiresTool && !save.tools.includes(next.requiresTool)}>
+                  {next.requiresTool && !save.tools.includes(next.requiresTool) ? `Serve: ${next.requiresTool}` : '▶ Avvia missione'}
+                </button>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="card" style={{ textAlign: 'center', borderColor: 'var(--green-dim)', marginBottom: 20 }}>
+            <div style={{ fontSize: 40 }}>🏆</div>
+            <h3>Hai completato tutti i contratti per {company.name}!</h3>
+            <p className="dim">Apri la <b>🗺️ Mappa</b> per candidarti al datore di lavoro successivo, oppure cresci con bug bounty e sfida giornaliera.</p>
+          </div>
+        )}
+
+        {/* attività secondarie */}
         <div className="grid cols3" style={{ marginBottom: 20 }}>
           <QuickCard
             icon="📅"
@@ -77,38 +109,6 @@ export function Dashboard({ save, onPlay, mutate }: { save: SaveState; onPlay: (
             }}
           />
         </div>
-
-        {/* next mission highlight */}
-        {next ? (
-          <>
-            <h2 className="h2">🎯 Prossima missione</h2>
-            <div className="card hover" style={{ borderColor: 'var(--green-dim)' }}>
-              <div className="row" style={{ justifyContent: 'space-between' }}>
-                <h3>{next.title}</h3>
-                <Diff n={Math.max(...next.specs.map((s) => s.difficulty))} />
-              </div>
-              <div className="meta">da {next.contact}</div>
-              <p style={{ fontSize: 14, margin: '10px 0' }}>{next.brief}</p>
-              <div className="row" style={{ marginBottom: 10 }}>
-                {next.specs.map((s, i) => (
-                  <span className="tag" key={i}>{TYPE_META[s.type]?.icon} {TYPE_META[s.type]?.label}</span>
-                ))}
-              </div>
-              <div className="row" style={{ justifyContent: 'space-between' }}>
-                <span className="dim" style={{ fontSize: 13 }}>Ricompensa: +{next.reward.xp} XP · +{next.reward.credits} 💰 · +{next.reward.rep} rep</span>
-                <button className="btn primary" onClick={() => playStory(next)} disabled={!!next.requiresTool && !save.tools.includes(next.requiresTool)}>
-                  {next.requiresTool && !save.tools.includes(next.requiresTool) ? `Serve: ${next.requiresTool}` : '▶ Avvia missione'}
-                </button>
-              </div>
-            </div>
-          </>
-        ) : (
-          <div className="card" style={{ textAlign: 'center', borderColor: 'var(--green-dim)' }}>
-            <div style={{ fontSize: 40 }}>🏆</div>
-            <h3>Hai completato tutte le missioni per {company.name}!</h3>
-            <p className="dim">Vai nella sezione <b>Carriera</b> per candidarti a un'azienda migliore, oppure fai bug bounty e daily per crescere.</p>
-          </div>
-        )}
 
         {/* all missions */}
         <h2 className="h2">📋 Incarichi di {company.name}</h2>
