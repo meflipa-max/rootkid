@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import type { Mission, ChallengeResult, SaveState } from '../../game/types';
 import { ChallengeView, TYPE_META } from '../challenges';
+import { PrimerView } from '../challenges/Primer';
 import { recordChallenge, completeMission, levelFromXp, effectiveReward } from '../../game/engine';
 import type { Toast } from '../useGame';
 
@@ -21,6 +22,7 @@ export function MissionRunner({
   const [results, setResults] = useState<ChallengeResult[]>([]);
   const [finished, setFinished] = useState(false);
   const [earned, setEarned] = useState<{ xp: number; credits: number; rep: number; firstClear: boolean } | null>(null);
+  const [helpOpen, setHelpOpen] = useState(false);
   const ch = mission.challenges[idx];
 
   const totalHints = useMemo(() => results.reduce((a, r) => a + r.hintsUsed, 0), [results]);
@@ -34,6 +36,7 @@ export function MissionRunner({
       recordChallenge(s, ch, res);
     });
     if (idx + 1 < mission.challenges.length) {
+      setHelpOpen(false);
       setIdx(idx + 1);
     } else {
       // fine missione
@@ -96,6 +99,9 @@ export function MissionRunner({
     );
   }
 
+  const needsPrimer = !save.seenPrimers.includes(ch.type);
+  const noscroll = !needsPrimer && (ch.type === 'terminal' || ch.type === 'sniffer');
+
   return (
     <div className="runner">
       <div className="topbar">
@@ -106,11 +112,30 @@ export function MissionRunner({
           ))}
         </div>
         <span className="tag">{TYPE_META[ch.type]?.icon} {TYPE_META[ch.type]?.label}</span>
+        {!needsPrimer && !helpOpen && (
+          <button className="btn sm ghost" title="Come si gioca questa sfida" onClick={() => setHelpOpen(true)}>❓ Aiuto</button>
+        )}
         <span className="dim hide-sm" style={{ fontSize: 12 }}>{idx + 1}/{mission.challenges.length}</span>
       </div>
-      <div className={'body' + (ch.type === 'terminal' || ch.type === 'sniffer' ? ' noscroll' : '')}>
-        <ChallengeView key={ch.id} challenge={ch} onDone={handleDone} tools={save.tools} />
+      <div className={'body' + (noscroll ? ' noscroll' : '')}>
+        {needsPrimer ? (
+          <PrimerView
+            type={ch.type}
+            firstTime
+            onStart={() => mutate((s) => { if (!s.seenPrimers.includes(ch.type)) s.seenPrimers.push(ch.type); })}
+          />
+        ) : (
+          <ChallengeView key={ch.id} challenge={ch} onDone={handleDone} tools={save.tools} />
+        )}
       </div>
+      {/* Aiuto riaperto durante la sfida: overlay, così la sfida in corso non si azzera */}
+      {helpOpen && !needsPrimer && (
+        <div className="overlay" onClick={() => setHelpOpen(false)}>
+          <div className="modal wide" onClick={(e) => e.stopPropagation()} style={{ maxHeight: '88vh', overflowY: 'auto', padding: 18 }}>
+            <PrimerView type={ch.type} startLabel="Torna alla sfida →" onStart={() => setHelpOpen(false)} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

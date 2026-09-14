@@ -75,6 +75,7 @@ export function newSave(handle: string): SaveState {
     courses: [],
     achievements: [],
     glossary: [],
+    seenPrimers: [],
     daily: { date: '', done: false, score: 0 },
     streak: { count: 0, lastDate: '', best: 0 },
     stats: {

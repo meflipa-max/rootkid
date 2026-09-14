@@ -90,12 +90,17 @@ export function buildTerminalWorld(seed: number, opts: BuildOpts) {
 
   switch (opts.objective) {
     case 'find_flag': {
-      objectiveText = `Trova il file che contiene la FLAG (formato ROOTKID{...}) ed inviala con: submit ROOTKID{...}`;
-      const loc = r.pick(['home', 'var', 'tmp']);
       const fnode = file('flag.txt', `La flag è:\n${flag}`);
+      // Difficoltà 1 = tutorial: la flag è SEMPRE nella home, così bastano ls + cat + submit.
+      // Da difficoltà 2 in su può essere in altre cartelle: bisogna esplorare (o usare find /).
+      const loc = opts.difficulty <= 1 ? 'home' : r.pick(['home', 'var', 'tmp']);
       if (loc === 'home') home.children!['flag.txt'] = fnode;
       else if (loc === 'var') (root.children!.var.children!.www as VNode).children!['flag.txt'] = fnode;
       else root.children!.tmp.children!['flag.txt'] = fnode;
+      objectiveText =
+        loc === 'home'
+          ? `Trova il file con la FLAG nella tua cartella. Prova "ls" per vedere i file, "cat flag.txt" per leggerlo, poi "submit ROOTKID{...}".`
+          : `Trova il file che contiene la FLAG (formato ROOTKID{...}). Potrebbe non essere nella tua cartella: esplora con "ls" nelle varie cartelle, oppure "find /" per elencarle tutte. Poi invia con: submit ROOTKID{...}`;
       // distrattori
       home.children!['note.txt'] = file('note.txt', 'Ricorda di comprare il latte.\nLa password del wifi è sul frigo.');
       extra = { flag };

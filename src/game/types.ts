@@ -304,6 +304,7 @@ export interface SaveState {
   courses: string[];
   achievements: string[];
   glossary: string[];
+  seenPrimers: string[]; // tipi di sfida per cui è già stata mostrata la spiegazione iniziale
   daily: { date: string; done: boolean; score: number };
   streak: { count: number; lastDate: string; best: number };
   stats: {
