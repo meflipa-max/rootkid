@@ -2,6 +2,20 @@ import React, { useMemo, useState } from 'react';
 import type { CipherChallenge, BinaryChallenge, PasswordChallenge } from '../../game/types';
 import { ChProps, useCh, Brief, Finish, Hints } from './frame';
 import { toyHash } from '../../game/rng';
+import { Workbench } from './Workbench';
+
+// ricava una chiave utilizzabile dal banco di lavoro a partire dal testo "chiave" della sfida
+function workbenchKey(challenge: CipherChallenge): string {
+  if (!challenge.key) return '';
+  if (challenge.method === 'vigenere') return challenge.key.replace(/[^A-Za-z]/g, '');
+  if (challenge.method === 'xor') {
+    const hex = challenge.key.match(/0x([0-9a-fA-F]{1,2})/);
+    if (hex) return '0x' + hex[1];
+    const word = challenge.key.match(/^[A-Za-z]+$/) ? challenge.key : '';
+    return word;
+  }
+  return '';
+}
 
 // ============ CIPHER ============
 export function Cipher({ challenge, onDone, tools }: ChProps<CipherChallenge>) {
@@ -35,11 +49,17 @@ export function Cipher({ challenge, onDone, tools }: ChProps<CipherChallenge>) {
               onKeyDown={(e) => e.key === 'Enter' && check()}
               placeholder="scrivi qui la decodifica..."
             />
-            {tries > 0 && <div className="dim" style={{ color: 'var(--red)', fontSize: 13, marginTop: 8 }}>Non ancora giusto (tentativo {tries}). Rileggi il metodo o usa un hint.</div>}
+            {tries > 0 && <div className="dim" style={{ color: 'var(--red)', fontSize: 13, marginTop: 8 }}>Non ancora giusto (tentativo {tries}). Apri il banco di lavoro qui sotto o usa un hint.</div>}
             <div className="row" style={{ marginTop: 12 }}>
               <button className="btn primary" onClick={check} disabled={!val.trim()}>Verifica</button>
               <button className="btn ghost sm" onClick={() => finish(false)}>Mi arrendo</button>
             </div>
+            <Workbench
+              ciphertext={challenge.ciphertext}
+              method={challenge.method}
+              suggestedKey={workbenchKey(challenge)}
+              onUseResult={(t) => setVal(t)}
+            />
             <Hints challenge={challenge} hintsUsed={hintsUsed} useHint={useHint} />
           </>
         )}

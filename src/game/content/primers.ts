@@ -69,8 +69,9 @@ export const PRIMERS: Record<ChallengeType, Primer> = {
     how: [
       'Il titolo della sfida ti dice SEMPRE il metodo usato (Base64, Cesare, XOR...). Non devi indovinarlo.',
       'Se c\'è una chiave, te la diamo noi accanto al testo cifrato.',
-      'Scrivi nel riquadro il testo "in chiaro" (quello leggibile) e premi Verifica.',
-      'Non sai come si decodifica quel metodo? Premi 💡 Suggerimento: ti spiega il procedimento.',
+      'Non riesci a decodificare a mano (es. Base64 o hex)? Apri il "🛠️ Banco di lavoro" sotto il riquadro: scegli l\'operazione giusta e ti mostra il testo decodificato — poi premi "Usa come risposta".',
+      'Scrivi (o incolla dal banco di lavoro) il testo "in chiaro" nel riquadro e premi Verifica.',
+      'Ancora bloccato? Premi 💡 Suggerimento: spiega il procedimento passo-passo.',
     ],
     example: {
       label: 'Esempio: Base64',
