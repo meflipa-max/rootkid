@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import type { SaveState } from '../../game/types';
-import { SKILLS, ACHIEVEMENTS, levelProgress, rank, companyById } from '../../game/engine';
+import { SKILLS, ACHIEVEMENTS, levelProgress, rank, companyById, TOOLS } from '../../game/engine';
 import { GLOSSARY } from '../../game/content/glossary';
 import { Bar, Modal } from '../components/common';
+import { Bar as RpgBar } from '../components/rpg';
+import { Avatar } from '../art/Avatar';
 
 type Tab = 'profile' | 'skills' | 'glossary' | 'achievements' | 'settings';
 
@@ -33,18 +35,32 @@ export function Codex({ save, mutate, onReset }: { save: SaveState; mutate: (fn:
 
         {tab === 'profile' && (
           <div className="fadein">
-            <div className="card" style={{ marginBottom: 16 }}>
-              <div className="row" style={{ justifyContent: 'space-between' }}>
-                <div>
-                  <h1 className="h1 mono" style={{ color: 'var(--green)' }}>{save.handle}</h1>
+            <div className="panel" style={{ marginBottom: 16 }}>
+              <div className="row" style={{ gap: 16, alignItems: 'flex-start' }}>
+                <div className="portrait big"><Avatar level={lp.level} px={5} /></div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="rpg-title">Scheda personaggio</div>
+                  <h1 className="h1 mono" style={{ color: 'var(--green)', margin: '4px 0 2px' }}>{save.handle}</h1>
                   <div className="dim">{rank(lp.level)} · {company.icon} {company.name}</div>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div className="mono" style={{ fontSize: 28, fontWeight: 800 }}>Lv {lp.level}</div>
-                  <div className="dim" style={{ fontSize: 12 }}>{lp.into}/{lp.need} XP</div>
+                  <div style={{ marginTop: 10 }}>
+                    <RpgBar value={lp.into} max={lp.need} kind="xp" shine />
+                    <div className="bar-label">LIVELLO {lp.level} · {lp.into}/{lp.need} XP</div>
+                  </div>
                 </div>
               </div>
-              <div className="lvlbar" style={{ width: '100%', marginTop: 10, height: 10 }}><i style={{ width: `${lp.pct * 100}%` }} /></div>
+            </div>
+
+            <div className="rpg-title" style={{ margin: '18px 0 10px' }}>Equipaggiamento</div>
+            <div className="grid cols4" style={{ gap: 10 }}>
+              {TOOLS.map((t) => {
+                const owned = save.tools.includes(t.id);
+                return (
+                  <div className={'slot' + (owned ? ' filled' : '')} key={t.id} title={owned ? `${t.name} — ${t.perk}` : `${t.name} (non posseduto)`}>
+                    <span style={{ opacity: owned ? 1 : 0.22, filter: owned ? 'none' : 'grayscale(1)' }}>{t.icon}</span>
+                    <span className="slot-name">{owned ? t.name : '—'}</span>
+                  </div>
+                );
+              })}
             </div>
 
             <div className="kpi" style={{ marginBottom: 16 }}>

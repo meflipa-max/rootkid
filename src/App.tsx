@@ -1,15 +1,17 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useGame } from './ui/useGame';
 import type { Mission } from './game/types';
-import { levelProgress, rank, nextStoryMission } from './game/engine';
+import { levelProgress, rank } from './game/engine';
 import { Intro } from './ui/screens/Intro';
 import { Dashboard } from './ui/screens/Dashboard';
 import { MissionRunner } from './ui/screens/MissionRunner';
 import { Academy, Certifications } from './ui/screens/Learn';
-import { Career } from './ui/screens/Career';
+import { WorldMap } from './ui/screens/WorldMap';
 import { Shop } from './ui/screens/Shop';
 import { Inbox } from './ui/screens/Inbox';
 import { Codex } from './ui/screens/Codex';
+import { AvatarPortrait } from './ui/art/Avatar';
+import { Bar, Background, LevelUpOverlay } from './ui/components/rpg';
 
 type Screen = 'dashboard' | 'career' | 'academy' | 'certs' | 'shop' | 'inbox' | 'codex';
 
@@ -17,53 +19,81 @@ export default function App() {
   const { save, mutate, start, reset, toasts, pushToast } = useGame();
   const [screen, setScreen] = useState<Screen>('dashboard');
   const [mission, setMission] = useState<Mission | null>(null);
+  const [levelUp, setLevelUp] = useState<number | null>(null);
+  const prevLevel = useRef<number | null>(null);
 
-  if (!save) return <AppFrame crt bigFont={false}><Intro onStart={start} /></AppFrame>;
+  const lp = save ? levelProgress(save.xp) : null;
 
-  const lp = levelProgress(save.xp);
+  // rileva la salita di livello per l'animazione celebrativa
+  useEffect(() => {
+    if (!lp) return;
+    if (prevLevel.current === null) {
+      prevLevel.current = lp.level;
+      return;
+    }
+    if (lp.level > prevLevel.current) setLevelUp(lp.level);
+    prevLevel.current = lp.level;
+  }, [lp?.level]);
+
+  if (!save || !lp) {
+    return (
+      <AppFrame crt bigFont={false}>
+        <Background />
+        <Intro onStart={start} />
+      </AppFrame>
+    );
+  }
+
   const unread = save.inbox.filter((m) => !m.read).length;
 
   const nav: { id: Screen; label: string; icon: string; badge?: number }[] = [
-    { id: 'dashboard', label: 'Base', icon: '🏠' },
-    { id: 'career', label: 'Carriera', icon: '💼' },
+    { id: 'dashboard', label: 'Quartier generale', icon: '🏠' },
+    { id: 'career', label: 'Mappa', icon: '🗺️' },
     { id: 'academy', label: 'Accademia', icon: '🎓' },
     { id: 'certs', label: 'Certificazioni', icon: '📜' },
-    { id: 'shop', label: 'Arsenale', icon: '🧰' },
+    { id: 'shop', label: 'Equipaggiamento', icon: '🧰' },
     { id: 'inbox', label: 'Posta', icon: '📬', badge: unread },
-    { id: 'codex', label: 'Profilo', icon: '🪪' },
+    { id: 'codex', label: 'Eroe', icon: '🪪' },
   ];
-
-  function exitMission(completed: boolean) {
-    setMission(null);
-    // se una missione storia è stata completata e ne esiste una successiva, resta in dashboard
-    setScreen('dashboard');
-  }
 
   return (
     <AppFrame crt={save.settings.crt} bigFont={save.settings.bigFont}>
-      {/* HUD */}
+      <Background />
+
+      {/* ===== HUD ===== */}
       <div className="hud">
         <span className="brand">&gt;_ ROOT<b>KID</b></span>
-        <div className="spacer" />
-        <div className="stat">
-          <span className="k">Livello · {rank(lp.level)}</span>
-          <span className="v">Lv {lp.level} <span className="lvlbar" style={{ display: 'inline-block', verticalAlign: 'middle' }}><i style={{ width: `${lp.pct * 100}%` }} /></span></span>
-        </div>
-        <div className="stat hide-sm">
-          <span className="k">Crediti</span>
-          <span className="v" style={{ color: 'var(--yellow)' }}>💰 {save.credits}</span>
-        </div>
-        <div className="stat hide-sm">
-          <span className="k">Reputazione</span>
-          <span className="v" style={{ color: 'var(--cyan)' }}>⭐ {save.reputation}</span>
-        </div>
-        <div className="stat">
-          <span className="k">Etica</span>
-          <span className="v" style={{ color: save.ethics >= 0 ? 'var(--green)' : 'var(--red)' }}>🕊️ {save.ethics}</span>
+
+        <div className="row" style={{ gap: 9, flex: 1, minWidth: 0, justifyContent: 'flex-end' }}>
+          <div className="stat" style={{ minWidth: 92 }}>
+            <span className="k">{rank(lp.level)}</span>
+            <div style={{ width: 92 }}>
+              <Bar value={lp.into} max={lp.need} kind="xp" shine />
+            </div>
+            <span className="bar-label">XP {lp.into}/{lp.need}</span>
+          </div>
+
+          <div className="stat hide-sm">
+            <span className="k">Crediti</span>
+            <span className="v" style={{ color: 'var(--yellow)' }}>💰 {save.credits}</span>
+          </div>
+          <div className="stat hide-sm">
+            <span className="k">Reputazione</span>
+            <span className="v" style={{ color: 'var(--cyan)' }}>⭐ {save.reputation}</span>
+          </div>
+          <div className="stat">
+            <span className="k">Etica</span>
+            <span className="v" style={{ color: save.ethics >= 0 ? 'var(--green)' : 'var(--red)' }}>🕊️ {save.ethics}</span>
+          </div>
+
+          <div style={{ position: 'relative' }}>
+            <AvatarPortrait level={lp.level} px={3} />
+            <span className="lvl-badge">{lp.level}</span>
+          </div>
         </div>
       </div>
 
-      {/* NAV (nascosta durante la missione) */}
+      {/* ===== NAV ===== */}
       {!mission && (
         <div className="nav scrolltip">
           {nav.map((n) => (
@@ -75,14 +105,20 @@ export default function App() {
         </div>
       )}
 
-      {/* CONTENT */}
+      {/* ===== CONTENUTO ===== */}
       <div className="app-main">
         {mission ? (
-          <MissionRunner mission={mission} save={save} mutate={mutate} pushToast={pushToast} onExit={exitMission} />
+          <MissionRunner
+            mission={mission}
+            save={save}
+            mutate={mutate}
+            pushToast={pushToast}
+            onExit={() => { setMission(null); setScreen('dashboard'); }}
+          />
         ) : screen === 'dashboard' ? (
           <Dashboard save={save} onPlay={setMission} mutate={mutate} />
         ) : screen === 'career' ? (
-          <Career save={save} mutate={mutate} pushToast={pushToast} />
+          <WorldMap save={save} mutate={mutate} pushToast={pushToast} />
         ) : screen === 'academy' ? (
           <Academy save={save} mutate={mutate} pushToast={pushToast} />
         ) : screen === 'certs' ? (
@@ -96,7 +132,7 @@ export default function App() {
         )}
       </div>
 
-      {/* TOASTS */}
+      {/* ===== TOAST ===== */}
       <div className="toasts">
         {toasts.map((t) => (
           <div key={t.id} className={'toast ' + (t.kind === 'lvl' ? 'lvl' : t.kind === 'ach' ? 'ach' : '')}>
@@ -110,6 +146,8 @@ export default function App() {
           </div>
         ))}
       </div>
+
+      {levelUp !== null && <LevelUpOverlay level={levelUp} onClose={() => setLevelUp(null)} />}
     </AppFrame>
   );
 }
