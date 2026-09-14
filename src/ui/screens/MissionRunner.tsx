@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Mission, ChallengeResult, SaveState, ChallengeType } from '../../game/types';
+import type { Mission, ChallengeResult, SaveState, ChallengeType, Item, Slot } from '../../game/types';
+import { computeStats, rollLoot, itemDef, itemStats, RARITY, itemPower } from '../../game/content/items';
 import { ChallengeView, TYPE_META } from '../challenges';
 import { PrimerView } from '../challenges/Primer';
 import { recordChallenge, completeMission, levelFromXp, effectiveReward } from '../../game/engine';
@@ -9,7 +10,7 @@ import { Avatar } from '../art/Avatar';
 import { Bar, Floaters, useFloaters } from '../components/rpg';
 import type { Toast } from '../useGame';
 
-const PLAYER_MAX = 100;
+const PLAYER_BASE_HP = 100;
 const FAIL_DMG = 22; // danno quando sbagli una sfida
 const BOSS_DMG = 14; // danno di un attacco del boss
 const ENERGY_MAX = 12;
@@ -64,9 +65,14 @@ export function MissionRunner({
   // --- stato di combattimento ---
   const boss = useMemo(() => bossFor(mission), [mission]);
   const dmgPer = Math.ceil(100 / mission.challenges.length);
+  // statistiche derivate dall'equipaggiamento: l'attrezzatura conta davvero
+  const stats = useMemo(() => computeStats(save), [save.equipped, save.inventory]);
+  const PLAYER_MAX = PLAYER_BASE_HP + stats.pvMax;
+
   const [bossHp, setBossHp] = useState(100);
   const [playerHp, setPlayerHp] = useState(PLAYER_MAX);
-  const [energy, setEnergy] = useState(4);
+  const [energy, setEnergy] = useState(4 + stats.energia);
+  const [loot, setLoot] = useState<Item | null>(null);
   const [combo, setCombo] = useState(0);
   const [shield, setShield] = useState(false);
   const [overclock, setOverclock] = useState(false);
@@ -178,7 +184,19 @@ export function MissionRunner({
     const hints = newResults.reduce((a, r) => a + r.hintsUsed, 0);
     const eff = success ? effectiveReward(save, mission, hints) : { xp: 0, credits: 0, rep: 0, firstClear: true };
     setEarned(eff);
-    mutate((s) => { completeMission(s, mission, success, hints); });
+
+    // bottino: solo alla prima vittoria e mai in allenamento (niente farming al dojo)
+    let drop: Item | null = null;
+    if (success && eff.firstClear && mission.kind !== 'training') {
+      const maxD = Math.max(...mission.challenges.map((c) => c.difficulty));
+      drop = rollLoot((mission.seed ^ Date.now()) >>> 0, maxD);
+      setLoot(drop);
+    }
+
+    mutate((s) => {
+      completeMission(s, mission, success, hints);
+      if (drop) s.inventory.push(drop);
+    });
     if (success) {
       const bonus = (hints === 0 ? ' · bonus no-hint!' : '') + (!eff.firstClear ? ' · replay' : '');
       pushToast({ kind: 'credit', icon: '💰', title: `+${eff.credits} crediti · +${eff.xp} XP`, body: mission.def.title + bonus });
@@ -197,8 +215,10 @@ export function MissionRunner({
       const newCombo = combo + 1;
       setCombo(newCombo);
       const comboMult = 1 + Math.min(newCombo - 1, 3) * 0.25;
-      const crit = !!res.perfect;
-      let dmg = Math.round(dmgPer * comboMult * (crit ? 1.4 : 1) * (overclock ? 2 : 1));
+      // critico garantito se la sfida è perfetta, altrimenti dipende dall'equipaggiamento
+      const crit = !!res.perfect || Math.random() * 100 < stats.critPct;
+      const gear = 1 + stats.dannoPct / 100;
+      const dmg = Math.round(dmgPer * comboMult * gear * (crit ? 1.4 : 1) * (overclock ? 2 : 1));
       if (overclock) setOverclock(false);
       setBossHp((hp) => Math.max(0, hp - dmg));
       setEnergy((e) => Math.min(ENERGY_MAX, e + ENERGY_PER_HIT));
@@ -271,8 +291,8 @@ export function MissionRunner({
 
             {allSuccess ? (
               <div className="result-banner ok" style={{ marginTop: 16 }}>
-                <b>🎁 Bottino:</b> +{earned?.xp ?? 0} XP · +{earned?.credits ?? 0} crediti · +{earned?.rep ?? 0} reputazione
-                {earned && !earned.firstClear && <div className="dim" style={{ marginTop: 6, fontSize: 13 }}>♻️ Nemico già sconfitto in passato: bottino ridotto (allenamento).</div>}
+                <b>🎁 Ricompensa:</b> +{earned?.xp ?? 0} XP · +{earned?.credits ?? 0} crediti · +{earned?.rep ?? 0} reputazione
+                {earned && !earned.firstClear && <div className="dim" style={{ marginTop: 6, fontSize: 13 }}>♻️ Nemico già sconfitto in passato: ricompensa ridotta (allenamento).</div>}
                 {earned?.firstClear && mission.def.final && <div style={{ marginTop: 6 }}>🏁 Hai chiuso l'ultimo contratto di questo datore di lavoro! Controlla le offerte nella posta.</div>}
               </div>
             ) : (
@@ -282,6 +302,8 @@ export function MissionRunner({
                   : 'Non tutte le sfide sono state superate, quindi niente bottino pieno. Riprova quando vuoi.'}
               </div>
             )}
+
+            {loot && <LootCard item={loot} save={save} mutate={mutate} />}
 
             <div className="row" style={{ marginTop: 18, justifyContent: 'center' }}>
               <button className="btn primary" onClick={() => onExit(allSuccess)}>Torna alla base</button>
@@ -322,7 +344,7 @@ export function MissionRunner({
           <>
             <div className="chwrap" style={{ marginBottom: 0, width: '100%' }}>
               <Arena
-                boss={boss} bossHp={bossHp} playerHp={playerHp} level={level}
+                boss={boss} bossHp={bossHp} playerHp={playerHp} playerMax={PLAYER_MAX} level={level}
                 fx={fx} shake={shake} flash={flash} floats={floats}
                 compact={!bigArena} resolving={resolving}
                 charge={charge} showCharge={!calm && isFinite(chargeMs)}
@@ -347,9 +369,63 @@ export function MissionRunner({
   );
 }
 
+// ---------------- Carta del bottino ----------------
+function LootCard({ item, save, mutate }: { item: Item; save: SaveState; mutate: (fn: (s: SaveState) => void) => void }) {
+  const def = itemDef(item.defId);
+  const [equipped, setEquipped] = useState(false);
+  if (!def) return null;
+  const rar = RARITY[item.rarity];
+  const st = itemStats(item);
+  const slot = def.slot as Slot;
+  const currentId = save.equipped?.[slot];
+  const current = currentId ? save.inventory.find((i) => i.id === currentId) : undefined;
+  const isUpgrade = !current || itemPower(item) > itemPower(current);
+
+  const lines: string[] = [];
+  if (st.dannoPct) lines.push(`+${st.dannoPct}% danno`);
+  if (st.pvMax) lines.push(`+${st.pvMax} PV max`);
+  if (st.energia) lines.push(`+${st.energia} energia iniziale`);
+  if (st.xpPct) lines.push(`+${st.xpPct}% XP`);
+  if (st.critPct) lines.push(`+${st.critPct}% critico`);
+
+  function equip() {
+    mutate((s) => { s.equipped[slot] = item.id; });
+    setEquipped(true);
+  }
+
+  return (
+    <div className="loot-card fadein" style={{ borderColor: rar.color }}>
+      <div className="loot-glow" style={{ background: `radial-gradient(circle at 50% 0%, ${rar.color}33, transparent 70%)` }} />
+      <div className="rpg-title" style={{ color: rar.color }}>Oggetto trovato</div>
+      <div className="row" style={{ gap: 14, marginTop: 10, alignItems: 'flex-start' }}>
+        <div className="loot-icon" style={{ borderColor: rar.color, boxShadow: `0 0 22px ${rar.color}55` }}>{def.icon}</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 800, fontSize: 16, color: rar.color }}>{def.name}</div>
+          <div className="dim" style={{ fontSize: 11.5, textTransform: 'uppercase', letterSpacing: 0.6 }}>
+            {rar.name} · {SLOT_LABEL[slot]}
+          </div>
+          <div style={{ marginTop: 7, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {lines.map((l) => <span className="tag green" key={l}>{l}</span>)}
+          </div>
+          <div className="dim" style={{ fontSize: 12.5, fontStyle: 'italic', marginTop: 8 }}>"{def.flavor}"</div>
+        </div>
+      </div>
+      <div className="row" style={{ marginTop: 12, justifyContent: 'space-between' }}>
+        <span className="dim" style={{ fontSize: 12 }}>
+          {equipped ? '✓ Equipaggiato' : current ? `Al posto di: ${itemDef(current.defId)?.name}` : 'Slot libero'}
+          {!equipped && isUpgrade && <b style={{ color: 'var(--green)' }}> · migliore!</b>}
+        </span>
+        {!equipped && <button className="btn sm primary" onClick={equip}>Equipaggia</button>}
+      </div>
+    </div>
+  );
+}
+
+const SLOT_LABEL: Record<Slot, string> = { testa: 'Testa', mano: 'Strumento', impianto: 'Impianto' };
+
 // ---------------- Arena ----------------
 function Arena(props: {
-  boss: Boss; bossHp: number; playerHp: number; level: number;
+  boss: Boss; bossHp: number; playerHp: number; playerMax: number; level: number;
   fx: 'idle' | 'hit' | 'dead'; shake: boolean; flash: boolean;
   floats: ReturnType<typeof useFloaters>['items'];
   compact: boolean; resolving: null | { success: boolean; text: string };
@@ -358,7 +434,7 @@ function Arena(props: {
   onAbility: (a: Ability) => void; disabled: boolean;
 }) {
   const {
-    boss, bossHp, playerHp, level, fx, shake, flash, floats, compact, resolving,
+    boss, bossHp, playerHp, playerMax, level, fx, shake, flash, floats, compact, resolving,
     charge, showCharge, enraged, combo, energy, shield, overclock, onAbility, disabled,
   } = props;
 
@@ -404,9 +480,9 @@ function Arena(props: {
       <div className="row" style={{ marginTop: 10, gap: 10, position: 'relative', zIndex: 1 }}>
         <Avatar level={level} px={compact ? 2 : 2.6} />
         <div style={{ flex: 1, minWidth: 110 }}>
-          <Bar value={playerHp} max={PLAYER_MAX} kind="hp" shine />
+          <Bar value={playerHp} max={playerMax} kind="hp" shine />
           <div className="bar-label">
-            PV {playerHp}/{PLAYER_MAX}
+            PV {playerHp}/{playerMax}
             {combo >= 2 && <span className="combo-badge">COMBO x{combo}</span>}
             {overclock && <span className="combo-badge oc">⚡ OVERCLOCK</span>}
           </div>

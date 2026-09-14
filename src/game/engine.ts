@@ -6,6 +6,7 @@ import { RNG, hashString, todayKey, randomSeed } from './rng';
 import { generateChallenge, ALL_TYPES } from './generators/generate';
 import { COMPANIES, MISSIONS, companyById, nextCompany, missionsFor } from './content/companies';
 import { ACHIEVEMENTS, TOOLS, COURSES, CERTS } from './content/progression';
+import { computeStats, rollLoot } from './content/items';
 
 export const SAVE_KEY = 'rootkid_save_v1';
 export const SAVE_VERSION = 1;
@@ -76,6 +77,9 @@ export function newSave(handle: string): SaveState {
     achievements: [],
     glossary: [],
     seenPrimers: [],
+    inventory: [],
+    equipped: {},
+    metNpcs: [],
     daily: { date: '', done: false, score: 0 },
     streak: { count: 0, lastDate: '', best: 0 },
     stats: {
@@ -319,6 +323,9 @@ export function effectiveReward(s: SaveState, mission: Mission, totalHints: numb
   }
   if (totalHints === 0) { xp = Math.round(xp * 1.15); credits = Math.round(credits * 1.1); }
   if (firstClear && mission.def.final && s.tools.includes('c2')) rep = Math.round(rep * 1.2);
+  // bonus XP dall'equipaggiamento
+  const st = computeStats(s);
+  if (st.xpPct) xp = Math.round(xp * (1 + st.xpPct / 100));
   return { xp, credits, rep, firstClear };
 }
 

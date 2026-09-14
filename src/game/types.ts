@@ -261,6 +261,33 @@ export interface Cert {
   realWorld: string;
 }
 
+// ===== Oggetti / equipaggiamento =====
+export type Rarity = 'comune' | 'raro' | 'epico' | 'leggendario';
+export type Slot = 'testa' | 'mano' | 'impianto';
+
+export interface Stats {
+  dannoPct: number;  // + danno inflitto
+  pvMax: number;     // + punti vita massimi
+  energia: number;   // + energia iniziale in combattimento
+  xpPct: number;     // + XP guadagnata
+  critPct: number;   // probabilità di colpo critico extra
+}
+
+export interface ItemDef {
+  id: string;
+  name: string;
+  icon: string;
+  slot: Slot;
+  flavor: string;
+  base: Partial<Stats>;
+}
+
+export interface Item {
+  id: string;     // id dell'istanza (unico)
+  defId: string;  // id della definizione
+  rarity: Rarity;
+}
+
 export interface Achievement {
   id: string;
   name: string;
@@ -305,6 +332,9 @@ export interface SaveState {
   achievements: string[];
   glossary: string[];
   seenPrimers: string[]; // tipi di sfida per cui è già stata mostrata la spiegazione iniziale
+  inventory: Item[];
+  equipped: Partial<Record<Slot, string>>; // slot -> id istanza oggetto
+  metNpcs: string[]; // NPC con cui hai già parlato almeno una volta
   daily: { date: string; done: boolean; score: number };
   streak: { count: number; lastDate: string; best: number };
   stats: {

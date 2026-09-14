@@ -10,14 +10,16 @@ import { WorldMap } from './ui/screens/WorldMap';
 import { Shop } from './ui/screens/Shop';
 import { Inbox } from './ui/screens/Inbox';
 import { Codex } from './ui/screens/Codex';
+import { Hub, HubDest } from './ui/screens/Hub';
+import { Inventory } from './ui/screens/Inventory';
 import { AvatarPortrait } from './ui/art/Avatar';
 import { Bar, Background, LevelUpOverlay } from './ui/components/rpg';
 
-type Screen = 'dashboard' | 'career' | 'academy' | 'certs' | 'shop' | 'inbox' | 'codex';
+type Screen = 'hub' | 'dashboard' | 'career' | 'academy' | 'certs' | 'shop' | 'inbox' | 'codex' | 'inventory';
 
 export default function App() {
   const { save, mutate, start, reset, toasts, pushToast } = useGame();
-  const [screen, setScreen] = useState<Screen>('dashboard');
+  const [screen, setScreen] = useState<Screen>('hub');
   const [mission, setMission] = useState<Mission | null>(null);
   const [levelUp, setLevelUp] = useState<number | null>(null);
   const prevLevel = useRef<number | null>(null);
@@ -47,11 +49,13 @@ export default function App() {
   const unread = save.inbox.filter((m) => !m.read).length;
 
   const nav: { id: Screen; label: string; icon: string; badge?: number }[] = [
-    { id: 'dashboard', label: 'Quartier generale', icon: '🏠' },
+    { id: 'hub', label: 'Base', icon: '🏠' },
+    { id: 'dashboard', label: 'Contratti', icon: '📋' },
     { id: 'career', label: 'Mappa', icon: '🗺️' },
+    { id: 'inventory', label: 'Zaino', icon: '🎒' },
     { id: 'academy', label: 'Accademia', icon: '🎓' },
-    { id: 'certs', label: 'Certificazioni', icon: '📜' },
-    { id: 'shop', label: 'Equipaggiamento', icon: '🧰' },
+    { id: 'certs', label: 'Esami', icon: '📜' },
+    { id: 'shop', label: 'Mercato', icon: '🧰' },
     { id: 'inbox', label: 'Posta', icon: '📬', badge: unread },
     { id: 'codex', label: 'Eroe', icon: '🪪' },
   ];
@@ -113,8 +117,17 @@ export default function App() {
             save={save}
             mutate={mutate}
             pushToast={pushToast}
-            onExit={() => { setMission(null); setScreen('dashboard'); }}
+            onExit={() => { setMission(null); setScreen('hub'); }}
           />
+        ) : screen === 'hub' ? (
+          <Hub
+            save={save}
+            mutate={mutate}
+            onPlay={setMission}
+            onGo={(d: HubDest) => setScreen(d === 'contracts' ? 'dashboard' : d === 'map' ? 'career' : (d as Screen))}
+          />
+        ) : screen === 'inventory' ? (
+          <Inventory save={save} mutate={mutate} />
         ) : screen === 'dashboard' ? (
           <Dashboard save={save} onPlay={setMission} mutate={mutate} />
         ) : screen === 'career' ? (
