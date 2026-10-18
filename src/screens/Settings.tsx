@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useApp } from '../store';
-import { CATEGORIES, catOf } from '../lib/data';
+import { CATEGORIES, catOf, PIZZA_INGREDIENTS } from '../lib/data';
 import type { Category, Dish } from '../lib/types';
 import { cap } from '../lib/emoji';
 import { Ing } from '../components/Ing';
@@ -64,6 +64,7 @@ export function Settings() {
   const [showIngs, setShowIngs] = useState(false);
   const allIngs = (() => {
     const m = new Map<string, number>();
+    PIZZA_INGREDIENTS.forEach((i) => { const k = i.trim().toLowerCase(); if (!m.has(k)) m.set(k, 0); });
     app.save.dishes.forEach((d) => d.ingredients.forEach((i) => { const k = i.trim().toLowerCase(); m.set(k, (m.get(k) ?? 0) + 1); }));
     return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0], 'it'));
   })();
@@ -123,7 +124,7 @@ export function Settings() {
         {showIngs && (
           <div className="chips">
             {allIngs.map(([name, n]) => (
-              <span key={name} className="chip"><Ing name={name} /> {cap(name)} <span className="muted sm">×{n}</span></span>
+              <span key={name} className="chip"><Ing name={name} /> {cap(name)} {n > 0 && <span className="muted sm">×{n}</span>}</span>
             ))}
           </div>
         )}
