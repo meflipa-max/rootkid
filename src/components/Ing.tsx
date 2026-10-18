@@ -4,10 +4,18 @@ import type { ReactNode } from 'react';
 
 const KEYS: [RegExp, string][] = [
   [/veggie/, 'veggie'],
+  [/kebab/, 'kebab'],
+  [/condiment/, 'condimenti'],
+  [/w[uü]rstel/, 'wurstel'],
+  [/cipolla croccante/, 'croccante'],
+  [/\bolio\b/, 'olio'],
+  [/kinder|bueno/, 'kinder'],
+  [/granella/, 'granella'],
+  [/scaglie|cioccolato bianco/, 'scaglie'],
   [/guacamole/, 'guac'],
   [/boscaiola/, 'bosc'],
   [/bbq/, 'bbq'],
-  [/salsa burger/, 'sburger'],
+  [/salsa (ham)?burger/, 'sburger'],
   [/cesar|caesar/, 'cesar'],
   [/maionese|mayo/, 'mayo'],
   [/funghi/, 'funghi'],
@@ -24,7 +32,7 @@ const KEYS: [RegExp, string][] = [
   [/cheddar/, 'cheddar'],
   [/stracciatella/, 'stracc'],
   [/scamorza/, 'scamorza'],
-  [/mozz/, 'mozz'],
+  [/mozz|fior di latte/, 'mozz'],
   [/grana|parmigiano/, 'grana'],
   [/valeriana/, 'valeriana'],
   [/rucola/, 'rucola'],
@@ -178,6 +186,88 @@ const leafRot = (d: string, fill: string, rib: string, angles: number[], cx = 32
   ));
 
 const ART: Record<string, () => ReactNode> = {
+  kebab: () => (
+    <>
+      {sh}
+      <rect x="31" y="6" width="2.4" height="52" rx="1.2" fill="#9aa0a8" />
+      <path d="M32 12 Q50 14 48 26 Q54 34 46 42 Q52 52 32 54 Q12 52 18 42 Q10 34 16 26 Q14 14 32 12Z" fill="#8d4a26" />
+      {['M20 22 Q32 26 44 22', 'M17 32 Q32 37 47 32', 'M19 42 Q32 47 45 42'].map((d, i) => <path key={i} d={d} stroke="#c97b45" strokeWidth="3" fill="none" strokeLinecap="round" />)}
+      <path d="M22 18 Q26 40 24 52" stroke="#5c2c12" strokeWidth="2" opacity=".5" fill="none" />
+    </>
+  ),
+  condimenti: () => (
+    <>
+      {sh}
+      {[[17, '#d9481e'], [32, '#f7e6a0'], [47, '#4f1f12']].map(([x, c], i) => (
+        <g key={i}>
+          <rect x={(x as number) - 7} y="24" width="14" height="32" rx="5" fill={c as string} />
+          <rect x={(x as number) - 7} y="24" width="14" height="32" rx="5" fill="url(#iGloss)" />
+          <rect x={(x as number) - 2.5} y="12" width="5" height="12" rx="2" fill={i === 1 ? '#e8c43a' : '#333'} />
+          <rect x={(x as number) - 5} y="34" width="10" height="9" rx="1.5" fill="#fff" opacity=".9" />
+        </g>
+      ))}
+    </>
+  ),
+  wurstel: () => (
+    <>
+      {sh}
+      {[24, 40].map((y, i) => (
+        <g key={i}>
+          <rect x="6" y={y - 7} width="52" height="14" rx="7" fill="#d9766a" />
+          <rect x="6" y={y - 7} width="52" height="14" rx="7" fill="url(#iGloss)" />
+          {[16, 26, 36, 46].map((x) => <path key={x} d={`M${x} ${y - 6} L${x + 4} ${y + 6}`} stroke="#a64a40" strokeWidth="1.6" opacity=".6" />)}
+        </g>
+      ))}
+    </>
+  ),
+  croccante: () => (
+    <>
+      {sh}
+      {['M10 46 Q20 30 30 44', 'M18 50 Q30 24 44 46', 'M28 52 Q40 28 54 48', 'M14 40 Q24 22 36 34', 'M30 36 Q42 18 52 36', 'M20 52 Q34 40 50 52', 'M8 50 Q22 44 34 50'].map((d, i) => (
+        <path key={i} d={d} stroke={i % 2 ? '#e2a03a' : '#f0be5a'} strokeWidth="4.2" fill="none" strokeLinecap="round" />
+      ))}
+    </>
+  ),
+  olio: () => (
+    <>
+      {sh}
+      <path d="M26 20 L27 10 H37 L38 20 Q46 26 46 38 V52 Q46 57 41 57 H23 Q18 57 18 52 V38 Q18 26 26 20Z" fill="#7aa32a" />
+      <path d="M26 20 L27 10 H37 L38 20 Q46 26 46 38 V52 Q46 57 41 57 H23 Q18 57 18 52 V38 Q18 26 26 20Z" fill="url(#iGloss)" />
+      <rect x="27" y="5" width="10" height="7" rx="2" fill="#2f2f2f" />
+      <rect x="21" y="36" width="22" height="13" rx="2" fill="#f5efd2" />
+      <text x="32" y="45.5" fontSize="7" fontWeight="900" textAnchor="middle" fill="#55702c" fontFamily="Arial, sans-serif">OLIO</text>
+    </>
+  ),
+  kinder: () => (
+    <>
+      {sh}
+      <g transform="rotate(-14 32 34)">
+        <rect x="6" y="22" width="48" height="19" rx="3" fill="#f3ead2" />
+        <rect x="6" y="22" width="48" height="6" fill="#3b6fb6" />
+        <text x="30" y="37" fontSize="7" fontWeight="900" textAnchor="middle" fill="#7a4a1e" fontFamily="Arial, sans-serif">BUENO</text>
+      </g>
+      <g transform="rotate(10 46 46)">
+        <rect x="32" y="39" width="22" height="13" rx="2" fill="#5a2d14" />
+        <rect x="34" y="42" width="18" height="2" fill="#f4dca0" />
+        <rect x="34" y="47" width="18" height="2" fill="#f4dca0" />
+      </g>
+    </>
+  ),
+  granella: () =>
+    bowl(
+      '#e9c98c',
+      [[18, 31], [26, 34], [34, 30], [42, 34], [48, 31], [22, 28], [38, 36], [30, 37]].map(([x, y], i) => (
+        <rect key={i} x={x} y={y} width="5" height="4" rx="1.2" fill={i % 2 ? '#c88a44' : '#a8691f'} transform={`rotate(${i * 25} ${x} ${y})`} />
+      )),
+    ),
+  scaglie: () => (
+    <>
+      {sh}
+      {[[16, 40, -20], [28, 32, 15], [40, 42, -8], [24, 48, 30], [46, 32, 22], [34, 24, -30], [14, 28, 10]].map(([x, y, r], i) => (
+        <path key={i} d={`M${x} ${y} l9 -3 l3 6 l-7 5 l-6 -2z`} fill={i % 2 ? '#fffdf5' : '#f4eedb'} stroke="#d8cfb4" strokeWidth=".8" transform={`rotate(${r} ${x} ${y})`} />
+      ))}
+    </>
+  ),
   patty: () => (
     <>
       {sh}

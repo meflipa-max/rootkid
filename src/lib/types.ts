@@ -45,5 +45,6 @@ export interface Save {
   skins: string[];
   skin: string;
   build: Record<string, number>;
+  menuV?: number;
   settings: Settings;
 }

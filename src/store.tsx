@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Dish, DishStat, Save, Settings } from './lib/types';
-import { DEFAULT_DISHES } from './lib/data';
+import { DEFAULT_DISHES, MENU_VERSION, OLD_DEFAULTS } from './lib/data';
 import { emptyStat, levelOf } from './lib/mastery';
 import { setFx } from './lib/fx';
 import { UPGRADES, lvlOf, upgradeCost } from './lib/build';
@@ -29,8 +29,22 @@ const fresh = (): Save => ({
   skins: ['classic'],
   skin: 'classic',
   build: {},
+  menuV: MENU_VERSION,
   settings: { sound: true, haptics: true, dailyGoal: 20 },
 });
+
+/** aggiorna le ricette al menu stampato, rispettando quelle modificate a mano dall'utente */
+function migrateMenu(saved: Dish[]): Dish[] {
+  const out = [...saved];
+  const same = (a: string[], b: string[]) => a.length === b.length && a.every((x, i) => x === b[i]);
+  for (const def of DEFAULT_DISHES) {
+    const i = out.findIndex((d) => d.id === def.id);
+    if (i < 0) out.push({ ...def, ingredients: [...def.ingredients] });
+    else if (out[i].verify || (OLD_DEFAULTS[def.id] && same(out[i].ingredients, OLD_DEFAULTS[def.id])))
+      out[i] = { ...def, ingredients: [...def.ingredients] };
+  }
+  return out;
+}
 
 function load(): Save {
   try {
@@ -40,6 +54,8 @@ function load(): Save {
       if (s && s.v === 1 && Array.isArray(s.dishes)) {
         // "nutella nera" era un doppione della nutella normale
         s.dishes = s.dishes.map((d) => ({ ...d, ingredients: [...new Set(d.ingredients.map((i) => (i.trim().toLowerCase() === 'nutella nera' ? 'nutella' : i)))] }));
+        if ((s.menuV ?? 1) < MENU_VERSION) s.dishes = migrateMenu(s.dishes);
+        s.menuV = MENU_VERSION;
         return { ...fresh(), ...s, settings: { ...fresh().settings, ...s.settings } };
       }
     }

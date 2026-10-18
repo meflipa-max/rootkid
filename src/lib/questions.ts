@@ -40,10 +40,12 @@ function distractors(dish: Dish, all: Dish[], count: number): string[] {
   const own = new Set(dish.ingredients.map(norm));
   const seen = new Set(own);
   const out: string[] = [];
+  const ownList = dish.ingredients.map(norm);
+  const similar = (a: string) => ownList.some((o) => o.includes(a) || a.includes(o) || (o.length > 5 && a.length > 5 && o.slice(0, 6) === a.slice(0, 6)));
   const add = (list: string[]) => {
     for (const s of shuffle(list)) {
       if (out.length >= count) return;
-      if (!seen.has(norm(s))) {
+      if (!seen.has(norm(s)) && (isPortion(dish) || !similar(norm(s)))) {
         seen.add(norm(s));
         out.push(s);
       }
