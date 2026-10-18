@@ -1,9 +1,9 @@
 {
-  "name": "rootkid",
+  "name": "pizzamaster",
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "ROOTKID — da script kiddie a white hat. Gioco educativo di ethical hacking.",
+  "description": "PizzaMaster — gioco per memorizzare le ricette della pizzeria.",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
