@@ -278,8 +278,8 @@ hr { border: 0; border-top: 1px solid #ffffff14; width: 100%; margin: 4px 0; }
 .mini { background: #f1ecff; border-radius: 99px; padding: 2px 8px; font-size: 12px; }
 .ticket .muted { color: #7a7096; }
 
-.tray { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: minmax(52px, 1fr); gap: 7px; padding: 4px 12px 8px; align-content: start; }
-.tile { background: var(--card2); border-radius: 14px; border: 2px solid #ffffff12; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 2px 3px; box-shadow: 0 4px 0 #0005; transition: transform .1s, background .15s; max-height: 76px; }
+.tray { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: 60px; gap: 7px; padding: 4px 12px 8px; align-content: start; overflow-y: auto; overscroll-behavior: contain; }
+.tile { background: var(--card2); border-radius: 14px; border: 2px solid #ffffff12; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 2px 3px; box-shadow: 0 4px 0 #0005; transition: transform .1s, background .15s; min-height: 0; overflow: hidden; }
 .tile:active { transform: translateY(3px); box-shadow: 0 1px 0 #0005; }
 .tile.used { background: #ffd24a2e; border-color: var(--yellow); transform: translateY(2px); box-shadow: 0 2px 0 #0005; }
 .t-e { font-size: 24px; line-height: 1.1; }
@@ -327,3 +327,24 @@ hr { border: 0; border-top: 1px solid #ffffff14; width: 100%; margin: 4px 0; }
 .up-e { font-size: 30px; width: 40px; text-align: center; flex: none; }
 .btn.wardrobe { flex-direction: row; background: var(--card); font-size: 18px; align-items: center; justify-content: center; }
 @keyframes twinkle { 50% { opacity: .35; } }
+
+@media (max-height: 800px) {
+  .shop-top { height: 170px; }
+  .who { width: 78px; height: 92px; }
+  .kitchen { height: 104px; }
+  .chef { width: 88px; height: 100px; }
+  .plate { width: 170px; min-height: 60px; }
+  .pitem { font-size: 24px; }
+  .hud { padding-top: calc(4px + var(--safe-t)); }
+  .hud2 { min-height: 24px; padding-bottom: 2px; }
+  .ticket { margin: 6px 12px 4px; padding: 6px 10px; min-height: 48px; }
+  .tray { grid-auto-rows: 54px; gap: 6px; }
+  .serve { height: 50px; margin-bottom: 6px; }
+}
+@media (max-height: 680px) {
+  .shop-top { height: 150px; }
+  .kitchen { height: 88px; }
+  .chef { width: 74px; height: 84px; }
+  .tray { grid-auto-rows: 48px; }
+  .t-e { font-size: 20px; }
+}
