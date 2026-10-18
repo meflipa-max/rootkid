@@ -37,7 +37,11 @@ function load(): Save {
     const raw = localStorage.getItem(KEY);
     if (raw) {
       const s = JSON.parse(raw) as Save;
-      if (s && s.v === 1 && Array.isArray(s.dishes)) return { ...fresh(), ...s, settings: { ...fresh().settings, ...s.settings } };
+      if (s && s.v === 1 && Array.isArray(s.dishes)) {
+        // "nutella nera" era un doppione della nutella normale
+        s.dishes = s.dishes.map((d) => ({ ...d, ingredients: [...new Set(d.ingredients.map((i) => (i.trim().toLowerCase() === 'nutella nera' ? 'nutella' : i)))] }));
+        return { ...fresh(), ...s, settings: { ...fresh().settings, ...s.settings } };
+      }
     }
   } catch {
     /* ignore */

@@ -35,7 +35,7 @@ export const DEFAULT_DISHES: Dish[] = [
   d('sfiziosa', 'Sfiziosa', 'focacce', ['porchetta', 'pomodori secchi', 'crema di funghi', 'patate al forno', 'valeriana'], true),
   // Pizze dolci
   d('bacio', 'Bacio', 'dolci', ['nutella']),
-  d('bueno', 'Bueno', 'dolci', ['nutella nera', 'nutella bianca', 'nocciola']),
+  d('bueno', 'Bueno', 'dolci', ['nutella', 'nutella bianca', 'nocciola']),
   d('tronky', 'Tronky', 'dolci', ['nutella', 'pistacchio', 'tronky']),
   d('pasta-fritta', 'Pasta fritta', 'dolci', ['nutella']),
   // Friggitoria (porzioni)
