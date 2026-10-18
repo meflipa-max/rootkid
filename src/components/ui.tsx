@@ -1,13 +1,14 @@
 import type { ReactNode } from 'react';
 import type { Dish } from '../lib/types';
-import { cap, emojiFor } from '../lib/emoji';
+import { cap } from '../lib/emoji';
+import { Ing } from './Ing';
 import { catOf } from '../lib/data';
 
 export function Chip({ text, state, onClick, delay = 0 }: { text: string; state?: string; onClick?: () => void; delay?: number }) {
   const Tag = onClick ? 'button' : 'span';
   return (
     <Tag className={`chip ${state ?? ''}`} onClick={onClick} style={{ animationDelay: `${delay}ms` }}>
-      <span className="chip-e">{emojiFor(text)}</span>
+      <Ing name={text.replace(/ ×\d+$/, '')} />
       {cap(text)}
     </Tag>
   );

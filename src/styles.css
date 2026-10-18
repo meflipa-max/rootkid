@@ -348,3 +348,16 @@ hr { border: 0; border-top: 1px solid #ffffff14; width: 100%; margin: 4px 0; }
   .tray { grid-auto-rows: 48px; }
   .t-e { font-size: 20px; }
 }
+
+/* illustrazioni ingredienti */
+.ing { width: 1.6em; height: 1.6em; flex: none; display: block; }
+.chip .ing { width: 26px; height: 26px; margin: -4px 0; }
+.chips.big .chip .ing { width: 30px; height: 30px; }
+.t-e { display: flex; }
+.tile .ing { width: 38px; height: 38px; }
+.pitem { margin: -4px -6px; }
+.pitem .ing { width: 42px; height: 42px; }
+.mini { display: inline-flex; align-items: center; gap: 4px; }
+.mini .ing { width: 20px; height: 20px; }
+@media (max-height: 800px) { .tile .ing { width: 32px; height: 32px; } .pitem .ing { width: 36px; height: 36px; } }
+@media (max-height: 680px) { .tile .ing { width: 28px; height: 28px; } }

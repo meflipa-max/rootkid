@@ -8,6 +8,7 @@ import { Game } from './screens/Game';
 import { Learn } from './screens/Learn';
 import { mastery, weight } from './lib/mastery';
 import { sfx } from './lib/fx';
+import { IngDefs } from './components/Ing';
 
 type Tab = 'home' | 'stats' | 'settings';
 
@@ -67,6 +68,7 @@ function Shell() {
 export default function App() {
   return (
     <AppProvider>
+      <IngDefs />
       <Shell />
     </AppProvider>
   );

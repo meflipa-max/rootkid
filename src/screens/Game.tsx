@@ -4,7 +4,8 @@ import { useApp } from '../store';
 import { makeQuestion, norm } from '../lib/questions';
 import { levelOf, pickWeighted, weight } from '../lib/mastery';
 import { catOf } from '../lib/data';
-import { cap, emojiFor } from '../lib/emoji';
+import { cap } from '../lib/emoji';
+import { Ing } from '../components/Ing';
 import { confetti, sfx } from '../lib/fx';
 import { SKINS } from '../lib/skins';
 import { lvlOf } from '../lib/build';
@@ -365,7 +366,7 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
         <div className="plate-wrap">
           <div className="plate">
             {selected?.plate.map((p) => (
-              <button key={p} className="pitem" onClick={() => toggle(p)}>{emojiFor(p)}</button>
+              <button key={p} className="pitem" onClick={() => toggle(p)}><Ing name={p} /></button>
             ))}
             {!selected?.plate.length && <span className="plate-hint">Piatto vuoto</span>}
           </div>
@@ -384,9 +385,9 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
               {!showFull && <button className="peek" onClick={peek}>📖 Aiuto</button>}
             </div>
             {showFull ? (
-              <div className="t-chips">{ticket.dish.ingredients.map((i) => <span key={i} className="mini">{emojiFor(i)} {cap(i)}</span>)}</div>
+              <div className="t-chips">{ticket.dish.ingredients.map((i) => <span key={i} className="mini"><Ing name={i} /> {cap(i)}</span>)}</div>
             ) : ticket.hint === 'icons' ? (
-              <div className="t-chips">{ticket.dish.ingredients.map((i, k) => <span key={k} className="mini">{emojiFor(i)}</span>)}<span className="muted sm">({ticket.dish.ingredients.length})</span></div>
+              <div className="t-chips">{ticket.dish.ingredients.map((i, k) => <span key={k} className="mini"><Ing name={i} /></span>)}<span className="muted sm">({ticket.dish.ingredients.length})</span></div>
             ) : ticket.hint === 'count' ? (
               <div className="muted sm">{ticket.dish.ingredients.length} {ticket.dish.ingredients.length === 1 ? 'ingrediente' : 'ingredienti'} — ricordi quali?</div>
             ) : (
@@ -399,7 +400,7 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
       <div className="tray">
         {(selected?.tray ?? []).map((t) => (
           <button key={t} className={`tile ${selected?.plate.includes(t) ? 'used' : ''}`} onClick={() => toggle(t)}>
-            <span className="t-e">{emojiFor(t)}</span>
+            <span className="t-e"><Ing name={t} /></span>
             <span className="t-l">{cap(t)}</span>
           </button>
         ))}
