@@ -60,14 +60,30 @@ export function Settings() {
   const [edit, setEdit] = useState<Dish | 'new' | null>(null);
   const [io, setIo] = useState('');
   const [msg, setMsg] = useState('');
-  const [filter, setFilter] = useState<Category | 'all'>('all');
-  const [showIngs, setShowIngs] = useState(false);
+  const [filter, setFilter] = useState<Category | 'all' | 'pizze'>('all');
+  const [showIngs, setShowIngs] = useState(true);
   const allIngs = (() => {
     const m = new Map<string, number>();
-    PIZZA_INGREDIENTS.forEach((i) => { const k = i.trim().toLowerCase(); if (!m.has(k)) m.set(k, 0); });
-    app.save.dishes.forEach((d) => d.ingredients.forEach((i) => { const k = i.trim().toLowerCase(); m.set(k, (m.get(k) ?? 0) + 1); }));
+    const add = (raw: string, n: number) => {
+      const k = raw.trim().toLowerCase().replace(/^\d+(\/\d+)?\s+/, '');
+      if (!k || /^pezz/.test(k)) return;
+      m.set(k, (m.get(k) ?? 0) + n);
+    };
+    if (filter === 'all' || filter === 'pizze') PIZZA_INGREDIENTS.forEach((i) => add(i, 0));
+    if (filter !== 'pizze') app.save.dishes.filter((d) => filter === 'all' || d.category === filter).forEach((d) => d.ingredients.forEach((i) => add(i, 1)));
     return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0], 'it'));
   })();
+  const filterBar = (
+    <div className="chips filters">
+      <button className={`chip ${filter === 'all' ? 'sel' : ''}`} onClick={() => setFilter('all')}>Tutti</button>
+      {CATEGORIES.map((c) => (
+        <button key={c.id} className={`chip ${filter === c.id ? 'sel' : ''}`} onClick={() => setFilter(c.id)}>
+          {c.emoji} {c.name} ({app.save.dishes.filter((d) => d.category === c.id).length})
+        </button>
+      ))}
+      <button className={`chip ${filter === 'pizze' ? 'sel' : ''}`} onClick={() => setFilter('pizze')}>🍕 Pizze</button>
+    </div>
+  );
   const toVerify = app.save.dishes.filter((d) => d.verify).length;
 
   return (
@@ -91,16 +107,10 @@ export function Settings() {
       {toVerify > 0 && (
         <div className="card warn sm">⚠️ Ho letto le ricette da una foto scritta a mano: i piatti con ⚠️ ({toVerify}) hanno parti tagliate o poco leggibili. Controllali e correggili!</div>
       )}
-      <div className="chips">
-        <button className={`chip ${filter === 'all' ? 'sel' : ''}`} onClick={() => setFilter('all')}>Tutti ({app.save.dishes.length})</button>
-        {CATEGORIES.map((c) => (
-          <button key={c.id} className={`chip ${filter === c.id ? 'sel' : ''}`} onClick={() => setFilter(c.id)}>
-            {c.emoji} {c.name} ({app.save.dishes.filter((d) => d.category === c.id).length})
-          </button>
-        ))}
-      </div>
+      {filterBar}
+      {filter === 'pizze' && <div className="card muted sm">Le pizze non sono ancora piatti dell'app: qui trovi solo i loro ingredienti, nella sezione Ingredienti.</div>}
       {CATEGORIES.map((c) => {
-        if (filter !== 'all' && filter !== c.id) return null;
+        if (filter === 'pizze' || (filter !== 'all' && filter !== c.id)) return null;
         const list = app.save.dishes.filter((d) => d.category === c.id);
         if (!list.length) return null;
         return (
@@ -118,6 +128,7 @@ export function Settings() {
 
       <h3 className="h3">Ingredienti</h3>
       <section className="card">
+        {filterBar}
         <button className="btn ghost wide" onClick={() => setShowIngs((v) => !v)}>
           {showIngs ? 'Nascondi' : 'Mostra'} lista ingredienti ({allIngs.length})
         </button>
