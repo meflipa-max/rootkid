@@ -7,6 +7,7 @@ import { catOf } from '../lib/data';
 import { cap, emojiFor } from '../lib/emoji';
 import { confetti, sfx } from '../lib/fx';
 import { SKINS } from '../lib/skins';
+import { lvlOf } from '../lib/build';
 import { CHEF_LOOK, Person, randomLook, type Look, type Mood, type Pose } from '../components/Person';
 import { Chip } from '../components/ui';
 
@@ -42,6 +43,7 @@ interface G {
   combo: number;
   bestCombo: number;
   lives: number;
+  maxLives: number;
   served: number;
   overlay: Overlay | null;
   paused: boolean;
@@ -61,9 +63,9 @@ const hintFor = (s?: DishStat): Hint => {
   return b <= 0 ? 'full' : b === 1 ? 'icons' : b <= 3 ? 'count' : 'none';
 };
 
-const initial = (): G => ({
+const initial = (maxLives: number): G => ({
   phase: 'intro', customers: [], spawned: 0, nextSpawn: 900, selected: null, score: 0, coins: 0, combo: 0, bestCombo: 0,
-  lives: 3, served: 0, overlay: null, paused: false, pops: [], pose: 'idle', poseT: 0, shake: 0, missedDishes: [], lastIds: [], uid: 1,
+  lives: maxLives, maxLives, served: 0, overlay: null, paused: false, pops: [], pose: 'idle', poseT: 0, shake: 0, missedDishes: [], lastIds: [], uid: 1,
   introLeft: 2200, levelUp: null,
 });
 
@@ -72,11 +74,24 @@ export function Game({ pool, title, onExit }: { pool: Dish[]; title: string; onE
   return <Shift key={run} pool={pool} title={title} onExit={onExit} again={() => setRun((r) => r + 1)} />;
 }
 
+function Decor({ build }: { build: Record<string, number> }) {
+  const l = (id: string) => lvlOf(build, id);
+  return (
+    <div className="decor">
+      {l('luci') > 0 && <div className="lights">{Array.from({ length: 6 + l('luci') * 2 }, (_, i) => <i key={i} style={{ animationDelay: `${(i % 4) * 0.4}s`, background: ['#ffd24a', '#ff3d81', '#4cc9f0', '#2ee59d'][i % 4] }} />)}</div>}
+      {l('quadri') > 0 && <div className="frames">{['🖼️', '🍷', '🇮🇹'].slice(0, l('quadri')).map((e, i) => <span key={i}>{e}</span>)}</div>}
+      {l('piante') > 0 && <div className="plants"><span>🪴</span>{l('piante') > 1 && <span className="r">🌿</span>}{l('piante') > 2 && <span className="r2">🪴</span>}</div>}
+      {l('tavolini') > 0 && <div className="tables">{Array.from({ length: l('tavolini') }, (_, i) => <span key={i}>🪑</span>)}</div>}
+      {l('insegna') >= 3 && <div className="glow" />}
+    </div>
+  );
+}
+
 function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; onExit: () => void; again: () => void }) {
   const app = useApp();
   const appRef = useRef(app);
   appRef.current = app;
-  const gr = useRef<G>(initial());
+  const gr = useRef<G>(initial(3 + lvlOf(app.save.build, 'frigo')));
   const [g, setG] = useState<G>(gr.current);
   const reported = useRef(false);
   const [best, setBest] = useState(false);
@@ -102,7 +117,7 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
     const [dish] = pickWeighted(cands.map((d) => ({ item: d, w: weight(stats[d.id], now) })), 1);
     const hint = hintFor(stats[dish.id]);
     const diff = Math.max(0.55, 1 - (levelOf(xp) - 1) * 0.04);
-    const max = Math.round((24 + dish.ingredients.length * 2.5 + (hint === 'full' ? 8 : 0)) * 1000 * diff);
+    const max = Math.round((24 + dish.ingredients.length * 2.5 + (hint === 'full' ? 8 : 0)) * 1000 * diff * (1 + 0.1 * lvlOf(appRef.current.save.build, 'forno')));
     const q = makeQuestion(dish, dishes, 'build');
     const c: Cust = { id: g.uid, look: randomLook(), dish, hint, slot, left: max, max, plate: [], tray: q.kind === 'build' ? q.options : dish.ingredients, peeked: false, state: 'in', t: 0 };
     const ng: G = { ...g, uid: g.uid + 1, customers: [...g.customers, c], spawned: g.spawned + 1, lastIds: [...g.lastIds, dish.id], nextSpawn: Math.max(3500, 5500 + Math.random() * 3000 - g.spawned * 250) };
@@ -172,7 +187,7 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
     return () => clearInterval(t);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const stars = g.served >= TOTAL && g.lives === 3 ? 3 : g.served >= TOTAL * 0.75 ? 2 : g.served >= TOTAL * 0.4 ? 1 : 0;
+  const stars = g.served >= TOTAL && g.lives === g.maxLives ? 3 : g.served >= TOTAL * 0.75 ? 2 : g.served >= TOTAL * 0.4 ? 1 : 0;
   const bonusCoins = stars * 25;
   useEffect(() => {
     if (g.phase === 'end' && !reported.current) {
@@ -225,8 +240,9 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
     const mult = c.peeked ? 1 : MULT[c.hint];
     const combo = g0.combo + 1;
     const frac = Math.max(0, c.left / c.max);
-    const pts = Math.round(100 * mult * (1 + Math.min(combo - 1, 10) * 0.1) + frac * 60);
-    const coins = Math.max(1, Math.round(pts / 20));
+    const b = appRef.current.save.build;
+    const pts = Math.round((100 * mult * (1 + Math.min(combo - 1, 10) * 0.1) + frac * 60) * (1 + 0.05 * lvlOf(b, 'insegna')));
+    const coins = Math.max(1, Math.round((pts / 20) * (1 + 0.15 * lvlOf(b, 'cassa'))));
     let leveled: number | null = g0.levelUp;
     if (c.peeked) appRef.current.addXp(3);
     else {
@@ -295,7 +311,7 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
     <div className={`game ${g.shake > 0 ? 'shake' : ''}`}>
       <div className="hud">
         <button className="icon-btn" onClick={() => setPaused(true)} aria-label="Pausa">⏸</button>
-        <div className="hearts">{[0, 1, 2].map((i) => <span key={i} className={i < g.lives ? '' : 'lost'}>{i < g.lives ? '❤️' : '🖤'}</span>)}</div>
+        <div className="hearts">{Array.from({ length: g.maxLives }, (_, i) => i).map((i) => <span key={i} className={i < g.lives ? '' : 'lost'}>{i < g.lives ? '❤️' : '🖤'}</span>)}</div>
         <div className="score" key={g.score}>{g.score}</div>
         <div className="coins">🪙 {g.coins}</div>
       </div>
@@ -305,7 +321,8 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
       </div>
 
       <div className="shop-top">
-        <div className="neon">🍕 PIZZERIA DA MARIO</div>
+        <Decor build={app.save.build} />
+        <div className="neon">🍕 CORE A CORE</div>
         <div className="slots">
           {[0, 1, 2].map((slot) => {
             const c = g.customers.find((x) => x.slot === slot);

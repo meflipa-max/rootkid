@@ -3,6 +3,7 @@ import type { Dish, DishStat, Save, Settings } from './lib/types';
 import { DEFAULT_DISHES } from './lib/data';
 import { emptyStat, levelOf } from './lib/mastery';
 import { setFx } from './lib/fx';
+import { UPGRADES, lvlOf, upgradeCost } from './lib/build';
 
 const KEY = 'pizzamaster-v1';
 
@@ -27,6 +28,7 @@ const fresh = (): Save => ({
   shifts: 0,
   skins: ['classic'],
   skin: 'classic',
+  build: {},
   settings: { sound: true, haptics: true, dailyGoal: 20 },
 });
 
@@ -56,6 +58,7 @@ interface Ctx {
   reportShift(score: number, coins: number, combo: number): boolean;
   buySkin(id: string, cost: number): boolean;
   selectSkin(id: string): void;
+  upgrade(id: string): boolean;
   saveDish(d: Dish): void;
   deleteDish(id: string): void;
   resetRecipes(): void;
@@ -146,6 +149,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
         commit({ ...s, coins: s.coins - cost, skins: [...s.skins, id], skin: id });
         return true;
       },
+      upgrade(id) {
+        const s = ref.current;
+        const u = UPGRADES.find((x) => x.id === id);
+        if (!u) return false;
+        const lvl = lvlOf(s.build, id);
+        const cost = upgradeCost(u, lvl);
+        if (lvl >= u.max || s.coins < cost) return false;
+        commit({ ...s, coins: s.coins - cost, build: { ...s.build, [id]: lvl + 1 } });
+        return true;
+      },
       selectSkin(id) {
         if (ref.current.skins.includes(id)) commit({ ...ref.current, skin: id });
       },
@@ -165,7 +178,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       },
       resetStats() {
         const f = fresh();
-        commit({ ...ref.current, stats: {}, xp: 0, totalAnswered: 0, totalCorrect: 0, streakDays: 0, lastDay: '', todayCount: 0, bestShift: 0, bestCombo: 0, coins: 0, shifts: 0, todayDate: f.todayDate });
+        commit({ ...ref.current, stats: {}, xp: 0, totalAnswered: 0, totalCorrect: 0, streakDays: 0, lastDay: '', todayCount: 0, bestShift: 0, bestCombo: 0, coins: 0, shifts: 0, build: {}, skins: ['classic'], skin: 'classic', todayDate: f.todayDate });
       },
       setSettings(p) {
         commit({ ...ref.current, settings: { ...ref.current.settings, ...p } });

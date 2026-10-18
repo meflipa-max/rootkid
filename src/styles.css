@@ -38,7 +38,7 @@ button:disabled { opacity: .4; cursor: default; }
 
 .app { max-width: 520px; margin: 0 auto; min-height: 100dvh; }
 main { padding-bottom: calc(86px + var(--safe-b)); }
-.page { padding: calc(16px + var(--safe-t)) 16px 8px; display: flex; flex-direction: column; gap: 14px; animation: rise .35s ease both; }
+.page { padding: calc(16px + var(--safe-t)) 16px 8px; display: flex; flex-direction: column; gap: 14px; animation: rise .35s ease; }
 .h { font-size: 28px; margin: 4px 0 0; }
 .h3 { font-size: 18px; margin: 8px 0 -4px; }
 .row-between { display: flex; align-items: center; justify-content: space-between; }
@@ -225,7 +225,7 @@ hr { border: 0; border-top: 1px solid #ffffff14; width: 100%; margin: 4px 0; }
 .shop-top { position: relative; height: 196px; margin: 0 0 0; background: linear-gradient(#5a2742, #7a3b3b 70%); border-top: 1px solid #ffffff14; overflow: hidden; flex: none; }
 .shop-top::before { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(90deg, transparent 0 38px, #00000014 38px 40px); }
 .neon { position: absolute; top: 6px; left: 50%; transform: translateX(-50%); font-family: 'Fredoka'; font-size: 13px; letter-spacing: 1px; color: #ffe9f2; text-shadow: 0 0 8px #ff3d81, 0 0 18px #ff3d81; white-space: nowrap; animation: flicker 4s infinite; }
-.slots { position: absolute; inset: 0 0 0 0; display: flex; }
+.slots { position: absolute; inset: 0; display: flex; z-index: 2; }
 .slot { flex: 1; position: relative; overflow: visible; }
 .cust { position: absolute; left: 0; right: 0; bottom: 20px; display: flex; flex-direction: column; align-items: center; }
 .who { width: 92px; height: 108px; margin-bottom: -4px; }
@@ -311,3 +311,19 @@ hr { border: 0; border-top: 1px solid #ffffff14; width: 100%; margin: 4px 0; }
 @keyframes floatUp { 0% { opacity: 0; transform: translate(-50%, 10px) scale(.6); } 15% { opacity: 1; transform: translate(-50%, 0) scale(1.15); } 100% { opacity: 0; transform: translate(-50%, -50px); } }
 .hearts-fx { left: 50%; }
 @keyframes flicker { 0%, 92%, 100% { opacity: 1; } 94% { opacity: .55; } 96% { opacity: 1; } 97% { opacity: .6; } }
+
+/* decor */
+.decor { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+.lights { position: absolute; top: 0; left: 0; right: 0; display: flex; justify-content: space-around; border-top: 2px solid #0006; }
+.lights i { width: 9px; height: 13px; border-radius: 50% 50% 55% 55%; margin-top: 2px; box-shadow: 0 0 10px currentColor; animation: twinkle 1.6s infinite; opacity: .9; }
+.frames { position: absolute; top: 34px; left: 8px; right: 8px; display: flex; justify-content: space-between; font-size: 24px; opacity: .85; }
+.frames span:nth-child(2) { margin: 0 auto; }
+.plants { position: absolute; bottom: 28px; left: 0; right: 0; font-size: 34px; }
+.plants span { position: absolute; left: 2px; bottom: 0; }
+.plants .r { left: auto; right: 2px; }
+.plants .r2 { left: 46%; bottom: 62px; font-size: 22px; opacity: .8; }
+.tables { position: absolute; top: 70px; left: 0; right: 0; display: flex; justify-content: center; gap: 70px; font-size: 22px; opacity: .55; }
+.glow { position: absolute; top: 0; left: 50%; width: 220px; height: 60px; transform: translateX(-50%); background: radial-gradient(#ff3d8155, transparent 70%); }
+.up-e { font-size: 30px; width: 40px; text-align: center; flex: none; }
+.btn.wardrobe { flex-direction: row; background: var(--card); font-size: 18px; align-items: center; justify-content: center; }
+@keyframes twinkle { 50% { opacity: .35; } }

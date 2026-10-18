@@ -44,5 +44,6 @@ export interface Save {
   shifts: number;
   skins: string[];
   skin: string;
+  build: Record<string, number>;
   settings: Settings;
 }

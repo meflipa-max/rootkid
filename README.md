@@ -1,10 +1,11 @@
-# PizzaMaster
+# Core a Core
 
 Gioco mobile-first per memorizzare le ricette della pizzeria (hamburger, insalatone, focacce, pizze dolci, friggitoria).
 
 - **Turno di servizio**: un cuoco 2D animato, clienti che entrano e ordinano, tu prepari il piatto a memoria prima che si spazientiscano (8 clienti, 3 vite, combo, monete, stelle).
 - **Aiuti adattivi**: sui piatti nuovi vedi la ricetta, poi solo le icone, poi solo il numero, infine niente (punti ×3 "a memoria"). Se sbagli, gli aiuti tornano.
-- **Guardaroba**: spendi le monete per nuove divise del cuoco.
+- **Costruisci**: spendi le monete per migliorare la pizzeria (forno, cassa, insegna, frigo) e decorarla (piante, quadri, luci, tavolini). Le migliorie hanno effetti reali in gioco.
+- **Guardaroba**: nuove divise del cuoco.
 - **Ricettario**: schede da girare per ripassare.
 - **Statistiche**: padronanza per piatto e categoria, ingredienti dimenticati più spesso, turno sui punti deboli.
 - **Impostazioni**: modifica/aggiungi/elimina ricette, suoni, vibrazione, obiettivo giornaliero, backup JSON.

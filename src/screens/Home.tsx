@@ -7,6 +7,7 @@ import { Bar, Ring } from '../components/ui';
 import { sfx } from '../lib/fx';
 import { CHEF_LOOK, Person } from '../components/Person';
 import { SKINS } from '../lib/skins';
+import { UPGRADES, lvlOf, totalBuilt, totalMax, upgradeCost } from '../lib/build';
 
 export type Mode = 'game' | 'focus' | 'learn';
 
@@ -37,9 +38,42 @@ function Shop({ onClose }: { onClose: () => void }) {
   );
 }
 
+function Build({ onClose }: { onClose: () => void }) {
+  const app = useApp();
+  const { coins, build } = app.save;
+  return (
+    <div className="modal" onClick={onClose}>
+      <div className="modal-in" onClick={(e) => e.stopPropagation()}>
+        <div className="row-between"><h3>🏗️ Il tuo locale</h3><span className="coins-big">🪙 {coins}</span></div>
+        <div className="muted sm">Costruisci Core a Core con le monete dei turni: i miglioramenti aiutano davvero in gioco.</div>
+        <Bar value={totalBuilt(build) / totalMax} color="linear-gradient(90deg,#ff8a3d,#ff3d81)" h={10} />
+        {UPGRADES.map((u) => {
+          const lvl = lvlOf(build, u.id);
+          const maxed = lvl >= u.max;
+          const cost = upgradeCost(u, lvl);
+          return (
+            <div key={u.id} className="skin-row">
+              <div className="up-e">{u.emoji}</div>
+              <div style={{ flex: 1 }}>
+                <div className="nm">{u.name} <span className="muted sm">Lv {lvl}/{u.max}</span></div>
+                <div className="muted sm">{u.desc(maxed ? lvl : lvl + 1)}{!maxed && ' (prossimo)'}</div>
+              </div>
+              {maxed ? <span className="badge" style={{ background: '#2ee59d26', color: '#2ee59d' }}>MAX</span> : (
+                <button className="btn primary sm" disabled={coins < cost} onClick={() => { if (app.upgrade(u.id)) sfx.win(); }}>🪙 {cost}</button>
+              )}
+            </div>
+          );
+        })}
+        <button className="btn ghost wide" onClick={onClose}>Chiudi</button>
+      </div>
+    </div>
+  );
+}
+
 export function Home({ cat, setCat, start }: { cat: Category | 'all'; setCat: (c: Category | 'all') => void; start: (m: Mode) => void }) {
   const { save } = useApp();
   const [shop, setShop] = useState(false);
+  const [build, setBuild] = useState(false);
   const lvl = levelOf(save.xp);
   const [lo, hi] = levelBounds(lvl);
   const active = save.todayDate === new Date().toLocaleDateString('sv') ? save.todayCount : 0;
@@ -56,8 +90,8 @@ export function Home({ cat, setCat, start }: { cat: Category | 'all'; setCat: (c
     <div className="page">
       <header className="hero">
         <div>
-          <div className="hello">Pizzeria da Mario</div>
-          <h1 className="brand">Pizza<span>Master</span></h1>
+          <div className="hello">Il tuo locale</div>
+          <h1 className="brand">Core <span>a Core</span></h1>
         </div>
         <div className="streak" title="Giorni di fila">🔥 {save.streakDays}</div>
       </header>
@@ -89,13 +123,15 @@ export function Home({ cat, setCat, start }: { cat: Category | 'all'; setCat: (c
         <small>8 clienti, 3 vite: prepara gli ordini prima che se ne vadano!</small>
       </button>
       <div className="grid2">
-        <button className="btn tile rush" onClick={() => { sfx.tap(); setShop(true); }}>👨‍🍳<b>Guardaroba</b><small>🪙 {save.coins} da spendere</small></button>
+        <button className="btn tile rush" onClick={() => { sfx.tap(); setBuild(true); }}>🏗️<b>Costruisci</b><small>🪙 {save.coins} · {totalBuilt(save.build)}/{totalMax} migliorie</small></button>
         <button className="btn tile learn" disabled={!pool.length} onClick={() => go('learn')}>📖<b>Ricettario</b><small>Schede da ripassare</small></button>
       </div>
+      <button className="btn tile wide wardrobe" onClick={() => { sfx.tap(); setShop(true); }}>👨‍🍳 <b>Guardaroba del cuoco</b></button>
       <button className="btn tile focus wide" disabled={!pool.length} onClick={() => go('focus')}>
         🩹 <b>Turno punti deboli</b><small>Solo i 5 piatti dove sbagli di più</small>
       </button>
       {shop && <Shop onClose={() => setShop(false)} />}
+      {build && <Build onClose={() => setBuild(false)} />}
     </div>
   );
 }
