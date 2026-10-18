@@ -3,6 +3,7 @@ import { useApp } from '../store';
 import { CATEGORIES, catOf } from '../lib/data';
 import type { Category, Dish } from '../lib/types';
 import { cap } from '../lib/emoji';
+import { Ing } from '../components/Ing';
 
 const slug = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'piatto';
 
@@ -59,6 +60,13 @@ export function Settings() {
   const [edit, setEdit] = useState<Dish | 'new' | null>(null);
   const [io, setIo] = useState('');
   const [msg, setMsg] = useState('');
+  const [filter, setFilter] = useState<Category | 'all'>('all');
+  const [showIngs, setShowIngs] = useState(false);
+  const allIngs = (() => {
+    const m = new Map<string, number>();
+    app.save.dishes.forEach((d) => d.ingredients.forEach((i) => { const k = i.trim().toLowerCase(); m.set(k, (m.get(k) ?? 0) + 1); }));
+    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0], 'it'));
+  })();
   const toVerify = app.save.dishes.filter((d) => d.verify).length;
 
   return (
@@ -82,7 +90,16 @@ export function Settings() {
       {toVerify > 0 && (
         <div className="card warn sm">⚠️ Ho letto le ricette da una foto scritta a mano: i piatti con ⚠️ ({toVerify}) hanno parti tagliate o poco leggibili. Controllali e correggili!</div>
       )}
+      <div className="chips">
+        <button className={`chip ${filter === 'all' ? 'sel' : ''}`} onClick={() => setFilter('all')}>Tutti ({app.save.dishes.length})</button>
+        {CATEGORIES.map((c) => (
+          <button key={c.id} className={`chip ${filter === c.id ? 'sel' : ''}`} onClick={() => setFilter(c.id)}>
+            {c.emoji} {c.name} ({app.save.dishes.filter((d) => d.category === c.id).length})
+          </button>
+        ))}
+      </div>
       {CATEGORIES.map((c) => {
+        if (filter !== 'all' && filter !== c.id) return null;
         const list = app.save.dishes.filter((d) => d.category === c.id);
         if (!list.length) return null;
         return (
@@ -97,6 +114,20 @@ export function Settings() {
           </section>
         );
       })}
+
+      <h3 className="h3">Ingredienti</h3>
+      <section className="card">
+        <button className="btn ghost wide" onClick={() => setShowIngs((v) => !v)}>
+          {showIngs ? 'Nascondi' : 'Mostra'} lista ingredienti ({allIngs.length})
+        </button>
+        {showIngs && (
+          <div className="chips">
+            {allIngs.map(([name, n]) => (
+              <span key={name} className="chip"><Ing name={name} /> {cap(name)} <span className="muted sm">×{n}</span></span>
+            ))}
+          </div>
+        )}
+      </section>
 
       <h3 className="h3">Dati</h3>
       <section className="card">
