@@ -94,6 +94,7 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
   const gr = useRef<G>(initial(3 + lvlOf(app.save.build, 'frigo')));
   const [g, setG] = useState<G>(gr.current);
   const reported = useRef(false);
+  const serveRef = useRef<() => void>(() => {});
   const [best, setBest] = useState(false);
   const startLvl = useRef(levelOf(app.save.xp));
   const skin = SKINS.find((s) => s.id === app.save.skin) ?? SKINS[0];
@@ -119,7 +120,12 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
     const diff = Math.max(0.55, 1 - (levelOf(xp) - 1) * 0.04);
     const max = Math.round((24 + dish.ingredients.length * 2.5 + (hint === 'full' ? 8 : 0)) * 1000 * diff * (1 + 0.1 * lvlOf(appRef.current.save.build, 'forno')));
     const q = makeQuestion(dish, dishes, 'build');
-    const c: Cust = { id: g.uid, look: randomLook(), dish, hint, slot, left: max, max, plate: [], tray: q.kind === 'build' ? q.options : dish.ingredients, peeked: false, state: 'in', t: 0 };
+    let trayOpts = q.kind === 'build' ? q.options : dish.ingredients;
+    const wrongOnes = trayOpts.filter((o) => !dish.ingredients.map(norm).includes(norm(o)));
+    const drop = Math.min(2 * lvlOf(appRef.current.save.build, 'mise'), Math.max(0, wrongOnes.length - 1));
+    const gone = new Set(wrongOnes.slice(0, drop));
+    trayOpts = trayOpts.filter((o) => !gone.has(o));
+    const c: Cust = { id: g.uid, look: randomLook(), dish, hint, slot, left: max, max, plate: [], tray: trayOpts, peeked: false, state: 'in', t: 0 };
     const ng: G = { ...g, uid: g.uid + 1, customers: [...g.customers, c], spawned: g.spawned + 1, lastIds: [...g.lastIds, dish.id], nextSpawn: Math.max(3500, 5500 + Math.random() * 3000 - g.spawned * 250) };
     return ng;
   };
@@ -156,11 +162,12 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
     const customers: Cust[] = [];
     for (const c of g.customers) {
       const n = { ...c, t: c.t + dt };
+      const slow = c.id === g.selected ? 1 : 1 - 0.15 * lvlOf(appRef.current.save.build, 'garzone');
       if (n.state === 'in') {
-        n.left -= dt;
+        n.left -= dt * slow;
         if (n.t >= 750) { n.state = 'wait'; n.t = 0; }
       } else if (n.state === 'wait') {
-        n.left -= dt;
+        n.left -= dt * slow;
         if (n.left <= 0 && !timedOut) timedOut = n;
       } else if (n.t >= 950) continue;
       customers.push(n);
@@ -207,6 +214,9 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
     const has = c.plate.includes(ing);
     const plate = has ? c.plate.filter((x) => x !== ing) : [...c.plate, ing];
     commit({ ...g0, pose: 'work', poseT: 350, customers: g0.customers.map((x) => (x.id === c.id ? { ...x, plate } : x)) });
+    if (lvlOf(appRef.current.save.build, 'campanello') > 0 && plate.length === c.dish.ingredients.length && c.dish.ingredients.every((i) => plate.map(norm).includes(norm(i)))) {
+      setTimeout(() => serveRef.current(), 220);
+    }
   };
 
   const clearPlate = () => {
@@ -255,13 +265,15 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
     let n: G = {
       ...g0, score: g0.score + pts, coins: g0.coins + coins, combo, bestCombo: Math.max(g0.bestCombo, combo), served: g0.served + 1,
       pose: 'cheer', poseT: 900, levelUp: leveled,
-      customers: g0.customers.map((x) => (x.id === c.id ? { ...x, state: 'happy', t: 0 } : x)),
+      customers: g0.customers.map((x) => (x.id === c.id ? { ...x, state: 'happy', t: 0 } : x.state === 'wait' || x.state === 'in' ? { ...x, left: Math.min(x.max, x.left + 1500 * lvlOf(b, 'cronometro')) } : x)),
     };
     n = addPop(n, `+${pts}`, 'gain', c.slot);
     n = addPop(n, !c.peeked && c.hint === 'none' ? '🧠 A MEMORIA!' : frac > 0.6 ? '⚡ VELOCE!' : '✨ PERFETTO!', 'hype', c.slot);
     if (combo >= 3) n = addPop(n, `🔥 COMBO x${combo}`, 'combo', c.slot);
     commit(n);
   };
+
+  serveRef.current = serve;
 
   const closeOverlay = () => {
     sfx.tap();
