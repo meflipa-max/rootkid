@@ -53,6 +53,12 @@ export const sfx = {
     }
     vib([40, 30, 60]);
   },
+  coin() {
+    if (flags.sound) {
+      tone(988, 0, 0.07, 'square', 0.05);
+      tone(1319, 0.07, 0.16, 'square', 0.05);
+    }
+  },
   win() {
     if (flags.sound) [523, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.1, 0.25, 'triangle', 0.15));
     vib([30, 40, 30, 40, 80]);

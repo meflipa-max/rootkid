@@ -22,6 +22,11 @@ const fresh = (): Save => ({
   todayDate: today(),
   bestRush: 0,
   bestCombo: 0,
+  coins: 0,
+  bestShift: 0,
+  shifts: 0,
+  skins: ['classic'],
+  skin: 'classic',
   settings: { sound: true, haptics: true, dailyGoal: 20 },
 });
 
@@ -48,7 +53,9 @@ interface Ctx {
   save: Save;
   record(dishId: string, correct: boolean, missed: string[], xp: number): RecordResult;
   addXp(xp: number): void;
-  reportRush(score: number, combo: number): boolean;
+  reportShift(score: number, coins: number, combo: number): boolean;
+  buySkin(id: string, cost: number): boolean;
+  selectSkin(id: string): void;
   saveDish(d: Dish): void;
   deleteDish(id: string): void;
   resetRecipes(): void;
@@ -127,11 +134,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
       addXp(xp) {
         commit({ ...ref.current, xp: ref.current.xp + xp });
       },
-      reportRush(score, combo) {
+      reportShift(score, coins, combo) {
         const s = ref.current;
-        const isNew = score > s.bestRush;
-        commit({ ...s, bestRush: Math.max(s.bestRush, score), bestCombo: Math.max(s.bestCombo, combo) });
+        const isNew = score > s.bestShift;
+        commit({ ...s, coins: s.coins + coins, shifts: s.shifts + 1, bestShift: Math.max(s.bestShift, score), bestCombo: Math.max(s.bestCombo, combo) });
         return isNew;
+      },
+      buySkin(id, cost) {
+        const s = ref.current;
+        if (s.skins.includes(id) || s.coins < cost) return false;
+        commit({ ...s, coins: s.coins - cost, skins: [...s.skins, id], skin: id });
+        return true;
+      },
+      selectSkin(id) {
+        if (ref.current.skins.includes(id)) commit({ ...ref.current, skin: id });
       },
       saveDish(d) {
         const s = ref.current;
@@ -149,7 +165,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       },
       resetStats() {
         const f = fresh();
-        commit({ ...ref.current, stats: {}, xp: 0, totalAnswered: 0, totalCorrect: 0, streakDays: 0, lastDay: '', todayCount: 0, bestRush: 0, bestCombo: 0, todayDate: f.todayDate });
+        commit({ ...ref.current, stats: {}, xp: 0, totalAnswered: 0, totalCorrect: 0, streakDays: 0, lastDay: '', todayCount: 0, bestShift: 0, bestCombo: 0, coins: 0, shifts: 0, todayDate: f.todayDate });
       },
       setSettings(p) {
         commit({ ...ref.current, settings: { ...ref.current.settings, ...p } });

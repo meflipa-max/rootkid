@@ -26,7 +26,7 @@ export function Stats({ focus }: { focus: () => void }) {
         <div className="kv">
           <div><b>{mastered}</b>/{rows.length} piatti padroneggiati</div>
           <div><b>{save.totalAnswered}</b> risposte · <b>{Math.round(acc * 100)}%</b> giuste</div>
-          <div>🔥 serie {save.streakDays} gg · ⚡ record {save.bestRush}</div>
+          <div>🔥 serie {save.streakDays} gg · ⚡ record turno {save.bestShift}</div>
         </div>
       </section>
 

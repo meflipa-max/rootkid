@@ -4,8 +4,7 @@ import type { Category, Dish } from './lib/types';
 import { Home, type Mode } from './screens/Home';
 import { Stats } from './screens/Stats';
 import { Settings } from './screens/Settings';
-import { Session } from './screens/Session';
-import { Rush } from './screens/Rush';
+import { Game } from './screens/Game';
 import { Learn } from './screens/Learn';
 import { mastery, weight } from './lib/mastery';
 import { sfx } from './lib/fx';
@@ -30,9 +29,8 @@ function Shell() {
 
   if (run) {
     const key = run.n;
-    if (run.mode === 'rush') return <Rush key={key} pool={run.pool} onExit={exit} />;
     if (run.mode === 'learn') return <Learn key={key} pool={run.pool} onExit={exit} />;
-    return <Session key={key} pool={run.pool} count={run.mode === 'focus' ? 8 : 10} title={run.mode === 'focus' ? 'Punti deboli' : 'Allenamento'} onExit={exit} />;
+    return <Game key={key} pool={run.pool} title={run.mode === 'focus' ? 'Punti deboli' : 'Turno'} onExit={exit} />;
   }
 
   const weakPool = () => {

@@ -39,5 +39,10 @@ export interface Save {
   todayDate: string;
   bestRush: number;
   bestCombo: number;
+  coins: number;
+  bestShift: number;
+  shifts: number;
+  skins: string[];
+  skin: string;
   settings: Settings;
 }
