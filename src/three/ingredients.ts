@@ -156,6 +156,7 @@ const CREAMS: Record<string, string> = {
   balsamico: '#3a1f14',
   smarzano: '#c8301f',
   pgiallo: '#f0b93a',
+  spomodoro: '#d33a2a',
 };
 
 /** fettine tonde un po' sovrapposte (salumi, verdure) */

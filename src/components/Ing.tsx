@@ -14,6 +14,7 @@ const KEYS: [RegExp, string][] = [
   [/glassa|balsamico/, 'balsamico'],
   [/san marzano/, 'smarzano'],
   [/pelato giallo/, 'pgiallo'],
+  [/salsa di pomodoro/, 'spomodoro'],
   [/anelli/, 'anelli'],
   [/crocchett/, 'crocchette'],
   [/panzerott/, 'calzoncini'],

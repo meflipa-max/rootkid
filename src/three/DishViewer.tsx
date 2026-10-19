@@ -14,7 +14,7 @@ import { EnvLight, GL_PROPS } from './look';
 
 function Exploded({ items, cat, spin }: { items: string[]; cat: string; spin: React.MutableRefObject<{ a: number; v: number; drag: boolean }> }) {
   const { out, baseKey, top, stacked } = useMemo(() => layoutDish(items, cat), [items, cat]);
-  const objs = useMemo(() => out.map((o) => buildIng(o.name, true).obj), [out]);
+  const objs = useMemo(() => out.map((o) => buildIng(o.model, true).obj), [out]);
   const base = useMemo(() => (baseKey ? buildIng(baseKey, true).obj : null), [baseKey]);
   const lid = useMemo(() => (cat === 'hamburger' ? buildIng('buntop', true).obj : null), [cat]);
   const rot = useRef<THREE.Group>(null);

@@ -152,7 +152,7 @@ function Plate({ items, cat, onRemove }: { items: string[]; cat: string | null; 
       <group position={[0, 0.05, 0]}>
         {base && <primitive object={base} scale={cat === 'ciotola' ? 1 : 1.05} />}
         {out.map((o, i) => (
-          <Drop key={`${o.name}|${i}`} name={o.name} at={o.at} scale={o.scale} onPick={() => onRemove(o.name)} />
+          <Drop key={`${o.name}|${i}`} name={o.model} at={o.at} scale={o.scale} onPick={() => onRemove(o.name)} />
         ))}
       </group>
     </group>
@@ -183,7 +183,7 @@ function Flight({ f, done }: { f: { e: Extract<StageEvent, { type: 'serve' }>; t
   const g = useRef<THREE.Group>(null);
   const top = useRef<THREE.Group>(null);
   const { out, baseKey, top: topY } = useMemo(() => layoutDish(f.e.items, f.e.cat), [f]);
-  const objs = useMemo(() => out.map((o) => buildIng(o.name, true).obj), [out]);
+  const objs = useMemo(() => out.map((o) => buildIng(o.model, true).obj), [out]);
   const base = useMemo(() => (baseKey ? buildIng(baseKey, true).obj : null), [baseKey]);
   const lid = useMemo(() => (f.e.cat === 'hamburger' ? buildIng('buntop', true).obj : null), [f]);
   const [coins, setCoins] = useState(false);

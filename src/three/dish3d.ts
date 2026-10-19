@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BASE_OF, STACKED, buildIng, isSpread } from './ingredients';
+import { BASE_OF, STACKED, buildIng, isSpread, parseIng } from './ingredients';
 
 /** Come si compone un piatto in 3D: base della categoria + ingredienti impilati (panini) o sparsi (pizze, ciotole, cestini). */
 
@@ -15,6 +15,8 @@ export function heightOf(name: string) {
 
 export interface Placed {
   name: string;
+  /** il modello da disegnare: di solito il nome, ma sulla pizza il pomodoro è salsa, non fette */
+  model: string;
   at: [number, number, number];
   scale: number;
 }
@@ -23,10 +25,11 @@ export function layoutDish(items: string[], cat: string | null): { out: Placed[]
   const baseKey = cat ? BASE_OF[cat] : null;
   const baseH = baseKey ? heightOf(baseKey) * (baseKey === 'ciotola' ? 0.75 : 1) : 0;
   const out: Placed[] = [];
+  const look = (n: string) => (baseKey === 'pizza' && parseIng(n).key === 'pomodoro' && !/pomodorini/i.test(n) ? 'salsa di pomodoro' : n);
   if (cat && STACKED.has(cat)) {
     let y = baseH;
     items.forEach((n, i) => {
-      out.push({ name: n, at: [Math.sin(i * 2.7) * 0.03, y, Math.cos(i * 1.9) * 0.03], scale: 1 });
+      out.push({ name: n, model: n, at: [Math.sin(i * 2.7) * 0.03, y, Math.cos(i * 1.9) * 0.03], scale: 1 });
       y += heightOf(n) * 0.92;
     });
     return { out, baseKey, top: y, stacked: true };
@@ -34,16 +37,16 @@ export function layoutDish(items: string[], cat: string | null): { out: Placed[]
   let ys = baseH;
   let k = 0;
   items.forEach((n) => {
-    if (isSpread(n)) {
-      out.push({ name: n, at: [0, ys, 0], scale: cat === 'dolci' ? 1.1 : 0.9 });
+    if (isSpread(look(n))) {
+      out.push({ name: n, model: look(n), at: [0, ys, 0], scale: cat === 'dolci' ? 1.1 : 0.9 });
       ys += 0.03;
     }
   });
   items.forEach((n) => {
-    if (isSpread(n)) return;
+    if (isSpread(look(n))) return;
     const a = k * 2.4;
     const r = k === 0 && items.length === 1 ? 0 : 0.14 + 0.07 * (k % 3);
-    out.push({ name: n, at: [Math.cos(a) * r, ys + (k >= 6 ? 0.08 : 0), Math.sin(a) * r], scale: items.length > 3 ? 0.7 : 0.85 });
+    out.push({ name: n, model: n, at: [Math.cos(a) * r, ys + (k >= 6 ? 0.08 : 0), Math.sin(a) * r], scale: items.length > 3 ? 0.7 : 0.85 });
     k++;
   });
   return { out, baseKey, top: ys, stacked: false };
@@ -55,7 +58,7 @@ export function buildDish(items: string[], cat: string | null): THREE.Group {
   const { out, baseKey, top } = layoutDish(items, cat);
   if (baseKey) g.add(buildIng(baseKey, true).obj);
   for (const o of out) {
-    const m = buildIng(o.name, true).obj;
+    const m = buildIng(o.model, true).obj;
     m.position.set(...o.at);
     m.scale.setScalar(o.scale);
     g.add(m);
