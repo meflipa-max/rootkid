@@ -84,4 +84,4 @@ export const MISSION_ICON: Record<string, string> = {
   serve: 'store', memory: 'brain', combo: 'flame', shifts: 'clock', stars3: 'star', revenge: 'refresh', guess: 'help', cards: 'book', vip: 'crown',
 };
 /** icona 3D di ogni categoria: il render di un ingrediente simbolo */
-export const CAT_ING: Record<string, string> = { hamburger: 'bun', insalatone: 'insalata', focacce: 'focaccia', dolci: 'nutella', fritti: 'patatine' };
+export const CAT_ING: Record<string, string> = { hamburger: 'bun', insalatone: 'insalata', focacce: 'focaccia', classiche: 'pomodoro', speciali: 'funghi porcini', dolci: 'nutella', fritti: 'patatine' };

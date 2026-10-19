@@ -4,6 +4,8 @@ export const CATEGORIES: { id: Category; name: string; emoji: string; color: str
   { id: 'hamburger', name: 'Hamburger', emoji: '🍔', color: '#c65a3c' },
   { id: 'insalatone', name: 'Insalatone', emoji: '🥗', color: '#6f9a6a' },
   { id: 'focacce', name: 'Focacce', emoji: '🥪', color: '#e3a83a' },
+  { id: 'classiche', name: 'Pizze classiche', emoji: '🍕', color: '#b8432f' },
+  { id: 'speciali', name: 'Pizze speciali', emoji: '⭐', color: '#4f7f6a' },
   { id: 'dolci', name: 'Pizze dolci', emoji: '🍫', color: '#8a6aa0' },
   { id: 'fritti', name: 'Friggitoria', emoji: '🍟', color: '#5b8db8' },
 ];
@@ -18,7 +20,7 @@ const d = (
   verify = false,
 ): Dish => ({ id, name, category, ingredients, ...(verify ? { verify } : {}) });
 
-export const MENU_VERSION = 2;
+export const MENU_VERSION = 3;
 
 /** vecchie ricette di default, per aggiornarle nei salvataggi solo se l'utente non le ha modificate */
 export const OLD_DEFAULTS: Record<string, string[]> = {
@@ -45,6 +47,42 @@ export const DEFAULT_DISHES: Dish[] = [
   d('italiana', 'Italiana', 'focacce', ['crudo', 'fior di latte', 'rucola', 'pomodori', 'grana', 'olio']),
   d('sfiziosa', 'Sfiziosa', 'focacce', ['porchetta di Ariccia', 'pomodori secchi', 'crema di funghi', 'patate saltate', 'valeriana']),
   d('hot-dog', 'Hot Dog', 'focacce', ['würstel', 'cheddar', 'bacon', 'cipolla croccante', 'insalata', 'salsa hamburger']),
+  // Pizze classiche (dal menu stampato)
+  d('pz-margherita', 'Margherita', 'classiche', ['pomodoro', 'fior di latte', 'olive']),
+  d('pz-diavola', 'Diavola', 'classiche', ['pomodoro', 'fior di latte', 'salamino piccante', 'olive leccine']),
+  d('pz-napoli', 'Napoli', 'classiche', ['pomodoro', 'fior di latte', 'acciughe', 'capperi', 'olive leccine']),
+  d('pz-bufala', 'Bufala', 'classiche', ['pomodoro', 'Bufala DOP']),
+  d('pz-fume', 'Fumè', 'classiche', ['pomodoro', 'fior di latte', 'scamorza affumicata', 'pancetta']),
+  d('pz-tonno-cipolla', 'Tonno e cipolla', 'classiche', ['pomodoro', 'fior di latte', 'filetto di tonno', 'cipolla', 'olive leccine']),
+  d('pz-pata-wurstel', 'Pata-würstel', 'classiche', ['pomodoro', 'fior di latte', 'patatine fritte', 'würstel']),
+  d('pz-cotto-funghi', 'Cotto e funghi', 'classiche', ['pomodoro', 'fior di latte', 'prosciutto cotto', 'funghi']),
+  d('pz-caprese', 'Caprese', 'classiche', ['fior di latte', 'pomodorini freschi', 'rucola', 'Grana Padano DOP']),
+  d('pz-italiana', 'Italiana', 'classiche', ['pomodoro', 'fior di latte', 'crudo', 'Grana Padano DOP', 'rucola']),
+  d('pz-quattro-stagioni', 'Quattro stagioni', 'classiche', ['pomodoro', 'fior di latte', 'prosciutto cotto', 'funghi', 'carciofi']),
+  d('pz-vegetariana', 'Vegetariana', 'classiche', ['pomodoro', 'fior di latte', 'melanzane', 'peperoni', 'zucchine']),
+  d('pz-salsiccia-friarielli', 'Salsiccia e friarielli', 'classiche', ['pomodoro', 'fior di latte', 'salsiccia', 'friarielli']),
+  d('pz-quattro-formaggi', 'Quattro formaggi', 'classiche', ['pomodoro', 'fior di latte', 'Emmenthal', 'Gorgonzola', 'Grana Padano DOP']),
+  d('pz-principessa', 'Principessa', 'classiche', ['fior di latte', 'bresaola', 'rucola', 'Grana Padano DOP']),
+  d('pz-core-a-core', 'Core a core', 'classiche', ['pomodoro', 'Bufala DOP', 'funghi porcini']),
+  // Pizze speciali ("Del mese" cambia ogni mese: non è una ricetta da imparare)
+  d('pz-boscaiola', 'Boscaiola', 'speciali', ['fior di latte', 'crema di funghi', 'funghi misti', 'funghi freschi']),
+  d('pz-bologna', 'Bologna', 'speciali', ['pomodoro', 'fior di latte', 'stracciatella', 'Mortadella IGP', 'granella di pistacchio']),
+  d('pz-alpina', 'Alpina', 'speciali', ['pomodoro', 'fior di latte', 'speck', 'crema al gorgonzola', 'noci']),
+  d('pz-panzerottina', 'Panzerottina', 'speciali', ['pomodoro', 'fior di latte', 'burrata', 'spianata piccante', 'panzerotti di patate']),
+  d('pz-selvatica', 'Selvatica', 'speciali', ['pomodoro', 'fior di latte', 'capocollo di Martina Franca', 'stracciatella', 'valeriana', 'noci']),
+  d('pz-scoglio', 'Scoglio', 'speciali', ['fior di latte', 'gamberetti', 'salmone', 'chips di zucchine impanate']),
+  d('pz-autunno', 'Autunno', 'speciali', ['crema di zucca', 'fior di latte', 'salsiccia di Norcia', 'patate al forno', 'provola']),
+  d('pz-paesana', 'Paesana', 'speciali', ['fior di latte', 'pomodorini scattarisciati', 'frigitelli piccanti fritti', 'capocollo di Martina Franca', 'basilico']),
+  d('pz-romantica', 'Romantica', 'speciali', ['fior di latte', 'crocchette di patate', 'melanzane fritte', 'porchetta di Ariccia', 'peperoncino piccante']),
+  d('pz-romana', 'Romana', 'speciali', ['crema cacio e pepe', 'fior di latte', 'guanciale croccante']),
+  d('pz-extra-regina', 'Extra Regina', 'speciali', ['San Marzano DOP', 'fior di latte', 'Parmigiano Reggiano', 'olio', 'basilico']),
+  d('pz-estate', 'Estate', 'speciali', ['pelato giallo', 'fior di latte', 'capocollo di Martina Franca', 'mandorle', 'burrata', 'basilico']),
+  d('pz-re-ciccia', 'Re ciccia', 'speciali', ['pomodoro', 'fior di latte', 'polpette di carne fritte', 'patate al forno', 'provola']),
+  d('pz-ciociara', 'Ciociara', 'speciali', ['fior di latte', 'cicoria', 'salsiccia di Norcia', 'funghi porcini', 'provola']),
+  d('pz-travolgente', 'Travolgente', 'speciali', ['pomodoro', 'fior di latte', 'funghi porcini panati fritti', 'pancetta coppata', 'radicchio julienne', 'glassa di aceto balsamico']),
+  d('pz-principino', 'Principino', 'speciali', ['mozzarella di bufala', 'pesto di basilico', 'mortadella', 'julienne di zucchine fritte', 'scaglie di cacioricotta'], true),
+  d('pz-core-roll', 'Core roll', 'speciali', ['mozzarella', 'crema di radicchio e speck', 'speck', 'provola', 'burrata', 'mandorle']),
+  d('pz-inaspettata', 'Inaspettata (veg)', 'speciali', ['crema di zucchine', 'spinaci', 'funghi porcini', 'mandorle']),
   // Pizze dolci
   d('bacio', 'Pizza Bacio', 'dolci', ['nutella']),
   d('bueno', 'Pizza Bueno', 'dolci', ['nutella', 'nutella bianca', 'kinder bueno', 'granella di nocciola']),
@@ -60,7 +98,7 @@ export const DEFAULT_DISHES: Dish[] = [
   d('panzerotti', 'Panzerotti', 'fritti', ['11 pezzi']),
 ];
 
-/** ingredienti delle pizze del menu (le pizze non sono ancora piatti dell'app): compaiono solo nella lista ingredienti */
+/** ingredienti delle pizze del menu, tenuti anche nella lista ingredienti col filtro Pizze */
 export const PIZZA_INGREDIENTS: string[] = [
   'pomodoro', 'pelato giallo', 'San Marzano DOP', 'fior di latte', 'mozzarella di bufala', 'Bufala DOP', 'olive', 'olive leccine',
   'salamino piccante', 'acciughe', 'capperi', 'scamorza affumicata', 'pancetta', 'filetto di tonno', 'cipolla', 'patatine fritte',

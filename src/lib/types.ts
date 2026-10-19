@@ -1,4 +1,4 @@
-export type Category = 'hamburger' | 'insalatone' | 'focacce' | 'dolci' | 'fritti';
+export type Category = 'hamburger' | 'insalatone' | 'focacce' | 'classiche' | 'speciali' | 'dolci' | 'fritti';
 
 export interface Dish {
   id: string;

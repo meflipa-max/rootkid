@@ -744,7 +744,7 @@ export function DishPic({ dish, className = '' }: { dish: { ingredients: string[
   return <DishPic3D dish={dish} className={className} />;
 }
 
-const CAT_FALLBACK: Record<string, string> = { hamburger: 'hamburger', insalatone: 'insalata', focacce: 'cotoletta', dolci: 'nutella', fritti: 'patatine' };
+const CAT_FALLBACK: Record<string, string> = { hamburger: 'hamburger', insalatone: 'insalata', focacce: 'cotoletta', classiche: 'pomodoro', speciali: 'funghi porcini', dolci: 'nutella', fritti: 'patatine' };
 
 function DishPic3D({ dish, className }: { dish: { ingredients: string[]; category: string }; className: string }) {
   const url = useDishThumb(dish.ingredients, dish.category);

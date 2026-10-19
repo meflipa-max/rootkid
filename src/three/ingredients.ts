@@ -572,6 +572,6 @@ export function buildIng(name: string, layer = false): { obj: THREE.Group; h: nu
 }
 
 /** base del piatto per ogni categoria */
-export const BASE_OF: Record<string, string> = { hamburger: 'bunbase', focacce: 'focaccia', insalatone: 'ciotola', dolci: 'pizza', fritti: 'cestino' };
+export const BASE_OF: Record<string, string> = { hamburger: 'bunbase', focacce: 'focaccia', insalatone: 'ciotola', classiche: 'pizza', speciali: 'pizza', dolci: 'pizza', fritti: 'cestino' };
 /** le categorie dove gli ingredienti si impilano (panini) invece di spargersi */
 export const STACKED = new Set(['hamburger', 'focacce']);
