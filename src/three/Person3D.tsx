@@ -3,7 +3,7 @@ import { createPortal } from '@react-three/fiber';
 import { useAnimations, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { SkeletonUtils } from 'three-stdlib';
-import { Apron, Crown, PersonMesh, type Pose3 } from './PersonMesh';
+import { Crown, PersonMesh, type Pose3 } from './PersonMesh';
 import type { Look, Mood } from '../components/Person';
 import type { ChefSkin } from '../lib/skins';
 
@@ -85,7 +85,6 @@ function PersonGLB({ look, pose = 'idle', chef, crown, seed = 0 }: PersonProps) 
   }, [model]);
 
   const head = useMemo(() => model.getObjectByName('head'), [model]);
-  const torso = useMemo(() => model.getObjectByName('torso'), [model]);
   const { actions } = useAnimations(animations, root);
 
   useLayoutEffect(() => {
@@ -112,14 +111,6 @@ function PersonGLB({ look, pose = 'idle', chef, crown, seed = 0 }: PersonProps) 
             {crown && !chef && <Crown position={[0, 0.37, -0.02]} rotation={[-0.18, 0, 0.12]} />}
           </group>,
           head,
-        )}
-      {torso &&
-        chef &&
-        createPortal(
-          <group scale={1 / k}>
-            <Apron color={chef.apron} position={[0, -0.04, 0.17]} scale={1.15} />
-          </group>,
-          torso,
         )}
     </group>
   );

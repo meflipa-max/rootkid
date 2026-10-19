@@ -127,6 +127,9 @@ for poly in head.data.polygons:
     # anche la fascia chiara degli occhi del modello: gli occhi ora sono quelli dietro gli occhiali
     if is_skin(c) or (min(c) > 0.45 and c[2] >= c[0] - 0.05):
         poly.material_index = 1
+    # Giuseppe è quasi calvo: sotto al berretto niente capelli, solo pelle (la faccia la copre la maschera)
+    elif max(c) < 0.35:
+        poly.material_index = 1
 
 # --- accessori agganciati all'osso della testa -------------------------------------------
 hb = [head.matrix_world @ Vector(c) for c in head.bound_box]
@@ -164,7 +167,7 @@ def add(kind, **kw):
 
 # berretto: calotta + visiera dietro la nuca
 cap = add('uv_sphere', segments=24, ring_count=12, radius=1, location=(cx, cy, lo.z + sz * 0.62))
-cap.scale = (sx * 0.53, sy * 0.55, sz * 0.5)
+cap.scale = (sx * 0.6, sy * 0.66, sz * 0.56)
 bpy.ops.object.mode_set(mode='EDIT')
 bm = bmesh.from_edit_mesh(cap.data)
 bmesh.ops.delete(bm, geom=[v for v in bm.verts if v.co.z < -0.05], context='VERTS')
