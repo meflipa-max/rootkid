@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three-stdlib';
 import { keyOf } from '../components/Ing';
 
 /**
@@ -10,15 +11,16 @@ import { keyOf } from '../components/Ing';
 type V3 = [number, number, number];
 
 const mats = new Map<string, THREE.MeshStandardMaterial>();
-export function mat(color: string, o: { e?: number; r?: number; smooth?: boolean; op?: number } = {}) {
-  const k = `${color}|${o.e ?? 0}|${o.r ?? 0.82}|${o.smooth ? 1 : 0}|${o.op ?? 1}`;
+/** materiale opaco "da giocattolo": liscio di default, sfaccettato solo dove serve (alberi, rocce, briciole) */
+export function mat(color: string, o: { e?: number; r?: number; flat?: boolean; op?: number; m?: number } = {}) {
+  const k = `${color}|${o.e ?? 0}|${o.r ?? 0.85}|${o.flat ? 1 : 0}|${o.op ?? 1}|${o.m ?? 0}`;
   let m = mats.get(k);
   if (!m) {
     m = new THREE.MeshStandardMaterial({
       color,
-      roughness: o.r ?? 0.82,
-      metalness: 0,
-      flatShading: !o.smooth,
+      roughness: o.r ?? 0.85,
+      metalness: o.m ?? 0,
+      flatShading: !!o.flat,
       emissive: o.e ? new THREE.Color(color) : new THREE.Color(0),
       emissiveIntensity: o.e ?? 0,
       transparent: (o.op ?? 1) < 1,
@@ -42,11 +44,14 @@ export const G = {
   cyl: (r: number, h: number, seg = 10, r2 = r, theta = Math.PI * 2) =>
     geo(`c${r}|${h}|${seg}|${r2}|${theta}`, () => new THREE.CylinderGeometry(r, r2, h, seg, 1, false, 0, theta)),
   ball: (r: number, d = 1) => geo(`b${r}|${d}`, () => new THREE.IcosahedronGeometry(r, d)),
-  dome: (r: number) => geo(`d${r}`, () => new THREE.SphereGeometry(r, 10, 5, 0, Math.PI * 2, 0, Math.PI / 2)),
+  sphere: (r: number, seg = 24) => geo(`s${r}|${seg}`, () => new THREE.SphereGeometry(r, seg, Math.round(seg * 0.7))),
+  dome: (r: number) => geo(`d${r}`, () => new THREE.SphereGeometry(r, 20, 8, 0, Math.PI * 2, 0, Math.PI / 2)),
   box: (w: number, h: number, d: number) => geo(`x${w}|${h}|${d}`, () => new THREE.BoxGeometry(w, h, d)),
-  cap: (r: number, l: number) => geo(`p${r}|${l}`, () => new THREE.CapsuleGeometry(r, l, 3, 8)),
+  /** scatola con gli spigoli arrotondati: prende la luce come un giocattolo vero */
+  rbox: (w: number, h: number, d: number, r = 0.04) => geo(`r${w}|${h}|${d}|${r}`, () => new RoundedBoxGeometry(w, h, d, 3, Math.min(r, w / 2.01, h / 2.01, d / 2.01))),
+  cap: (r: number, l: number) => geo(`p${r}|${l}`, () => new THREE.CapsuleGeometry(r, l, 6, 14)),
   cone: (r: number, h: number, seg = 8) => geo(`o${r}|${h}|${seg}`, () => new THREE.ConeGeometry(r, h, seg)),
-  torus: (R: number, t: number, arc = Math.PI * 2, seg = 12) => geo(`t${R}|${t}|${arc}|${seg}`, () => new THREE.TorusGeometry(R, t, 6, seg, arc)),
+  torus: (R: number, t: number, arc = Math.PI * 2, seg = 12) => geo(`t${R}|${t}|${arc}|${seg}`, () => new THREE.TorusGeometry(R, t, 8, Math.max(seg, 16), arc)),
   dodeca: (r: number) => geo(`q${r}`, () => new THREE.DodecahedronGeometry(r, 0)),
 };
 
@@ -63,7 +68,9 @@ class B {
     return a + (b - a) * this.rnd();
   }
   add(g: THREE.BufferGeometry, c: string, p: V3 = [0, 0, 0], rot: V3 = [0, 0, 0], s: V3 = [1, 1, 1], o?: Parameters<typeof mat>[1]) {
-    const m = new THREE.Mesh(g, mat(c, o));
+    // briciole e pezzi irregolari restano sfaccettati, il resto è liscio
+    const facet = g instanceof THREE.DodecahedronGeometry || (g instanceof THREE.IcosahedronGeometry && (g.parameters.detail ?? 0) < 1);
+    const m = new THREE.Mesh(g, mat(c, { flat: facet, ...o }));
     m.position.set(...p);
     m.rotation.set(...rot);
     m.scale.set(...s);
@@ -77,7 +84,7 @@ class B {
     return this.add(G.cyl(r, h, seg, r2), c, [p[0], p[1] + (h * s[1]) / 2, p[2]], [0, 0, 0], s);
   }
   ball(r: number, c: string, p: V3, s: V3 = [1, 1, 1], d = 1) {
-    return this.add(G.ball(r, d), c, p, [0, this.r(0, 6), 0], s);
+    return this.add(d >= 1 ? G.sphere(r, 16) : G.ball(r, 0), c, p, [0, this.r(0, 6), 0], s);
   }
 }
 
@@ -142,7 +149,7 @@ const ART: Record<string, Build> = {
   patty: (b) => {
     b.cyl(0.3, 0.1, '#6b3a22', [0, 0, 0], [1, 1, 1], 12);
     b.cyl(0.26, 0.012, '#7d4529', [0, 0.1, 0], [1, 1, 1], 12);
-    for (let i = -1; i <= 1; i++) b.add(G.box(0.42, 0.012, 0.035), '#3d1f10', [i * 0.1, 0.112, 0], [0, 0.6, 0]);
+    for (let i = -1; i <= 1; i++) b.add(G.rbox(0.42, 0.012, 0.035), '#3d1f10', [i * 0.1, 0.112, 0], [0, 0.6, 0]);
     return 0.11;
   },
   veggie: (b) => {
@@ -152,7 +159,7 @@ const ART: Record<string, Build> = {
   },
   pulled: (b) => {
     b.cyl(0.27, 0.05, '#8a3f22', [0, 0, 0], [1, 1, 1], 10);
-    for (let i = 0; i < 16; i++) b.add(G.box(0.17, 0.03, 0.035), i % 2 ? '#a24a26' : '#7a3318', [b.r(-0.18, 0.18), b.r(0.06, 0.1), b.r(-0.18, 0.18)], [b.r(-0.3, 0.3), b.r(0, 3), 0]);
+    for (let i = 0; i < 16; i++) b.add(G.rbox(0.17, 0.03, 0.035), i % 2 ? '#a24a26' : '#7a3318', [b.r(-0.18, 0.18), b.r(0.06, 0.1), b.r(-0.18, 0.18)], [b.r(-0.3, 0.3), b.r(0, 3), 0]);
     return 0.11;
   },
   tenders: (b) => {
@@ -170,13 +177,13 @@ const ART: Record<string, Build> = {
   },
   kebab: (b) => {
     b.cyl(0.26, 0.04, '#7b3d1e', [0, 0, 0]);
-    for (let i = 0; i < 12; i++) b.add(G.box(0.18, 0.035, 0.05), i % 2 ? '#8c4a26' : '#a8612f', [b.r(-0.16, 0.16), b.r(0.05, 0.09), b.r(-0.16, 0.16)], [0, b.r(0, 3), b.r(-0.2, 0.2)]);
+    for (let i = 0; i < 12; i++) b.add(G.rbox(0.18, 0.035, 0.05), i % 2 ? '#8c4a26' : '#a8612f', [b.r(-0.16, 0.16), b.r(0.05, 0.09), b.r(-0.16, 0.16)], [0, b.r(0, 3), b.r(-0.2, 0.2)]);
     return 0.1;
   },
   wurstel: (b) => {
     for (const z of [-0.08, 0.08]) {
       b.add(G.cap(0.06, 0.34), '#d8735a', [0, 0.06, z], [0, z * 2, Math.PI / 2]);
-      for (let k = -1; k <= 1; k++) b.add(G.box(0.012, 0.012, 0.1), '#8e3a24', [k * 0.1, 0.12, z], [0, 0.5, 0]);
+      for (let k = -1; k <= 1; k++) b.add(G.rbox(0.012, 0.012, 0.1), '#8e3a24', [k * 0.1, 0.12, z], [0, 0.5, 0]);
     }
     return 0.12;
   },
@@ -207,15 +214,15 @@ const ART: Record<string, Build> = {
   },
   kinder: (b) => {
     for (const z of [-0.07, 0.07]) {
-      b.add(G.box(0.44, 0.07, 0.11), '#f4ede0', [0, 0.035, z], [0, z, 0]);
-      for (let k = -1; k <= 1; k++) b.add(G.box(0.1, 0.075, 0.115), '#6b3a1e', [k * 0.14, 0.036, z], [0, z, 0]);
+      b.add(G.rbox(0.44, 0.07, 0.11), '#f4ede0', [0, 0.035, z], [0, z, 0]);
+      for (let k = -1; k <= 1; k++) b.add(G.rbox(0.1, 0.075, 0.115), '#6b3a1e', [k * 0.14, 0.036, z], [0, z, 0]);
     }
     return 0.08;
   },
   tronky: (b) => {
     for (const z of [-0.07, 0.07]) {
-      b.add(G.box(0.42, 0.09, 0.11), '#d6312a', [0, 0.045, z], [0, -z, 0]);
-      b.add(G.box(0.1, 0.095, 0.115), '#fbf7ef', [0, 0.046, z], [0, -z, 0]);
+      b.add(G.rbox(0.42, 0.09, 0.11), '#d6312a', [0, 0.045, z], [0, -z, 0]);
+      b.add(G.rbox(0.1, 0.095, 0.115), '#fbf7ef', [0, 0.046, z], [0, -z, 0]);
     }
     return 0.1;
   },
@@ -224,7 +231,7 @@ const ART: Record<string, Build> = {
     return 0.06;
   },
   scaglie: (b) => {
-    for (let i = 0; i < 14; i++) b.add(G.box(0.08, 0.012, 0.05), '#f8f1de', [b.r(-0.2, 0.2), b.r(0.01, 0.05), b.r(-0.2, 0.2)], [b.r(-0.4, 0.4), b.r(0, 3), b.r(-0.4, 0.4)]);
+    for (let i = 0; i < 14; i++) b.add(G.rbox(0.08, 0.012, 0.05), '#f8f1de', [b.r(-0.2, 0.2), b.r(0.01, 0.05), b.r(-0.2, 0.2)], [b.r(-0.4, 0.4), b.r(0, 3), b.r(-0.4, 0.4)]);
     return 0.05;
   },
   nocciola: (b) => {
@@ -259,8 +266,8 @@ const ART: Record<string, Build> = {
         const x = (k - 2) * 0.09;
         const y = 0.03 + (k % 2) * 0.025;
         const rz = k % 2 ? -0.5 : 0.5;
-        b.add(G.box(0.1, 0.022, 0.1), '#b8473a', [x, y, z], [0, z, rz]);
-        b.add(G.box(0.1, 0.024, 0.03), '#f3d6c2', [x, y + 0.001, z], [0, z, rz]);
+        b.add(G.rbox(0.1, 0.022, 0.1), '#b8473a', [x, y, z], [0, z, rz]);
+        b.add(G.rbox(0.1, 0.024, 0.03), '#f3d6c2', [x, y + 0.001, z], [0, z, rz]);
       }
     }
     return 0.07;
@@ -290,10 +297,10 @@ const ART: Record<string, Build> = {
     return 0.08;
   },
   cheddar: (b) => {
-    b.add(G.box(0.46, 0.035, 0.46), '#f0a032', [0, 0.018, 0], [0, Math.PI / 4, 0]);
+    b.add(G.rbox(0.46, 0.035, 0.46), '#f0a032', [0, 0.018, 0], [0, Math.PI / 4, 0]);
     for (let i = 0; i < 4; i++) {
       const a = (i / 4) * Math.PI * 2;
-      b.add(G.box(0.08, 0.03, 0.08), '#e8961f', [Math.cos(a) * 0.31, -0.005, Math.sin(a) * 0.31], [0.3, a, 0]);
+      b.add(G.rbox(0.08, 0.03, 0.08), '#e8961f', [Math.cos(a) * 0.31, -0.005, Math.sin(a) * 0.31], [0.3, a, 0]);
     }
     return 0.04;
   },
@@ -325,7 +332,7 @@ const ART: Record<string, Build> = {
   },
   grana: (b, o) => {
     if (o.layer) {
-      for (let i = 0; i < 9; i++) b.add(G.box(0.07, 0.012, 0.04), '#f3e0a0', [b.r(-0.18, 0.18), b.r(0.01, 0.04), b.r(-0.18, 0.18)], [b.r(-0.3, 0.3), b.r(0, 3), 0]);
+      for (let i = 0; i < 9; i++) b.add(G.rbox(0.07, 0.012, 0.04), '#f3e0a0', [b.r(-0.18, 0.18), b.r(0.01, 0.04), b.r(-0.18, 0.18)], [b.r(-0.3, 0.3), b.r(0, 3), 0]);
       return 0.04;
     }
     b.add(G.cyl(0.32, 0.17, 6, 0.32, Math.PI / 3), '#f0d98a', [-0.12, 0.085, 0.1], [0, 0.5, 0]);
@@ -341,7 +348,7 @@ const ART: Record<string, Build> = {
     return 0.06;
   },
   rucola: (b) => {
-    for (let i = 0; i < 9; i++) b.add(G.box(0.26, 0.012, 0.055), i % 2 ? '#4c9a3c' : '#3c8430', [b.r(-0.05, 0.05), 0.02 + i * 0.004, b.r(-0.05, 0.05)], [0, (i / 9) * Math.PI, b.r(-0.2, 0.2)]);
+    for (let i = 0; i < 9; i++) b.add(G.rbox(0.26, 0.012, 0.055), i % 2 ? '#4c9a3c' : '#3c8430', [b.r(-0.05, 0.05), 0.02 + i * 0.004, b.r(-0.05, 0.05)], [0, (i / 9) * Math.PI, b.r(-0.2, 0.2)]);
     return 0.05;
   },
   insalata: (b, o) => {
@@ -369,13 +376,13 @@ const ART: Record<string, Build> = {
       return 0.06;
     }
     b.ball(0.17, '#d33a2a', [0, 0.15, 0], [1, 0.85, 1], 1);
-    for (let i = 0; i < 5; i++) b.add(G.box(0.1, 0.015, 0.025), '#4f9a3c', [0, 0.29, 0], [0, (i / 5) * Math.PI, 0]);
+    for (let i = 0; i < 5; i++) b.add(G.rbox(0.1, 0.015, 0.025), '#4f9a3c', [0, 0.29, 0], [0, (i / 5) * Math.PI, 0]);
     return 0.3;
   },
   pomodorini: (b) => {
     pieces(b, 3, (x, z) => {
       b.ball(0.085, '#e0402e', [x, 0.08, z], [1, 0.9, 1], 1);
-      b.add(G.box(0.05, 0.012, 0.015), '#4f9a3c', [x, 0.16, z], [0, 1, 0]);
+      b.add(G.rbox(0.05, 0.012, 0.015), '#4f9a3c', [x, 0.16, z], [0, 1, 0]);
     });
     return 0.17;
   },
@@ -408,15 +415,15 @@ const ART: Record<string, Build> = {
   },
   patatine: (b, o) => {
     if (o.layer) {
-      for (let i = 0; i < 10; i++) b.add(G.box(0.3, 0.035, 0.035), '#f2c14e', [b.r(-0.08, 0.08), 0.02 + (i % 3) * 0.03, b.r(-0.12, 0.12)], [0, b.r(0, 3), 0]);
+      for (let i = 0; i < 10; i++) b.add(G.rbox(0.3, 0.035, 0.035), '#f2c14e', [b.r(-0.08, 0.08), 0.02 + (i % 3) * 0.03, b.r(-0.12, 0.12)], [0, b.r(0, 3), 0]);
       return 0.1;
     }
-    for (let i = 0; i < 9; i++) b.add(G.box(0.035, 0.3, 0.035), '#f2c14e', [b.r(-0.08, 0.08), 0.28, b.r(-0.05, 0.05)], [b.r(-0.25, 0.25), 0, b.r(-0.25, 0.25)]);
+    for (let i = 0; i < 9; i++) b.add(G.rbox(0.035, 0.3, 0.035), '#f2c14e', [b.r(-0.08, 0.08), 0.28, b.r(-0.05, 0.05)], [b.r(-0.25, 0.25), 0, b.r(-0.25, 0.25)]);
     b.cyl(0.16, 0.26, '#d6312a', [0, 0, 0], [1, 1, 0.7], 8, 0.12);
     return 0.43;
   },
   patate: (b) => {
-    for (let i = 0; i < 9; i++) b.add(G.box(0.08, 0.08, 0.08), i % 2 ? '#e8b04a' : '#d99a3a', [b.r(-0.16, 0.16), 0.04 + (i > 5 ? 0.06 : 0), b.r(-0.16, 0.16)], [b.r(0, 3), b.r(0, 3), b.r(0, 3)]);
+    for (let i = 0; i < 9; i++) b.add(G.rbox(0.08, 0.08, 0.08), i % 2 ? '#e8b04a' : '#d99a3a', [b.r(-0.16, 0.16), 0.04 + (i > 5 ? 0.06 : 0), b.r(-0.16, 0.16)], [b.r(0, 3), b.r(0, 3), b.r(0, 3)]);
     return 0.13;
   },
   crocchette: (b, o) => {
@@ -450,14 +457,14 @@ const ART: Record<string, Build> = {
     for (let i = 0; i < 10; i++) {
       const a = b.r(0, 6.28);
       const d = b.r(0.04, 0.24);
-      b.add(G.box(0.035, 0.014, 0.018), '#fbf1d8', [Math.cos(a) * d, 0.03 + 0.204 * Math.sqrt(1 - (d / 0.34) ** 2), Math.sin(a) * d], [0, a, 0]);
+      b.add(G.rbox(0.035, 0.014, 0.018), '#fbf1d8', [Math.cos(a) * d, 0.03 + 0.204 * Math.sqrt(1 - (d / 0.34) ** 2), Math.sin(a) * d], [0, a, 0]);
     }
     return 0.24;
   },
   bun: (b) => {
     ART.bunbase(b, { layer: false, n: 1, name: '' });
     b.cyl(0.31, 0.08, '#6b3a22', [0, 0.1, 0], [1, 1, 1], 12);
-    b.add(G.box(0.44, 0.03, 0.44), '#f0a032', [0, 0.19, 0], [0, Math.PI / 4, 0]);
+    b.add(G.rbox(0.44, 0.03, 0.44), '#f0a032', [0, 0.19, 0], [0, Math.PI / 4, 0]);
     const t = new B(7);
     ART.buntop(t, { layer: false, n: 1, name: '' });
     t.g.position.y = 0.2;

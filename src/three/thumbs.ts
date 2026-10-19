@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { useSyncExternalStore } from 'react';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { buildIng, parseIng } from './ingredients';
 import { buildDish } from './dish3d';
 
@@ -37,12 +38,17 @@ function setup() {
   renderer.setPixelRatio(1);
   renderer.setSize(SIZE, SIZE, false);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.NeutralToneMapping;
+  renderer.toneMappingExposure = 1.05;
   scene = new THREE.Scene();
-  scene.add(new THREE.HemisphereLight('#fff4e2', '#a07a64', 1.6));
-  const key = new THREE.DirectionalLight('#fff1dc', 2.2);
+  const pm = new THREE.PMREMGenerator(renderer);
+  scene.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture;
+  scene.environmentIntensity = 0.7;
+  scene.add(new THREE.HemisphereLight('#fff4e2', '#a07a64', 0.8));
+  const key = new THREE.DirectionalLight('#fff1dc', 2.4);
   key.position.set(2, 4, 3);
   scene.add(key);
-  const rim = new THREE.DirectionalLight('#c9dcff', 0.7);
+  const rim = new THREE.DirectionalLight('#c9dcff', 1.0);
   rim.position.set(-3, 2, -2);
   scene.add(rim);
   camera = new THREE.PerspectiveCamera(28, 1, 0.1, 50);

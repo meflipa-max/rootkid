@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { buildIng } from './ingredients';
 import { layoutDish } from './dish3d';
 import { cap } from '../lib/emoji';
+import { EnvLight, GL_PROPS } from './look';
 
 /**
  * Il piatto del Ricettario in 3D: gira da solo (o col dito) e si "apre" strato per strato,
@@ -95,9 +96,10 @@ export function DishViewer({ items, cat }: { items: string[]; cat: string }) {
       onPointerUp={() => (spin.current.drag = false)}
       onPointerCancel={() => (spin.current.drag = false)}
     >
-      <Canvas flat dpr={[1, 1.75]} camera={{ position: [0, 0.75, 2.5], fov: 32 }} gl={{ antialias: true, alpha: true }} onCreated={({ camera }) => camera.lookAt(0, 0, 0)}>
-        <hemisphereLight args={['#fff1dc', '#9a6a52', 1.5]} />
-        <directionalLight position={[2, 4, 3]} intensity={1.9} />
+      <Canvas dpr={[1, 1.75]} camera={{ position: [0, 0.75, 2.5], fov: 32 }} gl={{ ...GL_PROPS, alpha: true }} onCreated={({ camera }) => camera.lookAt(0, 0, 0)}>
+        <EnvLight intensity={0.7} />
+        <hemisphereLight args={['#fff1dc', '#9a6a52', 0.8]} />
+        <directionalLight position={[2, 4, 3]} intensity={2.2} />
         <Exploded items={items} cat={cat} spin={spin} />
       </Canvas>
     </div>

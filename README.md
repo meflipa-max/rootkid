@@ -9,6 +9,8 @@ Stile "giocattolo low-poly": tutto è modellato in codice con three.js / React T
 - **Il locale** (`Pizzeria.tsx`): stanza, strada al tramonto che diventa sera durante il turno, e ogni miglioria come oggetto vero (forno con le fiamme, cassa, frigo, campanello, orologio, mensola, garzone, piante, quadri, luci, insegna al neon, tavolini fuori).
 - **Turno** (`Stage3D.tsx`): i clienti entrano dalla porta, aspettano, battono il piede se hanno fretta; trascini gli ingredienti sul piatto e cadono rimbalzando; il piatto pronto vola dal cliente e saltano fuori le monete. Il telefono inclinato muove la camera.
 - **Home** (`Diorama.tsx`): il locale in miniatura da girare col dito; tocchi un oggetto (o un "+") per migliorarlo e lo vedi comparire.
+- **Resa** (`look.tsx`): luce d'ambiente generata in locale, tone mapping "Neutral", ombre morbide, occlusione ambientale, bagliore su lampade e fuoco, vignettatura e una leggera correzione colore. Se il telefono non regge passa da solo alla qualità bassa (senza effetti); `?q=high` o `?q=low` nell'indirizzo la forzano.
+- **Mondo** (`World.tsx`): isola galleggiante con acqua e schiuma sulla riva, cielo dipinto con sole e nuvole, alberi, sentiero, lampioni che si accendono la sera, pontile con la barca.
 - Senza WebGL il gioco torna da solo alla versione 2D.
 
 ## Il turno

@@ -6,6 +6,8 @@ import { BASE_OF, G, buildIng, mat } from './ingredients';
 import { layoutDish } from './dish3d';
 import { Person3D, type Pose3 } from './Person3D';
 import { Lights, Pizzeria } from './Pizzeria';
+import { EnvLight, GL_PROPS, Post } from './look';
+import { skyColors } from './World';
 import { stageBus, startTilt, tilt, type StageEvent } from './bus';
 import { CHEF_LOOK, type Look, type Mood } from '../components/Person';
 import type { ChefSkin } from '../lib/skins';
@@ -145,8 +147,8 @@ function Plate({ items, cat, onRemove }: { items: string[]; cat: string | null; 
   const { out } = layoutDish(items, cat);
   return (
     <group ref={g} position={PLATE} scale={0.85}>
-      <mesh geometry={G.cyl(0.62, 0.05, 20)} material={mat('#fbf7ef', { smooth: true, r: 0.5 })} position={[0, 0.025, 0]} receiveShadow castShadow />
-      <mesh geometry={G.torus(0.6, 0.03, Math.PI * 2, 24)} material={mat('#e9dcc6', { smooth: true })} position={[0, 0.05, 0]} rotation={[Math.PI / 2, 0, 0]} />
+      <mesh geometry={G.cyl(0.62, 0.05, 20)} material={mat('#fbf7ef', { r: 0.4 })} position={[0, 0.025, 0]} receiveShadow castShadow />
+      <mesh geometry={G.torus(0.6, 0.03, Math.PI * 2, 24)} material={mat('#e9dcc6')} position={[0, 0.05, 0]} rotation={[Math.PI / 2, 0, 0]} />
       <group position={[0, 0.05, 0]}>
         {base && <primitive object={base} scale={cat === 'ciotola' ? 1 : 1.05} />}
         {out.map((o, i) => (
@@ -256,7 +258,7 @@ function Chef({ skin, pose }: { skin: ChefSkin; pose: 'idle' | 'work' | 'cheer' 
     g.current.rotation.y = THREE.MathUtils.lerp(g.current.rotation.y, target, 1 - Math.pow(0.002, dt));
   });
   return (
-    <group ref={g} position={[-0.95, 0, 1.35]} rotation={[0, Math.PI - 0.95, 0]} scale={0.95}>
+    <group ref={g} position={[-1.2, 0, 1.45]} rotation={[0, Math.PI - 0.95, 0]} scale={0.88}>
       <Person3D look={CHEF_LOOK} chef={skin} pose={pose} mood={pose === 'cheer' ? 'happy' : pose === 'sad' ? 'worried' : 'idle'} />
     </group>
   );
@@ -301,9 +303,11 @@ export function Stage3D({
 }) {
   useEffect(startTilt, []);
   return (
-    <Canvas className="stage3d" shadows flat dpr={[1, 1.75]} camera={{ position: CAM.toArray(), fov: 37, near: 0.1, far: 60 }} gl={{ antialias: true, powerPreference: 'high-performance' }}>
-      <color attach="background" args={['#2b1a3a']} />
+    <Canvas className="stage3d" shadows="soft" dpr={[1, 1.75]} camera={{ position: CAM.toArray(), fov: 37, near: 0.1, far: 150 }} gl={GL_PROPS}>
+      <fog attach="fog" args={[skyColors(night).horizon, 14, 45]} />
+      <EnvLight intensity={0.22 - night * 0.1} />
       <Lights night={night} />
+      <Post bloom={0.6 + night * 0.6} />
       <Rig fever={fever} />
       <Pizzeria build={build} night={night} />
       {customers.map((c) => <Customer key={c.id} c={c} onSelect={onSelect} />)}

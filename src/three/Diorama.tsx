@@ -3,6 +3,8 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { Html, OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { Lights, Pizzeria } from './Pizzeria';
+import { EnvLight, GL_PROPS, Post } from './look';
+import { skyColors } from './World';
 import { Person3D, type Pose3 } from './Person3D';
 import { CHEF_LOOK, type Look } from '../components/Person';
 import type { ChefSkin } from '../lib/skins';
@@ -44,8 +46,11 @@ export function Diorama({ build, skin, onPick, ghosts = [] }: { build: Record<st
     return () => io.disconnect();
   }, []);
   return (
-    <Canvas ref={ref} frameloop={vis ? 'always' : 'never'} className="diorama3d" shadows flat dpr={[1, 1.75]} camera={{ position: [9.5, 8.2, 11], fov: 27, near: 0.5, far: 80 }} gl={{ antialias: true, alpha: true }}>
+    <Canvas ref={ref} frameloop={vis ? 'always' : 'never'} className="diorama3d" shadows="soft" dpr={[1, 1.75]} camera={{ position: [10, 8.4, 12.2], fov: 30, near: 0.5, far: 200 }} gl={GL_PROPS}>
+      <fog attach="fog" args={[skyColors(0.12).horizon, 30, 90]} />
+      <EnvLight intensity={0.22} />
       <Lights night={0.12} />
+      <Post bloom={0.5} />
       <group position={[0, -0.6, 0]}>
         <Pizzeria build={build} night={0.12} cutaway onPick={onPick} />
         {ghosts.filter((g) => SPOTS[g.id]).map((g) => (
@@ -59,15 +64,17 @@ export function Diorama({ build, skin, onPick, ghosts = [] }: { build: Record<st
         </group>
       </group>
       <OrbitControls
-        target={new THREE.Vector3(0, 0.5, -0.4)}
+        target={new THREE.Vector3(0, 0.2, -0.9)}
         enablePan={false}
-        enableZoom={false}
+        enableZoom
+        minDistance={9}
+        maxDistance={24}
         enableDamping
         rotateSpeed={0.6}
-        minPolarAngle={0.75}
-        maxPolarAngle={1.2}
-        minAzimuthAngle={-0.35}
-        maxAzimuthAngle={1.25}
+        minPolarAngle={0.55}
+        maxPolarAngle={1.25}
+        minAzimuthAngle={-0.6}
+        maxAzimuthAngle={1.4}
       />
     </Canvas>
   );
@@ -84,10 +91,11 @@ function Spin({ children }: { children: React.ReactNode }) {
 /** anteprima 3D della divisa nel guardaroba */
 export function ChefPreview({ skin }: { skin: ChefSkin }) {
   return (
-    <Canvas className="chef3d" flat dpr={[1, 1.75]} camera={{ position: [0, 0.35, 3.8], fov: 30 }} gl={{ antialias: true, alpha: true }}>
-      <hemisphereLight args={['#fff1dc', '#9a6a52', 1.4]} />
-      <directionalLight position={[2, 4, 3]} intensity={1.8} />
-      <group position={[0, -0.8, 0]}>
+    <Canvas className="chef3d" dpr={[1, 1.75]} camera={{ position: [0, 0.2, 3.2], fov: 30 }} gl={{ ...GL_PROPS, alpha: true }}>
+      <EnvLight intensity={0.7} />
+      <hemisphereLight args={['#fff1dc', '#9a6a52', 0.8]} />
+      <directionalLight position={[2, 4, 3]} intensity={2.2} />
+      <group position={[0, -0.62, 0]}>
         <Spin>
           <Person3D look={CHEF_LOOK} chef={skin} pose="wave" mood="happy" />
         </Spin>

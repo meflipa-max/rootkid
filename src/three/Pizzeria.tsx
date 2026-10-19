@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
-import { G, mat } from './ingredients';
+import { G, buildIng, mat } from './ingredients';
 import { lvlOf } from '../lib/build';
 import { Person3D } from './Person3D';
+import { World } from './World';
 import type { Look } from '../components/Person';
 
 /** Il locale in miniatura: stanza, esterno al tramonto e tutte le migliorie come oggetti veri. */
@@ -11,84 +12,102 @@ import type { Look } from '../components/Person';
 type V3 = [number, number, number];
 
 function Box({ s, p, c, r, o }: { s: V3; p: V3; c: string; r?: V3; o?: Parameters<typeof mat>[1] }) {
-  return <mesh geometry={G.box(...s)} material={mat(c, o)} position={p} rotation={r} castShadow receiveShadow />;
+  return <mesh geometry={G.rbox(s[0], s[1], s[2], 0.035)} material={mat(c, o)} position={p} rotation={r} castShadow receiveShadow />;
 }
 
 const lerpC = (a: string, b: string, t: number) => new THREE.Color(a).lerp(new THREE.Color(b), t);
 
-function Sky({ night }: { night: number }) {
-  const ref = useRef<THREE.PlaneGeometry>(null);
-  useEffect(() => {
-    const g = ref.current;
-    if (!g) return;
-    const top = lerpC('#8a6bb0', '#141238', night);
-    const mid = lerpC('#f2a07a', '#3a2a5e', night);
-    const bot = lerpC('#ffd9a0', '#5a3f6e', night);
-    const pos = g.attributes.position;
-    const cols = new Float32Array(pos.count * 3);
-    for (let i = 0; i < pos.count; i++) {
-      const y = (pos.getY(i) + 7) / 14;
-      const c = y > 0.5 ? mid.clone().lerp(top, (y - 0.5) * 2) : bot.clone().lerp(mid, y * 2);
-      c.toArray(cols, i * 3);
-    }
-    g.setAttribute('color', new THREE.BufferAttribute(cols, 3));
-  }, [night]);
-  return (
-    <mesh position={[0, 4, -12]}>
-      <planeGeometry ref={ref} args={[40, 14, 1, 8]} />
-      <meshBasicMaterial vertexColors toneMapped={false} />
-    </mesh>
-  );
-}
-
-function Outside({ night, tables, bare }: { night: number; tables: number; bare?: boolean }) {
-  const houses: [number, number, number, string, number][] = [
-    [-4.6, -6.5, 2.6, '#e9b8a8', 2.2], [-2.2, -7.2, 3.4, '#bcd9c9', 2.0], [0.4, -6.6, 2.4, '#f0d59c', 2.4], [2.8, -7.4, 3.8, '#c9b8e0', 2.2], [5.2, -6.6, 2.8, '#e9c4a0', 2.0],
-  ];
+/** tavolini con l'ombrellone sul prato dietro il locale (miglioria "tavolini") */
+function Dehors({ tables }: { tables: number }) {
   return (
     <group>
-      {!bare && <Sky night={night} />}
-      {!bare && (
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, -8]} receiveShadow>
-          <planeGeometry args={[30, 10]} />
-          <meshStandardMaterial color="#9a8576" roughness={1} />
-        </mesh>
-      )}
-      <Box s={bare ? [7.6, 0.3, 2.2] : [30, 0.08, 1.2]} p={bare ? [0, -0.16, -4.3] : [0, 0.04, -3.8]} c="#cbb8a2" />
-      {!bare && houses.map(([x, z, h, c, w], i) => (
-        <group key={i} position={[x, 0, z]}>
-          <Box s={[w, h, 1.6]} p={[0, h / 2, 0]} c={c} />
-          <mesh geometry={G.cone(w * 0.78, 0.9, 4)} material={mat('#b5523a')} position={[0, h + 0.45, 0]} rotation={[0, Math.PI / 4, 0]} scale={[1, 1, 0.75]} />
-          {[-0.45, 0.45].map((wx) =>
-            [0.9, 1.9].filter((wy) => wy < h - 0.3).map((wy) => (
-              <Box key={`${wx}${wy}`} s={[0.34, 0.46, 0.04]} p={[wx * (w / 2), wy, 0.81]} c={night > 0.35 ? '#ffd36b' : '#6a5a7a'} o={night > 0.35 ? { e: 0.9 } : undefined} />
-            )),
-          )}
-        </group>
-      ))}
-      {!bare && (
-        <group position={[3.1, 0, -4.6]}>
-          <mesh geometry={G.cyl(0.05, 2.2, 6)} material={mat('#2b211c')} position={[0, 1.1, 0]} />
-          <mesh geometry={G.ball(0.14, 1)} material={mat('#ffe2a0', { e: 0.3 + night * 1.6 })} position={[0, 2.25, 0]} />
-        </group>
-      )}
       {Array.from({ length: tables }, (_, i) => {
         const x = [-1.9, -0.4, 0.9][i];
         const col = ['#c65a3c', '#6f9a6a', '#e3a83a'][i];
         return (
           <Grow key={i} k={1} first>
-            <group position={[x, 0, -4.4]}>
-              <mesh geometry={G.cyl(0.32, 0.05, 12)} material={mat('#fbf7ef')} position={[0, 0.62, 0]} castShadow />
-              <mesh geometry={G.cyl(0.04, 0.62, 6)} material={mat('#2b211c')} position={[0, 0.31, 0]} />
-              <mesh geometry={G.cyl(0.03, 1.5, 6)} material={mat('#8a6a4a')} position={[0, 1.2, 0]} />
-              <mesh geometry={G.cone(0.75, 0.35, 8)} material={mat(col)} position={[0, 1.95, 0]} castShadow />
-              {[-1, 1].map((s) => <Box key={s} s={[0.24, 0.32, 0.24]} p={[s * 0.48, 0.32, 0]} c="#8a6a4a" />)}
+            <group position={[x, 0, -4.6]}>
+              <mesh geometry={G.cyl(0.32, 0.05, 20)} material={mat('#fbf7ef')} position={[0, 0.62, 0]} castShadow />
+              <mesh geometry={G.cyl(0.04, 0.62, 8)} material={mat('#2b211c')} position={[0, 0.31, 0]} />
+              <mesh geometry={G.cyl(0.03, 1.5, 8)} material={mat('#8a6a4a')} position={[0, 1.2, 0]} />
+              <mesh geometry={G.cone(0.78, 0.35, 12)} material={mat(col)} position={[0, 1.95, 0]} castShadow />
+              {[-1, 1].map((s) => <Box key={s} s={[0.26, 0.34, 0.26]} p={[s * 0.5, 0.17, 0]} c="#8a6a4a" />)}
             </group>
           </Grow>
         );
       })}
     </group>
   );
+}
+
+/** arredo sempre presente: rende il locale vissuto (lampade, ciotole, tagliere, basilico, cartoni) */
+function Props({ night }: { night: number }) {
+  const bowls = useMemo(() => ['pomodorini', 'mozzarella', 'rucola'].map((n) => buildIng(n, true).obj), []);
+  return (
+    <group>
+      {/* lampade a sospensione sopra il bancone */}
+      {[-1.7, 0, 1.7].map((x) => (
+        <group key={x} position={[x, 0, -0.6]}>
+          <mesh geometry={G.cyl(0.008, 0.6, 4)} material={mat('#2b211c')} position={[0, 2.75, 0]} />
+          <mesh geometry={G.cone(0.2, 0.18, 20)} material={mat('#3f6b52', { r: 0.5 })} position={[0, 2.38, 0]} castShadow />
+          <mesh geometry={G.sphere(0.07, 12)} material={mat('#fff1c8', { e: 1.5 + night * 2.5 })} position={[0, 2.27, 0]} />
+        </group>
+      ))}
+      {/* piastrelle dietro il bancone */}
+      <mesh position={[-1.0, 0.46, -2.84]}>
+        <planeGeometry args={[3.2, 0.9]} />
+        <meshStandardMaterial map={tileTexture()} roughness={0.5} />
+      </mesh>
+      {/* bancone: portatovaglioli, basilico, cartoni della pizza */}
+      <group position={[-1.2, 0.77, -0.55]}>
+        <Box s={[0.18, 0.14, 0.08]} p={[0, 0.07, 0]} c="#c9ccd2" o={{ r: 0.3, m: 0.6 }} />
+        <Box s={[0.15, 0.1, 0.04]} p={[0, 0.12, 0]} c="#ffffff" />
+      </group>
+      <group position={[0.45, 0.77, -0.5]}>
+        <mesh geometry={G.cyl(0.11, 0.16, 14, 0.08)} material={mat('#c65a3c')} position={[0, 0.08, 0]} castShadow />
+        {[0, 1, 2, 3, 4, 5].map((i) => (
+          <mesh key={i} geometry={G.sphere(0.07, 10)} material={mat(i % 2 ? '#4f9a3c' : '#5fb04a')} position={[Math.cos(i) * 0.06, 0.2 + (i % 3) * 0.04, Math.sin(i) * 0.06]} scale={[1, 0.7, 1]} castShadow />
+        ))}
+      </group>
+      <group position={[2.1, 0.77, -0.55]} rotation={[0, 0.2, 0]}>
+        {[0, 1, 2, 3].map((i) => <Box key={i} s={[0.5, 0.06, 0.5]} p={[0, 0.03 + i * 0.065, 0]} r={[0, i * 0.06, 0]} c={i % 2 ? '#e8d6b8' : '#dcc7a4'} />)}
+        <mesh geometry={G.cyl(0.07, 0.002, 12)} material={mat('#c65a3c')} position={[0, 0.262, 0]} />
+      </group>
+      {/* banco di preparazione: tagliere, ciotole di ingredienti, pala */}
+      <Box s={[0.9, 0.04, 0.6]} p={[0.55, 0.9, 0.75]} c="#c9935a" />
+      {bowls.map((b, i) => (
+        <group key={i} position={[-0.75 + i * 0.4, 0.92, 0.6 + (i % 2) * 0.12]}>
+          <mesh geometry={G.cyl(0.16, 0.09, 16, 0.11)} material={mat('#fbf7ef', { r: 0.4 })} position={[0, 0.045, 0]} castShadow />
+          <primitive object={b} position={[0, 0.06, 0]} scale={0.5} />
+        </group>
+      ))}
+      <group position={[1.95, 0.92, 0.55]} rotation={[0, -0.4, 0]}>
+        <mesh geometry={G.cyl(0.24, 0.02, 20)} material={mat('#c9935a')} position={[0, 0.01, 0]} />
+        <Box s={[0.08, 0.025, 0.7]} p={[0, 0.012, 0.5]} c="#a8703f" />
+      </group>
+    </group>
+  );
+}
+
+let tileTex: THREE.CanvasTexture | null = null;
+function tileTexture() {
+  if (tileTex) return tileTex;
+  const c = document.createElement('canvas');
+  c.width = 128;
+  c.height = 64;
+  const g = c.getContext('2d')!;
+  g.fillStyle = '#d9cdb6';
+  g.fillRect(0, 0, 128, 64);
+  for (let y = 0; y < 4; y++)
+    for (let x = -1; x < 5; x++) {
+      g.fillStyle = (x + y) % 3 ? '#8fae84' : '#9cba90';
+      g.fillRect(x * 32 + (y % 2) * 16 + 1.5, y * 16 + 1.5, 29, 13);
+    }
+  tileTex = new THREE.CanvasTexture(c);
+  tileTex.wrapS = tileTex.wrapT = THREE.RepeatWrapping;
+  tileTex.repeat.set(5, 3);
+  tileTex.colorSpace = THREE.SRGBColorSpace;
+  return tileTex;
 }
 
 let floorTex: THREE.CanvasTexture | null = null;
@@ -269,7 +288,9 @@ export function Pizzeria({ build, night, cutaway, onPick }: { build: Record<stri
   const SAGE = '#8fae84';
   return (
     <group>
-      <Outside night={night} tables={l('tavolini')} bare={cutaway} />
+      <World night={night} tables={l('tavolini')} />
+      <Dehors tables={l('tavolini')} />
+      <Props night={night} />
       <Pick id="tavolini" onPick={onPick}>
         <mesh position={[-1.0, 0.5, -4.4]} visible={false}>
           <boxGeometry args={[4, 1, 1]} />
@@ -277,11 +298,11 @@ export function Pizzeria({ build, night, cutaway, onPick }: { build: Record<stri
       </Pick>
 
       {/* pavimento */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0.1]} receiveShadow>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0.1]} receiveShadow>
         <planeGeometry args={[7.4, 6.4]} />
         <meshStandardMaterial map={floorTexture()} roughness={0.95} />
       </mesh>
-      <Box s={[7.6, 0.3, 6.6]} p={[0, -0.16, 0.1]} c="#7a4a2a" />
+      <Box s={[7.7, 0.12, 6.7]} p={[0, -0.03, 0.1]} c="#8a5a34" />
 
       {/* parete di fondo con finestra e porta */}
       <Box s={[1.1, 3, 0.2]} p={[-3.15, 1.5, -3]} c={W} />
@@ -416,23 +437,26 @@ export function Pizzeria({ build, night, cutaway, onPick }: { build: Record<stri
   );
 }
 
-export function Lights({ night, shadow = 1024 }: { night: number; shadow?: number }) {
+export function Lights({ night, shadow = 2048 }: { night: number; shadow?: number }) {
   return (
     <>
-      <hemisphereLight args={['#fff1dc', '#9a6a52', 1.25 - night * 0.45]} />
+      <hemisphereLight args={[lerpC('#bcd8ff', '#4a4a8a', night), lerpC('#9a6a44', '#2a1e30', night), 0.42 - night * 0.2]} />
       <directionalLight
-        color={lerpC('#ffe2bc', '#b9a6ff', night)}
-        intensity={1.9 - night * 0.9}
-        position={[3.5, 7, 5]}
+        color={lerpC('#ffe3b8', '#9c8cff', night)}
+        intensity={3.1 - night * 2.1}
+        position={[-6, 9, 5]}
         castShadow
         shadow-mapSize={[shadow, shadow]}
-        shadow-camera-left={-6}
-        shadow-camera-right={6}
-        shadow-camera-top={6}
-        shadow-camera-bottom={-6}
-        shadow-bias={-0.0006}
+        shadow-camera-left={-9}
+        shadow-camera-right={9}
+        shadow-camera-top={9}
+        shadow-camera-bottom={-9}
+        shadow-camera-far={40}
+        shadow-bias={-0.0004}
+        shadow-normalBias={0.02}
+        shadow-radius={4}
       />
-      <pointLight color="#ffd9a0" intensity={0.5 + night * 1.2} distance={9} position={[0, 2.8, 0.5]} />
+      <pointLight color="#ffd9a0" intensity={0.6 + night * 2.2} distance={8} decay={1.6} position={[0, 2.7, 0.3]} />
     </>
   );
 }
