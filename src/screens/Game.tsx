@@ -1,26 +1,37 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Dish, DishStat } from '../lib/types';
+import type { Dish, DishStat, MKind } from '../lib/types';
 import { useApp } from '../store';
-import { makeQuestion, norm } from '../lib/questions';
+import { availableKinds, makeQuestion, norm, trayFor, whereIs } from '../lib/questions';
 import { levelOf, pickWeighted, weight } from '../lib/mastery';
 import { catOf } from '../lib/data';
 import { cap } from '../lib/emoji';
 import { Ing } from '../components/Ing';
-import { confetti, sfx } from '../lib/fx';
+import { burst, centerOf, confetti, flyCoins, sfx } from '../lib/fx';
 import { SKINS } from '../lib/skins';
 import { lvlOf } from '../lib/build';
 import { CHEF_LOOK, Person, randomLook, type Look, type Mood, type Pose } from '../components/Person';
-import { Chip } from '../components/ui';
+import { Chip, Pips, useCountUp } from '../components/ui';
+import { Awning, Bunting, Kitchen, Scene } from '../components/Scene';
+import { currentDaily, missionById, progressOf, type Mission } from '../lib/missions';
 
-type Hint = 'full' | 'icons' | 'count' | 'none';
-const MULT: Record<Hint, number> = { full: 1, icons: 1.5, count: 2, none: 3 };
+/**
+ * Aiuti che si ritirano man mano che il piatto entra in memoria:
+ * full = ricetta visibile, flash = la vedi finché non metti il primo ingrediente,
+ * icons = solo disegni, count = solo il numero, none = niente.
+ */
+type Hint = 'full' | 'flash' | 'icons' | 'count' | 'none';
+const MULT: Record<Hint, number> = { full: 1, flash: 1.25, icons: 1.5, count: 2, none: 3 };
+const GUESS_MULT = 1.5;
 const TOTAL = 8;
 const TICK = 100;
+const FEVER_AT = 5;
 
 interface Cust {
   id: number;
   look: Look;
   dish: Dish;
+  kind: 'build' | 'guess';
+  options: Dish[];
   hint: Hint;
   slot: number;
   left: number;
@@ -28,11 +39,16 @@ interface Cust {
   plate: string[];
   tray: string[];
   peeked: boolean;
+  /** aiuto "flash" già sparito */
+  hidden: boolean;
+  retry: boolean;
+  vip: boolean;
   state: 'in' | 'wait' | 'happy' | 'angry';
   t: number; // ms nello stato corrente
 }
 interface Pop { id: number; text: string; kind: string; x: number; t: number }
-interface Overlay { kind: 'wrong' | 'late'; dish: Dish; missing: string[]; extra: string[] }
+interface Overlay { kind: 'wrong' | 'late' | 'guess'; dish: Dish; missing: string[]; extra: string[]; chosen?: Dish; notes: string[]; retry: boolean }
+interface Tally { memory: number; revenge: number; guess: number; vip: number; tips: number }
 interface G {
   phase: 'intro' | 'play' | 'end';
   customers: Cust[];
@@ -43,49 +59,42 @@ interface G {
   coins: number;
   combo: number;
   bestCombo: number;
+  fever: boolean;
   lives: number;
   maxLives: number;
   served: number;
   overlay: Overlay | null;
   paused: boolean;
   pops: Pop[];
+  toast: { text: string; sub?: string; t: number } | null;
   pose: Pose;
   poseT: number;
   shake: number;
   missedDishes: Dish[];
   lastIds: string[];
+  retries: { id: string; due: number }[];
+  progress: Record<string, { name: string; from: number; to: number; held?: boolean }>;
+  tally: Tally;
   uid: number;
   introLeft: number;
-  levelUp: number | null;
 }
 
 const hintFor = (s?: DishStat): Hint => {
-  const b = s && s.seen ? s.box : 0;
-  return b <= 0 ? 'full' : b === 1 ? 'icons' : b <= 3 ? 'count' : 'none';
+  if (!s || !s.seen) return 'full';
+  return s.box <= 0 ? 'flash' : s.box === 1 ? 'icons' : s.box <= 3 ? 'count' : 'none';
 };
 
 const initial = (maxLives: number): G => ({
-  phase: 'intro', customers: [], spawned: 0, nextSpawn: 900, selected: null, score: 0, coins: 0, combo: 0, bestCombo: 0,
-  lives: maxLives, maxLives, served: 0, overlay: null, paused: false, pops: [], pose: 'idle', poseT: 0, shake: 0, missedDishes: [], lastIds: [], uid: 1,
-  introLeft: 2200, levelUp: null,
+  phase: 'intro', customers: [], spawned: 0, nextSpawn: 900, selected: null, score: 0, coins: 0, combo: 0, bestCombo: 0, fever: false,
+  lives: maxLives, maxLives, served: 0, overlay: null, paused: false, pops: [], toast: null, pose: 'idle', poseT: 0, shake: 0,
+  missedDishes: [], lastIds: [], retries: [], progress: {}, tally: { memory: 0, revenge: 0, guess: 0, vip: 0, tips: 0 }, uid: 1, introLeft: 2200,
 });
+
+const alive = (c: Cust) => c.state === 'in' || c.state === 'wait';
 
 export function Game({ pool, title, onExit }: { pool: Dish[]; title: string; onExit: () => void }) {
   const [run, setRun] = useState(0);
   return <Shift key={run} pool={pool} title={title} onExit={onExit} again={() => setRun((r) => r + 1)} />;
-}
-
-function Decor({ build }: { build: Record<string, number> }) {
-  const l = (id: string) => lvlOf(build, id);
-  return (
-    <div className="decor">
-      {l('luci') > 0 && <div className="lights">{Array.from({ length: 6 + l('luci') * 2 }, (_, i) => <i key={i} style={{ animationDelay: `${(i % 4) * 0.4}s`, background: ['#ffd24a', '#ff3d81', '#4cc9f0', '#2ee59d'][i % 4] }} />)}</div>}
-      {l('quadri') > 0 && <div className="frames">{['🖼️', '🍷', '🇮🇹'].slice(0, l('quadri')).map((e, i) => <span key={i}>{e}</span>)}</div>}
-      {l('piante') > 0 && <div className="plants"><span>🪴</span>{l('piante') > 1 && <span className="r">🌿</span>}{l('piante') > 2 && <span className="r2">🪴</span>}</div>}
-      {l('tavolini') > 0 && <div className="tables">{Array.from({ length: l('tavolini') }, (_, i) => <span key={i}>🪑</span>)}</div>}
-      {l('insegna') >= 3 && <div className="glow" />}
-    </div>
-  );
 }
 
 function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; onExit: () => void; again: () => void }) {
@@ -94,62 +103,144 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
   appRef.current = app;
   const gr = useRef<G>(initial(3 + lvlOf(app.save.build, 'frigo')));
   const [g, setG] = useState<G>(gr.current);
-  const reported = useRef(false);
   const serveRef = useRef<() => void>(() => {});
-  const [best, setBest] = useState(false);
-  const startLvl = useRef(levelOf(app.save.xp));
+  const coinRef = useRef<HTMLDivElement>(null);
   const skin = SKINS.find((s) => s.id === app.save.skin) ?? SKINS[0];
+  const L = (id: string) => lvlOf(app.save.build, id);
 
   const commit = (n: G) => {
     gr.current = n;
     setG(n);
   };
   const addPop = (g: G, text: string, kind: string, slot: number): G => ({
-    ...g, uid: g.uid + 1, pops: [...g.pops, { id: g.uid, text, kind, x: slot * 33.3 + 16.6, t: 1200 }],
+    ...g, uid: g.uid + 1, pops: [...g.pops, { id: g.uid, text, kind, x: slot * 33.3 + 16.6, t: 1300 }],
   });
+  const custEl = (c: Cust) => document.querySelector(`[data-cust="${c.id}"] .bubble`);
 
   const spawn = (g: G): G => {
     const taken = new Set(g.customers.map((c) => c.slot));
     const slot = [0, 1, 2].find((s) => !taken.has(s));
     if (slot === undefined) return g;
-    const { stats, dishes, xp } = appRef.current.save;
+    const { stats, dishes, xp, build } = appRef.current.save;
     const now = Date.now();
-    let cands = pool.filter((d) => !g.lastIds.slice(-2).includes(d.id));
-    if (!cands.length) cands = pool;
-    const [dish] = pickWeighted(cands.map((d) => ({ item: d, w: weight(stats[d.id], now) })), 1);
-    const hint = hintFor(stats[dish.id]);
+
+    // la rivincita: il piatto sbagliato torna dopo un paio di clienti (richiamo a breve distanza)
+    const due = g.retries.find((r) => r.due <= g.spawned && pool.some((d) => d.id === r.id));
+    let dish = due ? pool.find((d) => d.id === due.id) : undefined;
+    const retry = !!dish;
+    if (!dish) {
+      const onScreen = g.customers.filter(alive).map((c) => c.dish.id);
+      let cands = pool.filter((d) => !g.lastIds.slice(-2).includes(d.id) && !onScreen.includes(d.id));
+      if (!cands.length) cands = pool.filter((d) => !onScreen.includes(d.id));
+      if (!cands.length) cands = pool;
+      [dish] = pickWeighted(cands.map((d) => ({ item: d, w: weight(stats[d.id], now) })), 1);
+    }
+    const st = stats[dish.id];
+    const box = st?.seen ? st.box : 0;
+    // cliente indeciso: dice gli ingredienti, tu riconosci il piatto (richiamo nel verso opposto)
+    const guess = !retry && box >= 2 && availableKinds(dish, dishes).includes('which') && Math.random() < 0.28;
+    const vip = !retry && !guess && g.spawned >= 1 && Math.random() < 0.12;
+    const hint: Hint = retry ? (box >= 4 ? 'none' : 'count') : hintFor(st);
     const diff = Math.max(0.55, 1 - (levelOf(xp) - 1) * 0.04);
-    const max = Math.round((24 + dish.ingredients.length * 2.5 + (hint === 'full' ? 8 : 0)) * 1000 * diff * (1 + 0.1 * lvlOf(appRef.current.save.build, 'forno')));
-    const q = makeQuestion(dish, dishes, 'build');
-    let trayOpts = q.kind === 'build' ? q.options : dish.ingredients;
-    const wrongOnes = trayOpts.filter((o) => !dish.ingredients.map(norm).includes(norm(o)));
-    const drop = Math.min(2 * lvlOf(appRef.current.save.build, 'mise'), Math.max(0, wrongOnes.length - 1));
-    const gone = new Set(wrongOnes.slice(0, drop));
-    trayOpts = trayOpts.filter((o) => !gone.has(o));
-    const c: Cust = { id: g.uid, look: randomLook(), dish, hint, slot, left: max, max, plate: [], tray: trayOpts, peeked: false, state: 'in', t: 0 };
-    const ng: G = { ...g, uid: g.uid + 1, customers: [...g.customers, c], spawned: g.spawned + 1, lastIds: [...g.lastIds, dish.id], nextSpawn: Math.max(3500, 5500 + Math.random() * 3000 - g.spawned * 250) };
-    return ng;
+    const baseT = guess ? 15 + dish.ingredients.length * 1.2 : 24 + dish.ingredients.length * 2.5 + (hint === 'full' || hint === 'flash' ? 8 : 0);
+    const max = Math.round(baseT * 1000 * diff * (1 + 0.1 * lvlOf(build, 'forno')) * (vip ? 0.85 : 1));
+    const q = guess ? makeQuestion(dish, dishes, 'which') : null;
+    const c: Cust = {
+      id: g.uid, look: randomLook(), dish, kind: guess ? 'guess' : 'build', options: q && q.kind === 'which' ? q.options : [], hint, slot,
+      left: max, max, plate: [], tray: guess ? [] : trayFor(dish, dishes, st?.confused, 2 * lvlOf(build, 'mise')),
+      peeked: false, hidden: false, retry, vip, state: 'in', t: 0,
+    };
+    return {
+      ...g, uid: g.uid + 1, customers: [...g.customers, c], spawned: g.spawned + 1, lastIds: [...g.lastIds, dish.id],
+      retries: due ? g.retries.filter((r) => r !== due) : g.retries,
+      nextSpawn: Math.max(3500, 5500 + Math.random() * 3000 - g.spawned * 250),
+    };
   };
 
-  const fail = (g: G, c: Cust, kind: 'wrong' | 'late', missing: string[], extra: string[]): G => {
-    appRef.current.record(c.dish.id, false, missing, 0);
+  const track = (g: G, id: string, name: string, prevBox: number, box: number, held = false): G => ({
+    ...g, progress: { ...g.progress, [id]: { name, from: g.progress[id]?.from ?? prevBox, to: box, held: held || g.progress[id]?.held } },
+  });
+
+  const fail = (g: G, c: Cust, kind: Overlay['kind'], missing: string[], extra: string[], chosen?: Dish): G => {
+    const { dishes } = appRef.current.save;
+    const severity = kind === 'wrong' && missing.length + extra.length > 1 ? 2 : 1;
+    const r = appRef.current.record(c.dish.id, false, missing, 0, { extra, severity });
     sfx.bad();
+    const notes: string[] = [];
+    for (const x of extra) {
+      const o = whereIs(x, c.dish, dishes);
+      notes.push(o ? `${cap(x)} va nel ${o.name}, non qui` : `${cap(x)} non c'entra`);
+    }
+    const queue = !c.retry && g.spawned < TOTAL && !g.retries.some((x) => x.id === c.dish.id);
+    const retries = queue ? [...g.retries, { id: c.dish.id, due: Math.min(g.spawned + 2, TOTAL - 1) }] : g.retries;
     let n: G = {
       ...g,
-      lives: g.lives - 1, combo: 0, shake: 450, pose: 'sad', poseT: 1200,
-      overlay: { kind, dish: c.dish, missing, extra },
+      lives: g.lives - 1, combo: 0, fever: false, shake: 450, pose: 'sad', poseT: 1200, retries,
+      overlay: { kind, dish: c.dish, missing, extra, chosen, notes, retry: queue || g.retries.some((x) => x.id === c.dish.id) },
       missedDishes: g.missedDishes.some((d) => d.id === c.dish.id) ? g.missedDishes : [...g.missedDishes, c.dish],
       customers: g.customers.map((x) => (x.id === c.id ? { ...x, state: 'angry', t: 0 } : x)),
     };
-    n = addPop(n, kind === 'late' ? '⏰ Troppo tardi!' : '😡 Sbagliato!', 'bad', c.slot);
-    return n;
+    n = track(n, c.dish.id, c.dish.name, r.prevBox, r.box);
+    return addPop(n, kind === 'late' ? '⏰ Troppo tardi!' : '😡 Sbagliato!', 'bad', c.slot);
+  };
+
+  const success = (g0: G, c: Cust, mult: number, recCap?: number) => {
+    const combo = g0.combo + 1;
+    const fever = g0.fever || combo >= FEVER_AT;
+    const frac = Math.max(0, c.left / c.max);
+    const b = appRef.current.save.build;
+    const pts = Math.round(
+      (100 * mult * (1 + Math.min(combo - 1, 10) * 0.1) + frac * 60) * (1 + 0.05 * lvlOf(b, 'insegna')) * (fever ? 1.5 : 1) * (c.retry ? 1.5 : 1),
+    );
+    const coins = Math.max(1, Math.round((pts / 20) * (1 + 0.15 * lvlOf(b, 'cassa')))) * (c.vip ? 3 : 1);
+    // mancia: ricompensa variabile per chi è veloce
+    const tip = frac > 0.55 && Math.random() < 0.5 ? 1 + Math.floor(Math.random() * 5) : 0;
+    let n: G = { ...g0 };
+    if (c.peeked) appRef.current.addXp(3);
+    else {
+      const r = appRef.current.record(c.dish.id, true, [], Math.round(6 * mult), { cap: recCap });
+      n = track(n, c.dish.id, c.dish.name, r.prevBox, r.box, r.held);
+      if (r.leveledUp) {
+        n = { ...n, toast: { text: `⭐ LIVELLO ${r.level}!`, sub: 'Clienti più esigenti, mance più ricche', t: 1900 } };
+        setTimeout(() => { sfx.level(); confetti(1.2); }, 350);
+      }
+    }
+    const memory = !c.peeked && c.kind === 'build' && (c.hint === 'count' || c.hint === 'none');
+    sfx.ok(combo);
+    const el = custEl(c);
+    const at = centerOf(el);
+    if (at) burst(at.x, at.y, c.vip || fever ? 1.6 : 1, c.vip ? ['#ffd24a', '#fff3b0', '#ffb300'] : undefined);
+    setTimeout(() => flyCoins(at, coinRef.current, coins + tip), 120);
+    if (fever && !g0.fever) {
+      sfx.fever();
+      n = { ...n, toast: { text: '🔥 FEVER!', sub: 'Punti ×1.5 finché non sbagli', t: 1600 } };
+    }
+    if (combo % 4 === 0) confetti(0.7);
+    n = {
+      ...n, score: n.score + pts, coins: n.coins + coins + tip, combo, fever, bestCombo: Math.max(n.bestCombo, combo), served: n.served + 1,
+      pose: 'cheer', poseT: 900,
+      tally: {
+        memory: n.tally.memory + (memory ? 1 : 0), revenge: n.tally.revenge + (c.retry ? 1 : 0), guess: n.tally.guess + (c.kind === 'guess' ? 1 : 0),
+        vip: n.tally.vip + (c.vip ? 1 : 0), tips: n.tally.tips + tip,
+      },
+      customers: n.customers.map((x) => (x.id === c.id ? { ...x, state: 'happy', t: 0 } : alive(x) ? { ...x, left: Math.min(x.max, x.left + 1500 * lvlOf(b, 'cronometro')) } : x)),
+    };
+    n = addPop(n, `+${pts}`, 'gain', c.slot);
+    const hype = c.vip ? `👑 VIP! +${coins}🪙` : c.retry ? '🔁 RISCATTO!' : c.kind === 'guess' ? '🎯 INDOVINATO!' : memory && c.hint === 'none' ? '🧠 A MEMORIA!' : frac > 0.6 ? '⚡ VELOCE!' : '✨ PERFETTO!';
+    n = addPop(n, hype, c.vip ? 'vip' : 'hype', c.slot);
+    if (tip) n = addPop(n, `+${tip}🪙 mancia`, 'tip', c.slot);
+    else if (combo >= 3) n = addPop(n, `🔥 COMBO x${combo}`, 'combo', c.slot);
+    commit(n);
   };
 
   const tick = () => {
     let g = gr.current;
     if (g.phase === 'end') return;
     const dt = TICK;
-    g = { ...g, pops: g.pops.map((p) => ({ ...p, t: p.t - dt })).filter((p) => p.t > 0), shake: Math.max(0, g.shake - dt), poseT: Math.max(0, g.poseT - dt) };
+    g = {
+      ...g, pops: g.pops.map((p) => ({ ...p, t: p.t - dt })).filter((p) => p.t > 0), shake: Math.max(0, g.shake - dt), poseT: Math.max(0, g.poseT - dt),
+      toast: g.toast && g.toast.t > dt ? { ...g.toast, t: g.toast.t - dt } : null,
+    };
     if (g.poseT === 0 && g.pose !== 'idle') g = { ...g, pose: 'idle' };
     if (g.phase === 'intro') {
       g = { ...g, introLeft: g.introLeft - dt };
@@ -161,9 +252,10 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
     g = { ...g, nextSpawn: g.nextSpawn - dt };
     let timedOut: Cust | null = null;
     const customers: Cust[] = [];
+    const garz = lvlOf(appRef.current.save.build, 'garzone');
     for (const c of g.customers) {
       const n = { ...c, t: c.t + dt };
-      const slow = c.id === g.selected ? 1 : 1 - 0.15 * lvlOf(appRef.current.save.build, 'garzone');
+      const slow = c.id === g.selected ? 1 : 1 - 0.15 * garz;
       if (n.state === 'in') {
         n.left -= dt * slow;
         if (n.t >= 750) { n.state = 'wait'; n.t = 0; }
@@ -174,19 +266,16 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
       customers.push(n);
     }
     g = { ...g, customers };
-    const active = customers.filter((c) => c.state === 'in' || c.state === 'wait');
+    const active = customers.filter(alive);
     if (g.spawned < TOTAL && g.nextSpawn <= 0 && customers.length < 3) g = spawn(g);
     else if (g.spawned < TOTAL && !active.length && g.nextSpawn > 700) g = { ...g, nextSpawn: 700 };
     if (timedOut) g = fail(g, timedOut, 'late', [], []);
-    const sel = g.customers.find((c) => c.id === g.selected && (c.state === 'in' || c.state === 'wait'));
+    const sel = g.customers.find((c) => c.id === g.selected && alive(c));
     if (!sel) {
-      const a = g.customers.filter((c) => c.state === 'in' || c.state === 'wait').sort((x, y) => x.left - y.left)[0];
+      const a = g.customers.filter(alive).sort((x, y) => x.left - y.left)[0];
       g = { ...g, selected: a ? a.id : null };
     }
-    if (!g.overlay && (g.lives <= 0 || (g.spawned >= TOTAL && g.customers.length === 0))) {
-      g = { ...g, phase: 'end' };
-      if (g.served >= TOTAL * 0.75 && g.lives > 0) { confetti(1.4); sfx.win(); }
-    }
+    if (!g.overlay && (g.lives <= 0 || (g.spawned >= TOTAL && g.customers.length === 0))) g = { ...g, phase: 'end' };
     commit(g);
   };
 
@@ -195,26 +284,17 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
     return () => clearInterval(t);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const stars = g.served >= TOTAL && g.lives === g.maxLives ? 3 : g.served >= TOTAL * 0.75 ? 2 : g.served >= TOTAL * 0.4 ? 1 : 0;
-  const bonusCoins = stars * 25;
-  useEffect(() => {
-    if (g.phase === 'end' && !reported.current) {
-      reported.current = true;
-      setBest(appRef.current.reportShift(g.score, g.coins + bonusCoins, g.bestCombo) && g.score > 0);
-      appRef.current.addXp(Math.round(g.score / 10));
-    }
-  }, [g.phase]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const selected = g.customers.find((c) => c.id === g.selected && (c.state === 'in' || c.state === 'wait'));
+  const selected = g.customers.find((c) => c.id === g.selected && alive(c));
 
   const toggle = (ing: string) => {
     const g0 = gr.current;
     const c = g0.customers.find((x) => x.id === g0.selected);
-    if (!c || g0.overlay || g0.paused || g0.phase !== 'play' || (c.state !== 'wait' && c.state !== 'in')) return;
-    sfx.tap();
+    if (!c || c.kind !== 'build' || g0.overlay || g0.paused || g0.phase !== 'play' || !alive(c)) return;
     const has = c.plate.includes(ing);
     const plate = has ? c.plate.filter((x) => x !== ing) : [...c.plate, ing];
-    commit({ ...g0, pose: 'work', poseT: 350, customers: g0.customers.map((x) => (x.id === c.id ? { ...x, plate } : x)) });
+    if (has) sfx.tap();
+    else sfx.place(plate.length);
+    commit({ ...g0, pose: 'work', poseT: 350, customers: g0.customers.map((x) => (x.id === c.id ? { ...x, plate, hidden: x.hidden || plate.length > 0 } : x)) });
     if (lvlOf(appRef.current.save.build, 'campanello') > 0 && plate.length === c.dish.ingredients.length && c.dish.ingredients.every((i) => plate.map(norm).includes(norm(i)))) {
       setTimeout(() => serveRef.current(), 220);
     }
@@ -223,11 +303,13 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
   const clearPlate = () => {
     const g0 = gr.current;
     if (!g0.selected) return;
+    sfx.tap();
     commit({ ...g0, customers: g0.customers.map((x) => (x.id === g0.selected ? { ...x, plate: [] } : x)) });
   };
 
   const peek = () => {
     const g0 = gr.current;
+    sfx.tap();
     commit({ ...g0, customers: g0.customers.map((x) => (x.id === g0.selected ? { ...x, peeked: true } : x)) });
   };
 
@@ -241,40 +323,24 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
   const serve = () => {
     const g0 = gr.current;
     const c = g0.customers.find((x) => x.id === g0.selected);
-    if (!c || c.state !== 'wait' || !c.plate.length || g0.overlay || g0.paused) return;
+    if (!c || c.kind !== 'build' || c.state !== 'wait' || !c.plate.length || g0.overlay || g0.paused) return;
     const want = c.dish.ingredients.map(norm);
     const got = c.plate.map(norm);
     const missing = c.dish.ingredients.filter((i) => !got.includes(norm(i)));
     const extra = c.plate.filter((i) => !want.includes(norm(i)));
     if (missing.length || extra.length) return commit(fail(g0, c, 'wrong', missing, extra));
-
-    const mult = c.peeked ? 1 : MULT[c.hint];
-    const combo = g0.combo + 1;
-    const frac = Math.max(0, c.left / c.max);
-    const b = appRef.current.save.build;
-    const pts = Math.round((100 * mult * (1 + Math.min(combo - 1, 10) * 0.1) + frac * 60) * (1 + 0.05 * lvlOf(b, 'insegna')));
-    const coins = Math.max(1, Math.round((pts / 20) * (1 + 0.15 * lvlOf(b, 'cassa'))));
-    let leveled: number | null = g0.levelUp;
-    if (c.peeked) appRef.current.addXp(3);
-    else {
-      const r = appRef.current.record(c.dish.id, true, [], Math.round(6 * mult));
-      if (r.leveledUp) leveled = r.level;
-    }
-    sfx.ok(combo);
-    setTimeout(() => sfx.coin(), 180);
-    if (combo % 4 === 0) confetti(0.7);
-    let n: G = {
-      ...g0, score: g0.score + pts, coins: g0.coins + coins, combo, bestCombo: Math.max(g0.bestCombo, combo), served: g0.served + 1,
-      pose: 'cheer', poseT: 900, levelUp: leveled,
-      customers: g0.customers.map((x) => (x.id === c.id ? { ...x, state: 'happy', t: 0 } : x.state === 'wait' || x.state === 'in' ? { ...x, left: Math.min(x.max, x.left + 1500 * lvlOf(b, 'cronometro')) } : x)),
-    };
-    n = addPop(n, `+${pts}`, 'gain', c.slot);
-    n = addPop(n, !c.peeked && c.hint === 'none' ? '🧠 A MEMORIA!' : frac > 0.6 ? '⚡ VELOCE!' : '✨ PERFETTO!', 'hype', c.slot);
-    if (combo >= 3) n = addPop(n, `🔥 COMBO x${combo}`, 'combo', c.slot);
-    commit(n);
+    success(g0, c, c.peeked ? 1 : MULT[c.hint]);
   };
-
   serveRef.current = serve;
+
+  const answer = (opt: Dish) => {
+    const g0 = gr.current;
+    const c = g0.customers.find((x) => x.id === g0.selected);
+    if (!c || c.kind !== 'guess' || c.state !== 'wait' || g0.overlay || g0.paused) return;
+    if (opt.id !== c.dish.id) return commit(fail(g0, c, 'guess', [], [], opt));
+    // riconoscere è più facile che ricordare: non porta il piatto oltre la scatola 3
+    success(g0, c, GUESS_MULT, 3);
+  };
 
   const closeOverlay = () => {
     sfx.tap();
@@ -284,70 +350,49 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
 
   const moodOf = (c: Cust): Mood => (c.state === 'happy' ? 'happy' : c.state === 'angry' ? 'angry' : c.left / c.max > 0.5 ? 'idle' : c.left / c.max > 0.22 ? 'worried' : 'angry');
 
-  if (g.phase === 'end') {
-    const failed = g.lives <= 0;
-    return (
-      <div className="screen over">
-        <div className="over-emoji">{failed ? '😵' : stars === 3 ? '🏆' : '🍕'}</div>
-        <h1>{failed ? 'Il locale è nel caos!' : 'Turno finito!'}</h1>
-        <div className="stars">{[0, 1, 2].map((i) => <span key={i} className={i < stars ? 'on' : ''} style={{ animationDelay: `${i * 220}ms` }}>★</span>)}</div>
-        <div className="bigscore">{g.score}</div>
-        {best && <div className="levelup">🎉 Nuovo record!</div>}
-        <div className="stat-row">
-          <div className="stat"><b>{g.served}/{TOTAL}</b><span>Serviti</span></div>
-          <div className="stat"><b>x{g.bestCombo}</b><span>Combo</span></div>
-          <div className="stat"><b>🪙 {g.coins + bonusCoins}</b><span>{stars ? `inclusi +${bonusCoins} stelle` : 'Monete'}</span></div>
-        </div>
-        {levelOf(app.save.xp) > startLvl.current && <div className="levelup">⭐ Livello {levelOf(app.save.xp)}!</div>}
-        {g.missedDishes.length > 0 && (
-          <div className="card">
-            <div className="card-h">Da ripassare</div>
-            {g.missedDishes.map((d) => (
-              <div key={d.id} className="miss-row">
-                <b>{catOf(d.category).emoji} {d.name}</b>
-                <div className="chips">{d.ingredients.map((i) => <Chip key={i} text={i} />)}</div>
-              </div>
-            ))}
-          </div>
-        )}
-        <div className="spacer" />
-        <button className="btn primary wide big" onClick={again}>▶ Altro turno</button>
-        <button className="btn ghost wide" onClick={onExit}>Torna alla home</button>
-      </div>
-    );
-  }
+  if (g.phase === 'end') return <End g={g} title={title} again={again} onExit={onExit} />;
 
   const ticket = selected;
-  const showFull = ticket && (ticket.hint === 'full' || ticket.peeked);
+  const showFull = ticket && ticket.kind === 'build' && (ticket.hint === 'full' || ticket.peeked || (ticket.hint === 'flash' && !ticket.hidden));
+  const showCount = ticket && ticket.kind === 'build' && (ticket.hint !== 'none' || ticket.peeked);
+  const night = Math.min(0.9, (Math.max(0, g.spawned - 1) / (TOTAL - 1)) * 0.9);
+  const comboFill = g.fever ? FEVER_AT : Math.min(g.combo, FEVER_AT);
 
   return (
-    <div className={`game ${g.shake > 0 ? 'shake' : ''}`}>
+    <div className={`game ${g.shake > 0 ? 'shake' : ''} ${g.fever ? 'is-fever' : ''}`}>
       <div className="hud">
         <button className="icon-btn" onClick={() => setPaused(true)} aria-label="Pausa">⏸</button>
         <div className="hearts">{Array.from({ length: g.maxLives }, (_, i) => i).map((i) => <span key={i} className={i < g.lives ? '' : 'lost'}>{i < g.lives ? '❤️' : '🖤'}</span>)}</div>
         <div className="score" key={g.score}>{g.score}</div>
-        <div className="coins">🪙 {g.coins}</div>
+        <div className="coins" ref={coinRef}>🪙 {g.coins}</div>
       </div>
       <div className="hud2">
-        <span>{title} · cliente {Math.min(g.spawned, TOTAL)}/{TOTAL}</span>
-        {g.combo >= 2 && <span className="combo" key={g.combo}>🔥 x{g.combo}</span>}
+        <span>{title} · {Math.min(g.spawned, TOTAL)}/{TOTAL}</span>
+        <div className={`cmeter ${g.fever ? 'fever' : ''}`} aria-label={`Combo ${g.combo}`}>
+          {g.fever ? <b>🔥 FEVER ×1.5</b> : <span className="cm-l">Combo</span>}
+          {!g.fever && Array.from({ length: FEVER_AT }, (_, i) => <i key={i} className={i < comboFill ? 'on' : ''} />)}
+        </div>
       </div>
 
       <div className="shop-top">
-        <Decor build={app.save.build} />
-        <div className="neon">🍕 CORE A CORE</div>
+        <Scene build={app.save.build} night={night} />
+        <Awning lights={L('luci')} />
+        <Bunting rows={L('quadri')} />
+        <div className={`neon lv${Math.min(L('insegna'), 5)}`}>🍕 CORE A CORE</div>
         <div className="slots">
           {[0, 1, 2].map((slot) => {
             const c = g.customers.find((x) => x.slot === slot);
+            const f = c ? c.left / c.max : 1;
             return (
               <div className="slot" key={slot}>
                 {c && (
-                  <div className={`cust st-${c.state}`} key={c.id}>
-                    <button className={`bubble ${selected?.id === c.id ? 'sel' : ''}`} onClick={() => select(c.id)}>
-                      <span className="b-n">{catOf(c.dish.category).emoji} {c.dish.name}</span>
-                      <span className="pbar"><i style={{ width: `${Math.max(0, (c.left / c.max) * 100)}%`, background: c.left / c.max > 0.5 ? '#2ee59d' : c.left / c.max > 0.22 ? '#ffd24a' : '#ff4d6d' }} /></span>
+                  <div className={`cust st-${c.state}`} key={c.id} data-cust={c.id}>
+                    <button className={`bubble ${selected?.id === c.id ? 'sel' : ''} ${c.vip ? 'vip' : ''} ${c.retry ? 'retry' : ''} ${f < 0.22 && alive(c) ? 'urgent' : ''}`} onClick={() => select(c.id)}>
+                      {(c.vip || c.retry || c.kind === 'guess') && <span className="b-tag">{c.vip ? '👑 VIP ×3' : c.retry ? '🔁 Rivincita' : '🤔 Indeciso'}</span>}
+                      <span className="b-n">{c.kind === 'guess' ? '«Quello con…»' : <>{catOf(c.dish.category).emoji} {c.dish.name}</>}</span>
+                      <span className="pbar"><i style={{ width: `${Math.max(0, f * 100)}%`, background: f > 0.5 ? '#2ee59d' : f > 0.22 ? '#ffd24a' : '#ff4d6d' }} /></span>
                     </button>
-                    <div className="who"><Person look={c.look} mood={moodOf(c)} pose={c.state === 'happy' ? 'cheer' : 'idle'} /></div>
+                    <div className="who"><Person look={c.look} mood={moodOf(c)} pose={c.state === 'happy' ? 'cheer' : 'idle'} crown={c.vip} /></div>
                     {c.state === 'happy' && <div className="hearts-fx">💖</div>}
                   </div>
                 )}
@@ -362,54 +407,87 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
       </div>
 
       <div className="kitchen">
+        <Kitchen forno={L('forno')} />
         <div className="chef"><Person look={CHEF_LOOK} chef={skin} pose={g.pose} mood={g.pose === 'cheer' ? 'happy' : g.pose === 'sad' ? 'worried' : 'idle'} /></div>
         <div className="plate-wrap">
           <div className="plate">
-            {selected?.plate.map((p) => (
-              <button key={p} className="pitem" onClick={() => toggle(p)}><Ing name={p} /></button>
-            ))}
-            {!selected?.plate.length && <span className="plate-hint">Piatto vuoto</span>}
+            {ticket?.kind === 'guess' ? <span className="plate-hint">🤔 Quale piatto è?</span> : (
+              <>
+                {selected?.plate.map((p) => (
+                  <button key={p} className="pitem" onClick={() => toggle(p)}><Ing name={p} /></button>
+                ))}
+                {!selected?.plate.length && <span className="plate-hint">Piatto vuoto</span>}
+              </>
+            )}
+            {showCount && ticket && (
+              <span className="plate-pips">
+                {ticket.dish.ingredients.map((_, i) => <i key={i} className={i < ticket.plate.length ? (ticket.plate.length > ticket.dish.ingredients.length ? 'over' : 'on') : ''} />)}
+              </span>
+            )}
           </div>
-          <button className="trash" onClick={clearPlate} disabled={!selected?.plate.length}>🗑️</button>
+          <button className="trash" onClick={clearPlate} disabled={!selected?.plate.length} aria-label="Svuota il piatto">🗑️</button>
         </div>
       </div>
 
-      <div className="ticket">
+      <div className={`ticket ${ticket?.vip ? 'vip' : ''}`}>
         {!ticket ? (
           <span className="muted">Aspetta il prossimo cliente…</span>
+        ) : ticket.kind === 'guess' ? (
+          <>
+            <div className="t-top"><b>🤔 «Vorrei quello con…»</b><span className="mem">×{GUESS_MULT}</span></div>
+            <div className="t-chips">{ticket.dish.ingredients.map((i) => <span key={i} className="mini"><Ing name={i} /> {cap(i)}</span>)}</div>
+          </>
         ) : (
           <>
             <div className="t-top">
               <b>🧾 {ticket.dish.name}</b>
-              {ticket.hint === 'none' && !ticket.peeked && <span className="mem">🧠 A memoria ×3</span>}
+              {ticket.retry && <span className="mem alt">Riscatto ×1.5</span>}
+              {!ticket.peeked && ticket.hint !== 'full' && <span className="mem">×{MULT[ticket.hint]}</span>}
               {!showFull && <button className="peek" onClick={peek}>📖 Aiuto</button>}
             </div>
             {showFull ? (
-              <div className="t-chips">{ticket.dish.ingredients.map((i) => <span key={i} className="mini"><Ing name={i} /> {cap(i)}</span>)}</div>
+              <>
+                {ticket.hint === 'flash' && !ticket.peeked && <div className="flash-tip">👀 Memorizza! Sparisce al primo ingrediente</div>}
+                <div className="t-chips">{ticket.dish.ingredients.map((i) => <span key={i} className="mini"><Ing name={i} /> {cap(i)}</span>)}</div>
+              </>
             ) : ticket.hint === 'icons' ? (
               <div className="t-chips">{ticket.dish.ingredients.map((i, k) => <span key={k} className="mini"><Ing name={i} /></span>)}<span className="muted sm">({ticket.dish.ingredients.length})</span></div>
-            ) : ticket.hint === 'count' ? (
-              <div className="muted sm">{ticket.dish.ingredients.length} {ticket.dish.ingredients.length === 1 ? 'ingrediente' : 'ingredienti'} — ricordi quali?</div>
+            ) : ticket.hint === 'none' ? (
+              <div className="muted sm">🧠 Nessun aiuto: ti fidi della tua memoria?</div>
             ) : (
-              <div className="muted sm">Nessun aiuto: ti fidi della tua memoria?</div>
+              <div className="muted sm">{ticket.dish.ingredients.length} {ticket.dish.ingredients.length === 1 ? 'ingrediente' : 'ingredienti'} — ricordi quali?</div>
             )}
           </>
         )}
       </div>
 
-      <div className="tray">
-        {(selected?.tray ?? []).map((t) => (
-          <button key={t} className={`tile ${selected?.plate.includes(t) ? 'used' : ''}`} onClick={() => toggle(t)}>
-            <span className="t-e"><Ing name={t} /></span>
-            <span className="t-l">{cap(t)}</span>
-          </button>
-        ))}
-      </div>
-      <button className="serve" disabled={!selected || selected.state !== 'wait' || !selected.plate.length} onClick={serve}>🔔 SERVI!</button>
+      {ticket?.kind === 'guess' ? (
+        <div className="gopts">
+          {ticket.options.map((o) => (
+            <button key={o.id} className="gopt" onClick={() => answer(o)} disabled={ticket.state !== 'wait'}>
+              <span>{catOf(o.category).emoji}</span>{o.name}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="tray">
+          {(selected?.tray ?? []).map((t) => (
+            <button key={t} className={`itile ${selected?.plate.includes(t) ? 'used' : ''}`} onClick={() => toggle(t)}>
+              <span className="t-e"><Ing name={t} /></span>
+              <span className="t-l">{cap(t)}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {ticket?.kind !== 'guess' && (
+        <button className={`serve ${showCount && ticket && ticket.plate.length === ticket.dish.ingredients.length ? 'ready' : ''}`} disabled={!selected || selected.state !== 'wait' || !selected.plate.length} onClick={serve}>🔔 SERVI!</button>
+      )}
 
+      {g.toast && <div className="toast" key={g.toast.text}><b>{g.toast.text}</b>{g.toast.sub && <span>{g.toast.sub}</span>}</div>}
       {g.phase === 'intro' && (
         <div className="intro">
           <div className="intro-t" key={g.introLeft > 900 ? 'a' : 'b'}>{g.introLeft > 900 ? 'Si apre il locale!' : 'VIA! 🍕'}</div>
+          {g.introLeft > 900 && <div className="intro-s">Più la ricetta è a memoria, più guadagni</div>}
         </div>
       )}
       {g.paused && (
@@ -421,21 +499,120 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
           </div>
         </div>
       )}
-      {g.overlay && (
-        <div className="modal">
-          <div className="modal-in">
-            <h3>{g.overlay.kind === 'late' ? '⏰ Il cliente se n\'è andato!' : '😡 Piatto sbagliato!'}</h3>
-            <div className="muted">La ricetta di <b>{g.overlay.dish.name}</b>:</div>
-            <div className="chips">
-              {g.overlay.dish.ingredients.map((i) => <Chip key={i} text={i} state={g.overlay!.missing.includes(i) ? 'miss' : 'ok'} />)}
-            </div>
-            {g.overlay.missing.length > 0 && <div className="sm">Ti mancava: <b>{g.overlay.missing.map(cap).join(', ')}</b></div>}
-            {g.overlay.extra.length > 0 && <div className="sm">Di troppo: <b>{g.overlay.extra.map(cap).join(', ')}</b></div>}
-            <div className="sm muted">Ti rimangono {Math.max(0, g.lives)} ❤️</div>
-            <button className="btn primary wide" onClick={closeOverlay}>Ho capito 💪</button>
+      {g.overlay && <FailSheet o={g.overlay} lives={g.lives} onClose={closeOverlay} />}
+    </div>
+  );
+}
+
+function FailSheet({ o, lives, onClose }: { o: Overlay; lives: number; onClose: () => void }) {
+  const title = o.kind === 'late' ? '⏰ Il cliente se n\'è andato!' : o.kind === 'guess' ? '🤔 Non era quello!' : '😡 Piatto sbagliato!';
+  return (
+    <div className="modal">
+      <div className="modal-in fail">
+        <h3>{title}</h3>
+        {o.chosen && (
+          <div className="cmp">
+            <div className="muted sm">Hai scelto <b>{o.chosen.name}</b>:</div>
+            <div className="chips">{o.chosen.ingredients.map((i) => <Chip key={i} text={i} state={o.dish.ingredients.map(norm).includes(norm(i)) ? '' : 'bad'} />)}</div>
           </div>
+        )}
+        <div className="muted">{o.chosen ? 'Era' : 'La ricetta di'} <b>{o.dish.name}</b>:</div>
+        <div className="chips">
+          {o.dish.ingredients.map((i) => <Chip key={i} text={i} state={o.missing.includes(i) ? 'miss' : 'ok'} />)}
+        </div>
+        {o.missing.length > 0 && <div className="sm">Ti mancava: <b>{o.missing.map(cap).join(', ')}</b></div>}
+        {o.extra.length > 0 && <div className="sm">Di troppo: <b>{o.extra.map(cap).join(', ')}</b></div>}
+        {o.notes.map((n) => <div key={n} className="note">💡 {n}</div>)}
+        {o.retry && <div className="note retry">🔁 Tra poco questo piatto torna: è la tua <b>rivincita</b> (punti ×1.5)</div>}
+        <div className="sm muted">Ti rimangono {Math.max(0, lives)} ❤️</div>
+        <button className="btn primary wide" onClick={onClose}>Ho capito 💪</button>
+      </div>
+    </div>
+  );
+}
+
+function End({ g, title, again, onExit }: { g: G; title: string; again: () => void; onExit: () => void }) {
+  const app = useApp();
+  const failed = g.lives <= 0;
+  const stars = g.served >= TOTAL && g.lives === g.maxLives ? 3 : g.served >= TOTAL * 0.75 ? 2 : g.served >= TOTAL * 0.4 ? 1 : 0;
+  const bonusCoins = stars * 25;
+  const [best, setBest] = useState(false);
+  const [done, setDone] = useState<Mission[]>([]);
+  const startLvl = useRef(levelOf(app.save.xp));
+  const reported = useRef(false);
+  const score = useCountUp(g.score, 1100, 250 + stars * 280);
+  const coins = useCountUp(g.coins + bonusCoins, 900, 600 + stars * 280);
+
+  useEffect(() => {
+    if (reported.current) return;
+    reported.current = true;
+    const a = app;
+    const before = currentDaily(a.save);
+    setBest(a.reportShift(g.score, g.coins + bonusCoins, g.bestCombo) && g.score > 0);
+    a.addXp(Math.round(g.score / 10));
+    const ev: Partial<Record<MKind, number>> = {
+      serve: g.served, memory: g.tally.memory, combo: g.bestCombo, shifts: 1, stars3: stars === 3 ? 1 : 0, revenge: g.tally.revenge, guess: g.tally.guess, vip: g.tally.vip,
+    };
+    a.track(ev);
+    const newly = before.ids
+      .map(missionById)
+      .filter((m): m is Mission => !!m && progressOf(before, m) < m.goal && Math.min(m.goal, (m.kind === 'combo' ? Math.max(before.prog.combo ?? 0, ev.combo ?? 0) : (before.prog[m.kind] ?? 0) + (ev[m.kind] ?? 0))) >= m.goal);
+    setDone(newly);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const timers = Array.from({ length: stars }, (_, i) => setTimeout(() => sfx.star(i), 250 + i * 280));
+    if (!failed && stars >= 2) timers.push(setTimeout(() => { confetti(stars === 3 ? 1.6 : 1); sfx.win(); }, 300 + stars * 280));
+    else if (failed) timers.push(setTimeout(() => sfx.bad(), 200));
+    return () => timers.forEach(clearTimeout);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const prog = Object.entries(g.progress).sort((a, b) => b[1].to - b[1].from - (a[1].to - a[1].from));
+  const lvl = levelOf(app.save.xp);
+  return (
+    <div className="screen over">
+      <div className="over-emoji">{failed ? '😵' : stars === 3 ? '🏆' : '🍕'}</div>
+      <h1>{failed ? 'Il locale è nel caos!' : 'Turno finito!'}</h1>
+      <div className="muted sm">{failed ? 'Niente panico: ogni errore di oggi è un ricordo più forte domani.' : title}</div>
+      <div className="stars">{[0, 1, 2].map((i) => <span key={i} className={i < stars ? 'on' : ''} style={{ animationDelay: `${250 + i * 280}ms` }}>★</span>)}</div>
+      <div className="bigscore">{score}</div>
+      {best && <div className="levelup">🎉 Nuovo record!</div>}
+      {lvl > startLvl.current && <div className="levelup">⭐ Livello {lvl}!</div>}
+      <div className="stat-row">
+        <div className="stat"><b>{g.served}/{TOTAL}</b><span>Serviti</span></div>
+        <div className="stat"><b>x{g.bestCombo}</b><span>Combo</span></div>
+        <div className="stat"><b>🪙 {coins}</b><span>{stars ? `+${bonusCoins} stelle` : 'Monete'}{g.tally.tips ? ` · ${g.tally.tips} mance` : ''}</span></div>
+      </div>
+      {done.map((m) => (
+        <div key={m.id} className="mission-done">🎁 Missione completata: <b>{m.text}</b> — ritira {m.reward}🪙 in home!</div>
+      ))}
+      {prog.length > 0 && (
+        <div className="card">
+          <div className="card-h">🧠 La tua memoria</div>
+          {prog.some(([, p]) => p.held && p.to === p.from) && <div className="muted sm">⏳ = già fissato per oggi: torna domani e salirà ancora (il cervello consolida dormendo)</div>}
+          {prog.map(([id, p]) => (
+            <div key={id} className="mem-row">
+              <span>{p.name}</span>
+              <Pips box={p.to} from={p.from} />
+              <b className={p.to > p.from ? 'up' : p.to < p.from ? 'down' : ''}>{p.to > p.from ? `+${p.to - p.from}` : p.to < p.from ? `${p.to - p.from}` : p.held ? '⏳' : '='}</b>
+            </div>
+          ))}
         </div>
       )}
+      {g.missedDishes.length > 0 && (
+        <div className="card">
+          <div className="card-h">Da ripassare</div>
+          {g.missedDishes.map((d) => (
+            <div key={d.id} className="miss-row">
+              <b>{catOf(d.category).emoji} {d.name}</b>
+              <div className="chips">{d.ingredients.map((i) => <Chip key={i} text={i} />)}</div>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="spacer" />
+      <button className="btn primary wide big" onClick={again}>▶ Altro turno</button>
+      <button className="btn ghost wide" onClick={onExit}>Torna alla home</button>
     </div>
   );
 }

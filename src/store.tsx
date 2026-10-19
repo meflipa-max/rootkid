@@ -1,9 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import type { Dish, DishStat, Save, Settings } from './lib/types';
+import type { Dish, DishStat, MKind, Save, Settings } from './lib/types';
 import { DEFAULT_DISHES, MENU_VERSION, OLD_DEFAULTS } from './lib/data';
-import { emptyStat, levelOf } from './lib/mastery';
+import { emptyStat, isDue, levelOf } from './lib/mastery';
 import { setFx } from './lib/fx';
 import { UPGRADES, lvlOf, upgradeCost } from './lib/build';
+import { currentDaily, missionById, progressOf } from './lib/missions';
 
 const KEY = 'pizzamaster-v1';
 
@@ -69,11 +70,28 @@ export interface RecordResult {
   leveledUp: boolean;
   level: number;
   goalReached: boolean;
+  prevBox: number;
+  box: number;
+  /** giusto, ma non ancora il momento di salire: torna più avanti */
+  held: boolean;
+}
+
+export interface RecordOpts {
+  /** ingredienti messi per errore */
+  extra?: string[];
+  /** 1 = errore lieve (un solo ingrediente, o tempo scaduto): la scatola scende di 1 invece che di 2 */
+  severity?: 1 | 2;
+  /** risposte "facili" (autovalutazione, riconoscimento) non portano la scatola oltre questo livello */
+  cap?: number;
 }
 
 interface Ctx {
   save: Save;
-  record(dishId: string, correct: boolean, missed: string[], xp: number): RecordResult;
+  record(dishId: string, correct: boolean, missed: string[], xp: number, opts?: RecordOpts): RecordResult;
+  /** avanza le missioni del giorno; combo usa il massimo, il resto si somma */
+  track(ev: Partial<Record<MKind, number>>): void;
+  claim(id: string): number;
+  openChest(): number;
   addXp(xp: number): void;
   reportShift(score: number, coins: number, combo: number): boolean;
   buySkin(id: string, cost: number): boolean;
@@ -113,23 +131,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const api = useMemo<Ctx>(
     () => ({
       save,
-      record(dishId, correct, missed, xp) {
+      record(dishId, correct, missed, xp, opts = {}) {
         const s = ref.current;
         const t = today();
-        const st: DishStat = { ...emptyStat(), ...s.stats[dishId], missed: { ...s.stats[dishId]?.missed } };
+        const prev = s.stats[dishId];
+        const st: DishStat = { ...emptyStat(), ...prev, missed: { ...prev?.missed }, confused: { ...prev?.confused } };
+        const prevBox = st.box;
+        // Leitner vero: oltre la scatola 2 si sale solo quando il ripasso è "maturo",
+        // così la padronanza misura la memoria a lungo termine e non la ripetizione nella stessa sessione
+        const ready = !prev?.seen || st.box < 2 || isDue(prev, Date.now());
         st.seen++;
         st.last = Date.now();
         if (correct) {
           st.correct++;
           st.streak++;
-          st.box = Math.min(5, st.box + 1);
+          if (ready) st.box = Math.max(st.box, Math.min(5, st.box + 1, opts.cap ?? 5));
           st.recentWrong = Math.max(0, st.recentWrong - 1);
         } else {
           st.streak = 0;
-          st.box = Math.max(0, st.box - 2);
+          st.box = Math.max(0, st.box - (opts.severity ?? 2));
           st.recentWrong++;
         }
         for (const m of missed) st.missed[m] = (st.missed[m] || 0) + 1;
+        for (const x of opts.extra ?? []) st.confused![x] = (st.confused![x] || 0) + 1;
 
         let streakDays = s.streakDays;
         let todayCount = s.todayDate === t ? s.todayCount : 0;
@@ -152,7 +176,38 @@ export function AppProvider({ children }: { children: ReactNode }) {
           leveledUp: levelOf(xpNew) > levelOf(s.xp),
           level: levelOf(xpNew),
           goalReached: before < s.settings.dailyGoal && todayCount >= s.settings.dailyGoal,
+          prevBox,
+          box: st.box,
+          held: correct && !ready && st.box < 5,
         };
+      },
+      track(ev) {
+        const s = ref.current;
+        const d = currentDaily(s);
+        const prog = { ...d.prog };
+        for (const [k, v] of Object.entries(ev) as [MKind, number][]) {
+          if (!v) continue;
+          prog[k] = k === 'combo' ? Math.max(prog[k] ?? 0, v) : (prog[k] ?? 0) + v;
+        }
+        commit({ ...s, daily: { ...d, prog } });
+      },
+      claim(id) {
+        const s = ref.current;
+        const d = currentDaily(s);
+        const m = missionById(id);
+        if (!m || !d.ids.includes(id) || d.claimed.includes(id) || progressOf(d, m) < m.goal) return 0;
+        commit({ ...s, coins: s.coins + m.reward, daily: { ...d, claimed: [...d.claimed, id] } });
+        return m.reward;
+      },
+      openChest() {
+        const s = ref.current;
+        const d = currentDaily(s);
+        if (d.chest || !d.ids.every((id) => d.claimed.includes(id))) return 0;
+        // ricompensa variabile: a volte piccola, a volte un jackpot
+        const r = Math.random();
+        const coins = r > 0.92 ? 400 : r > 0.65 ? 180 : 60 + Math.round(Math.random() * 80);
+        commit({ ...s, coins: s.coins + coins, daily: { ...d, chest: true } });
+        return coins;
       },
       addXp(xp) {
         commit({ ...ref.current, xp: ref.current.xp + xp });
@@ -198,7 +253,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       },
       resetStats() {
         const f = fresh();
-        commit({ ...ref.current, stats: {}, xp: 0, totalAnswered: 0, totalCorrect: 0, streakDays: 0, lastDay: '', todayCount: 0, bestShift: 0, bestCombo: 0, coins: 0, shifts: 0, build: {}, skins: ['classic'], skin: 'classic', todayDate: f.todayDate });
+        commit({ ...ref.current, daily: undefined, stats: {}, xp: 0, totalAnswered: 0, totalCorrect: 0, streakDays: 0, lastDay: '', todayCount: 0, bestShift: 0, bestCombo: 0, coins: 0, shifts: 0, build: {}, skins: ['classic'], skin: 'classic', todayDate: f.todayDate });
       },
       setSettings(p) {
         commit({ ...ref.current, settings: { ...ref.current.settings, ...p } });

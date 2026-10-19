@@ -18,12 +18,24 @@ export interface DishStat {
   streak: number;
   recentWrong: number;
   missed: Record<string, number>;
+  /** ingredienti messi per errore: diventano distrattori mirati */
+  confused?: Record<string, number>;
 }
 
 export interface Settings {
   sound: boolean;
   haptics: boolean;
   dailyGoal: number;
+}
+
+export type MKind = 'serve' | 'memory' | 'combo' | 'shifts' | 'stars3' | 'revenge' | 'guess' | 'cards' | 'vip';
+
+export interface Daily {
+  date: string;
+  ids: string[];
+  prog: Partial<Record<MKind, number>>;
+  claimed: string[];
+  chest: boolean;
 }
 
 export interface Save {
@@ -46,5 +58,6 @@ export interface Save {
   skin: string;
   build: Record<string, number>;
   menuV?: number;
+  daily?: Daily;
   settings: Settings;
 }

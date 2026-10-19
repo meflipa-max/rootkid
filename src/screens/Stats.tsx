@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useApp } from '../store';
 import { CATEGORIES, catOf } from '../lib/data';
 import { accuracy, mastery, masteryColor, masteryLabel } from '../lib/mastery';
-import { Bar, Chip, RecipeChips, Ring } from '../components/ui';
+import { Bar, Chip, Pips, RecipeChips, Ring } from '../components/ui';
 
 export function Stats({ focus }: { focus: () => void }) {
   const { save } = useApp();
@@ -70,11 +70,14 @@ export function Stats({ focus }: { focus: () => void }) {
                 <span className="dr-n">{catOf(d.category).emoji} {d.name}</span>
                 <span className="dr-l" style={{ color: lab.color }}>{lab.text}</span>
               </div>
-              <Bar value={m} color={masteryColor(m)} />
+              <div className="dr-pips"><Pips box={s?.seen ? s.box : 0} size={12} /><Bar value={m} color={masteryColor(m)} /></div>
               {open === d.id && (
                 <div className="dr-more">
                   <div className="muted sm">{s?.seen ? `${s.correct}/${s.seen} risposte giuste · serie attuale ${s.streak}` : 'Non ancora provato'}</div>
                   <RecipeChips dish={d} />
+                  {Object.keys(s?.confused ?? {}).length > 0 && (
+                    <div className="muted sm">Lo confondi con: <b>{Object.entries(s!.confused!).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k]) => k).join(', ')}</b></div>
+                  )}
                   {missed.length > 0 && (
                     <>
                       <div className="muted sm">Ingredienti che dimentichi più spesso:</div>

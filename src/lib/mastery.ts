@@ -1,9 +1,10 @@
 import type { DishStat } from './types';
 
 const DAY = 864e5;
-const INTERVAL_DAYS = [0, 0, 1, 2, 4, 8];
+// scatola 1: passo di apprendimento di 4 ore, poi giorni crescenti
+const INTERVAL_DAYS = [0, 1 / 6, 1, 2, 4, 8];
 
-export const emptyStat = (): DishStat => ({ seen: 0, correct: 0, box: 0, last: 0, streak: 0, recentWrong: 0, missed: {} });
+export const emptyStat = (): DishStat => ({ seen: 0, correct: 0, box: 0, last: 0, streak: 0, recentWrong: 0, missed: {}, confused: {} });
 
 /** 0..1 */
 export const mastery = (s?: DishStat) => (s && s.seen ? s.box / 5 : 0);
@@ -11,6 +12,10 @@ export const accuracy = (s?: DishStat) => (s && s.seen ? s.correct / s.seen : 0)
 
 export const isDue = (s: DishStat | undefined, now: number) =>
   !s || !s.seen || now - s.last >= INTERVAL_DAYS[s.box] * DAY;
+
+/** piatti già studiati che oggi andrebbero ripassati (ripetizione dilazionata) */
+export const dueCount = (stats: Record<string, DishStat>, ids: string[], now = Date.now()) =>
+  ids.filter((id) => stats[id]?.seen && isDue(stats[id], now)).length;
 
 export function masteryLabel(s?: DishStat): { text: string; color: string } {
   if (!s || !s.seen) return { text: 'Nuovo', color: '#8b86a8' };

@@ -80,3 +80,57 @@ export function makeQuestion(dish: Dish, all: Dish[], kind: Kind): Q {
   const extra = Math.max(3, 6 - n);
   return { kind: 'build', dish, options: shuffle([...dish.ingredients, ...distractors(dish, all, Math.min(extra, 6))]) };
 }
+
+/**
+ * Ingredienti sul bancone per un ordine: quelli giusti + distrattori.
+ * Gli ingredienti che il giocatore ha già confuso con questo piatto tornano apposta come distrattori,
+ * così la differenza viene allenata finché non è chiara.
+ */
+export function trayFor(dish: Dish, all: Dish[], confused: Record<string, number> | undefined, drop: number): string[] {
+  const own = new Set(dish.ingredients.map(norm));
+  const q = makeQuestion(dish, all, 'build');
+  const base = q.kind === 'build' ? q.options : dish.ingredients;
+  let wrong = base.filter((o) => !own.has(norm(o)));
+  const traps = Object.entries(confused ?? {})
+    .sort((a, b) => b[1] - a[1])
+    .map(([k]) => k)
+    .filter((k) => !own.has(norm(k)) && !wrong.some((w) => norm(w) === norm(k)))
+    .slice(0, 2);
+  if (traps.length) wrong = [...traps, ...wrong.slice(0, Math.max(0, wrong.length - traps.length))];
+  // la mise en place toglie distrattori, ma mai quelli su cui hai già sbagliato
+  const keep = Math.max(1, wrong.length - drop);
+  wrong = wrong.slice(0, keep);
+  return shuffle([...dish.ingredients, ...wrong]);
+}
+
+const jaccard = (a: Dish, b: Dish) => {
+  const A = new Set(a.ingredients.map(norm));
+  const B = new Set(b.ingredients.map(norm));
+  const inter = [...A].filter((x) => B.has(x)).length;
+  return inter / (A.size + B.size - inter || 1);
+};
+
+/** il piatto più facile da confondere con questo, con le differenze */
+export function similarDish(dish: Dish, all: Dish[]): { other: Dish; onlyHere: string[]; onlyThere: string[] } | null {
+  let best: Dish | null = null;
+  let score = 0.3;
+  for (const o of all) {
+    if (o.id === dish.id || o.category === 'fritti') continue;
+    const s = jaccard(dish, o) + (o.category === dish.category ? 0.05 : 0);
+    if (s > score) [best, score] = [o, s];
+  }
+  if (!best) return null;
+  const A = new Set(dish.ingredients.map(norm));
+  const B = new Set(best.ingredients.map(norm));
+  const onlyHere = dish.ingredients.filter((i) => !B.has(norm(i)));
+  const onlyThere = best.ingredients.filter((i) => !A.has(norm(i)));
+  if (!onlyHere.length && !onlyThere.length) return null;
+  return { other: best, onlyHere, onlyThere };
+}
+
+/** in quale altro piatto si trova un ingrediente (stessa categoria per prima) */
+export function whereIs(ing: string, dish: Dish, all: Dish[]): Dish | null {
+  const n = norm(ing);
+  const has = all.filter((d) => d.id !== dish.id && d.ingredients.some((i) => norm(i) === n));
+  return has.find((d) => d.category === dish.category) ?? has[0] ?? null;
+}

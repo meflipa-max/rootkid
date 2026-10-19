@@ -6,7 +6,7 @@ import { Stats } from './screens/Stats';
 import { Settings } from './screens/Settings';
 import { Game } from './screens/Game';
 import { Learn } from './screens/Learn';
-import { mastery, weight } from './lib/mastery';
+import { isDue, mastery, weight } from './lib/mastery';
 import { sfx } from './lib/fx';
 import { IngDefs } from './components/Ing';
 
@@ -21,8 +21,10 @@ function Shell() {
   const launch = (mode: Mode, pool?: Dish[]) => {
     let p = pool ?? save.dishes.filter((d) => cat === 'all' || d.category === cat);
     if (mode === 'focus' && !pool) {
+      // ripasso: prima i piatti "maturi" per la ripetizione dilazionata, poi i più deboli
       const now = Date.now();
-      p = [...p].sort((a, b) => weight(save.stats[b.id], now) - weight(save.stats[a.id], now)).slice(0, 5);
+      const due = (id: string) => (save.stats[id]?.seen && isDue(save.stats[id], now) ? 1 : 0);
+      p = [...p].sort((a, b) => due(b.id) - due(a.id) || weight(save.stats[b.id], now) - weight(save.stats[a.id], now)).slice(0, 6);
     }
     if (p.length) setRun({ mode, pool: p, n: Date.now() });
   };
@@ -31,7 +33,7 @@ function Shell() {
   if (run) {
     const key = run.n;
     if (run.mode === 'learn') return <Learn key={key} pool={run.pool} onExit={exit} />;
-    return <Game key={key} pool={run.pool} title={run.mode === 'focus' ? 'Punti deboli' : 'Turno'} onExit={exit} />;
+    return <Game key={key} pool={run.pool} title={run.mode === 'focus' ? 'Ripasso' : 'Turno'} onExit={exit} />;
   }
 
   const weakPool = () => {

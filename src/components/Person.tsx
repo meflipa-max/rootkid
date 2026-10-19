@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import type { ChefSkin } from '../lib/skins';
 
 export interface Look {
@@ -28,7 +29,7 @@ export const randomLook = (): Look => {
 
 export const CHEF_LOOK: Look = { skin: '#f1c27d', hair: '#2b1b12', style: 0, shirt: '#fff', extra: 3 };
 
-export function Person({ look, mood = 'idle', pose = 'idle', chef }: { look: Look; mood?: Mood; pose?: Pose; chef?: ChefSkin }) {
+export const Person = memo(function Person({ look, mood = 'idle', pose = 'idle', chef, crown }: { look: Look; mood?: Mood; pose?: Pose; chef?: ChefSkin; crown?: boolean }) {
   const shirt = chef ? chef.shirt : look.shirt;
   const { skin, hair } = look;
   return (
@@ -42,12 +43,14 @@ export function Person({ look, mood = 'idle', pose = 'idle', chef }: { look: Loo
         <circle cx="86" cy="120" r="7.5" fill={skin} />
       </g>
       <path d="M16 132 Q16 84 50 84 Q84 84 84 132Z" fill={shirt} />
+      <path d="M62 86 Q84 90 84 132 H66 Q70 104 62 86Z" fill="#000" opacity=".12" />
       {chef && <path d="M30 132 L34 98 Q50 106 66 98 L70 132Z" fill={chef.apron} />}
       <rect x="43" y="74" width="14" height="14" rx="5" fill={skin} />
       {look.style === 1 && <><rect x="21" y="38" width="13" height="50" rx="6.5" fill={hair} /><rect x="66" y="38" width="13" height="50" rx="6.5" fill={hair} /></>}
       <ellipse cx="25" cy="54" rx="4.5" ry="7" fill={skin} />
       <ellipse cx="75" cy="54" rx="4.5" ry="7" fill={skin} />
       <ellipse cx="50" cy="51" rx="25" ry="27" fill={skin} />
+      <path d="M62 28 Q76 40 74 58 Q70 74 54 78 Q68 66 66 50 Q65 36 62 28Z" fill="#000" opacity=".07" />
       {!chef && look.style !== 2 && <path d="M24 48 Q22 20 50 20 Q78 20 76 48 Q70 34 50 34 Q30 34 24 48Z" fill={hair} />}
       {!chef && look.style === 2 && <><ellipse cx="27" cy="38" rx="5" ry="8" fill={hair} /><ellipse cx="73" cy="38" rx="5" ry="8" fill={hair} /></>}
       {!chef && look.style === 3 && [30, 42, 54, 66, 72].map((x, i) => <circle key={i} cx={x} cy={i % 2 ? 22 : 26} r="11" fill={hair} />)}
@@ -91,6 +94,14 @@ export function Person({ look, mood = 'idle', pose = 'idle', chef }: { look: Loo
           <rect x="27" y="26" width="46" height="5" fill="rgba(0,0,0,.12)" />
         </g>
       )}
+      {crown && (
+        <g className="crown">
+          <path d="M33 22 L36 6 L44 15 L50 2 L56 15 L64 6 L67 22Z" fill="#ffd24a" stroke="#c98a00" strokeWidth="1.5" strokeLinejoin="round" />
+          <circle cx="50" cy="15" r="2.6" fill="#ff3d81" />
+          <circle cx="40" cy="18" r="1.8" fill="#4cc9f0" />
+          <circle cx="60" cy="18" r="1.8" fill="#4cc9f0" />
+        </g>
+      )}
     </svg>
   );
-}
+});

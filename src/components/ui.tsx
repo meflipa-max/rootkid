@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import type { Dish } from '../lib/types';
 import { cap } from '../lib/emoji';
 import { Ing } from './Ing';
@@ -76,5 +76,40 @@ export function TopBar({ title, onExit, right }: { title: string; onExit: () => 
       <div className="topbar-title">{title}</div>
       <div className="topbar-right">{right}</div>
     </div>
+  );
+}
+
+/** numero che "rotola" fino al valore: piccolo premio visivo ogni volta che cresce */
+export function useCountUp(target: number, dur = 900, delay = 0) {
+  const [v, setV] = useState(0);
+  useEffect(() => {
+    let raf = 0;
+    let start = 0;
+    const from = 0;
+    const t0 = setTimeout(() => {
+      const step = (t: number) => {
+        if (!start) start = t;
+        const k = Math.min(1, (t - start) / dur);
+        setV(Math.round(from + (target - from) * (1 - Math.pow(1 - k, 3))));
+        if (k < 1) raf = requestAnimationFrame(step);
+      };
+      raf = requestAnimationFrame(step);
+    }, delay);
+    return () => {
+      clearTimeout(t0);
+      cancelAnimationFrame(raf);
+    };
+  }, [target, dur, delay]);
+  return v;
+}
+
+/** padronanza come 5 tacche (le scatole di Leitner); le nuove si accendono con un lampo */
+export function Pips({ box, from, size = 10 }: { box: number; from?: number; size?: number }) {
+  return (
+    <span className="pips" style={{ ['--pip' as string]: `${size}px` }}>
+      {[0, 1, 2, 3, 4].map((i) => (
+        <i key={i} className={i < box ? (from !== undefined && i >= from ? 'on new' : 'on') : from !== undefined && i < from ? 'lost' : ''} style={{ animationDelay: `${(i - (from ?? 0)) * 120 + 300}ms` }} />
+      ))}
+    </span>
   );
 }

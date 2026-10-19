@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { useApp } from '../store';
 import { CATEGORIES } from '../lib/data';
-import { levelBounds, levelOf, mastery, titleOf } from '../lib/mastery';
+import { dueCount, levelBounds, levelOf, mastery, titleOf } from '../lib/mastery';
 import type { Category } from '../lib/types';
 import { Bar, Ring } from '../components/ui';
-import { sfx } from '../lib/fx';
+import { burst, centerOf, confetti, flyCoins, sfx } from '../lib/fx';
 import { CHEF_LOOK, Person } from '../components/Person';
 import { SKINS } from '../lib/skins';
 import { UPGRADES, lvlOf, totalBuilt, totalMax, upgradeCost } from '../lib/build';
+import { Awning, Scene } from '../components/Scene';
+import { currentDaily, missionById, progressOf, type Mission } from '../lib/missions';
 
 export type Mode = 'game' | 'focus' | 'learn';
 
@@ -71,65 +73,140 @@ function Build({ onClose }: { onClose: () => void }) {
 }
 
 export function Home({ cat, setCat, start }: { cat: Category | 'all'; setCat: (c: Category | 'all') => void; start: (m: Mode) => void }) {
-  const { save } = useApp();
+  const app = useApp();
+  const { save } = app;
   const [shop, setShop] = useState(false);
   const [build, setBuild] = useState(false);
+  const [chest, setChest] = useState<number | null>(null);
   const lvl = levelOf(save.xp);
   const [lo, hi] = levelBounds(lvl);
   const active = save.todayDate === new Date().toLocaleDateString('sv') ? save.todayCount : 0;
   const goal = save.settings.dailyGoal;
   const pool = save.dishes.filter((d) => cat === 'all' || d.category === cat);
   const avg = pool.length ? pool.reduce((a, d) => a + mastery(save.stats[d.id]), 0) / pool.length : 0;
+  const mastered = save.dishes.filter((d) => (save.stats[d.id]?.box ?? 0) >= 5).length;
+  const due = dueCount(save.stats, pool.map((d) => d.id));
   const skin = SKINS.find((s) => s.id === save.skin) ?? SKINS[0];
+  const daily = currentDaily(save);
+  const missions = daily.ids.map(missionById).filter((m): m is Mission => !!m);
+  const allClaimed = missions.every((m) => daily.claimed.includes(m.id));
   const go = (m: Mode) => {
     sfx.tap();
     start(m);
   };
+  const claim = (m: Mission, el: HTMLElement) => {
+    const got = app.claim(m.id);
+    if (!got) return;
+    sfx.win();
+    const at = centerOf(el);
+    if (at) burst(at.x, at.y, 1.2, ['#ffd24a', '#fff3b0', '#ffb300']);
+    flyCoins(at, document.querySelector('.coin-pill'), 8);
+  };
+  const openChest = (el: HTMLElement) => {
+    const got = app.openChest();
+    if (!got) return;
+    sfx.chest();
+    const at = centerOf(el);
+    if (at) burst(at.x, at.y, 2.2, ['#ffd24a', '#fff3b0', '#ff3d81', '#4cc9f0']);
+    confetti(got >= 180 ? 1.8 : 1);
+    setTimeout(() => flyCoins(at, document.querySelector('.coin-pill'), 10), 250);
+    setChest(got);
+  };
 
   return (
     <div className="page">
-      <header className="hero">
-        <div>
-          <div className="hello">Il tuo locale</div>
-          <h1 className="brand">Core <span>a Core</span></h1>
+      <header className="hero-scene">
+        <Scene build={save.build} night={0.12} />
+        <Awning lights={lvlOf(save.build, 'luci')} />
+        <div className="hero-top">
+          <div>
+            <div className="hello">Il tuo locale</div>
+            <h1 className="brand">Core <span>a Core</span></h1>
+          </div>
+          <div className="pills">
+            <div className={`streak ${save.streakDays > 0 ? 'lit' : ''}`} title="Giorni di fila">🔥 {save.streakDays}</div>
+            <div className="coin-pill">🪙 {save.coins}</div>
+          </div>
         </div>
-        <div className="streak" title="Giorni di fila">🔥 {save.streakDays}</div>
+        <div className="hero-chef"><Person look={CHEF_LOOK} chef={skin} mood="happy" pose="idle" /></div>
+        <div className="hero-counter" />
       </header>
 
-      <section className="card chef-card">
-        <div className="home-chef"><Person look={CHEF_LOOK} chef={skin} mood="happy" /></div>
-        <div style={{ flex: 1 }}>
-          <div className="lvl-n">Livello {lvl} · {titleOf(lvl)}</div>
-          <div className="muted sm">{save.xp} XP · 🪙 {save.coins}</div>
-          <div style={{ marginTop: 8 }}><Bar value={(save.xp - lo) / (hi - lo)} color="linear-gradient(90deg,#ff8a3d,#ff3d81)" h={10} /></div>
+      <section className="card lvl-card">
+        <div className="lvl-badge"><span>{lvl}</span></div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="lvl-n">{titleOf(lvl)}</div>
+          <div className="muted sm">{save.xp - lo} / {hi - lo} XP al prossimo livello</div>
+          <div style={{ marginTop: 8 }}><Bar value={(save.xp - lo) / (hi - lo)} color="linear-gradient(90deg,#ffb35c,#ff3d81,#b388ff)" h={10} /></div>
         </div>
-        <Ring value={active / goal} size={64} stroke={7} color={active >= goal ? '#2ee59d' : '#ffd24a'}>
-          <b style={{ fontSize: 18 }}>{Math.min(active, goal)}</b>
+        <Ring value={active / goal} size={62} stroke={7} color={active >= goal ? '#2ee59d' : '#ffd24a'}>
+          <b style={{ fontSize: 17 }}>{active >= goal ? '✓' : Math.min(active, goal)}</b>
         </Ring>
       </section>
 
       <div className="cats">
-        <button className={`cat ${cat === 'all' ? 'on' : ''}`} onClick={() => setCat('all')}>✨ Tutto il menu</button>
+        <button className={`cat ${cat === 'all' ? 'on' : ''}`} onClick={() => { sfx.tap(); setCat('all'); }}>✨ Tutto il menu</button>
         {CATEGORIES.map((c) => (
-          <button key={c.id} className={`cat ${cat === c.id ? 'on' : ''}`} style={cat === c.id ? { background: c.color, color: '#1a1030' } : undefined} onClick={() => setCat(c.id)}>
+          <button key={c.id} className={`cat ${cat === c.id ? 'on' : ''}`} style={cat === c.id ? { background: c.color, color: '#1a1030', borderColor: c.color } : undefined} onClick={() => { sfx.tap(); setCat(c.id); }}>
             {c.emoji} {c.name}
           </button>
         ))}
       </div>
-      <div className="muted sm c">Padronanza del menu selezionato: <b>{Math.round(avg * 100)}%</b> · record turno <b>{save.bestShift}</b></div>
 
       <button className="btn primary wide big hero-btn" disabled={!pool.length} onClick={() => go('game')}>
         <span>▶ INIZIA IL TURNO</span>
-        <small>8 clienti, 3 vite: prepara gli ordini prima che se ne vadano!</small>
+        <small>Padronanza {Math.round(avg * 100)}% · record {save.bestShift}</small>
       </button>
-      <div className="grid2">
-        <button className="btn tile rush" onClick={() => { sfx.tap(); setBuild(true); }}>🏗️<b>Costruisci</b><small>🪙 {save.coins} · {totalBuilt(save.build)}/{totalMax} migliorie</small></button>
-        <button className="btn tile learn" disabled={!pool.length} onClick={() => go('learn')}>📖<b>Ricettario</b><small>Schede da ripassare</small></button>
+
+      <section className="card missions">
+        <div className="row-between">
+          <div className="card-h">🎯 Missioni di oggi</div>
+          <span className="muted sm">{daily.claimed.length}/3</span>
+        </div>
+        {missions.map((m) => {
+          const p = progressOf(daily, m);
+          const ok = p >= m.goal;
+          const claimed = daily.claimed.includes(m.id);
+          return (
+            <div key={m.id} className={`mission ${claimed ? 'claimed' : ok ? 'ready' : ''}`}>
+              <span className="m-e">{m.emoji}</span>
+              <div className="m-b">
+                <div className="m-t">{m.text}</div>
+                <Bar value={p / m.goal} color={ok ? '#2ee59d' : 'linear-gradient(90deg,#ffb35c,#ff3d81)'} h={7} />
+              </div>
+              {claimed ? <span className="m-done">✓</span> : ok ? (
+                <button className="btn primary sm claim" onClick={(e) => claim(m, e.currentTarget)}>+{m.reward}🪙</button>
+              ) : <span className="m-r">{p}/{m.goal}</span>}
+            </div>
+          );
+        })}
+        <button className={`chest ${allClaimed && !daily.chest ? 'ready' : ''} ${daily.chest ? 'open' : ''}`} disabled={!allClaimed || daily.chest} onClick={(e) => openChest(e.currentTarget)}>
+          <span className="chest-e">{daily.chest ? '🎉' : '🎁'}</span>
+          <span>{daily.chest ? (chest ? `Hai trovato ${chest}🪙!` : 'Forziere aperto: torna domani!') : allClaimed ? 'Apri il forziere a sorpresa!' : 'Completa le 3 missioni per il forziere'}</span>
+        </button>
+      </section>
+
+      <div className="hub-grid">
+        <button className="hub review" disabled={!pool.length} onClick={() => go('focus')}>
+          {due > 0 && <span className="hub-badge">{due}</span>}
+          <span className="hub-e">🧠</span><b>Ripasso</b><small>{due ? `${due} piatti da rinfrescare` : 'I tuoi punti deboli'}</small>
+        </button>
+        <button className="hub learn" disabled={!pool.length} onClick={() => go('learn')}>
+          <span className="hub-e">📖</span><b>Ricettario</b><small>Schede da girare</small>
+        </button>
+        <button className="hub build" onClick={() => { sfx.tap(); setBuild(true); }}>
+          <span className="hub-e">🏗️</span><b>Costruisci</b><small>{totalBuilt(save.build)}/{totalMax} migliorie</small>
+        </button>
+        <button className="hub wardrobe" onClick={() => { sfx.tap(); setShop(true); }}>
+          <span className="hub-e">👨‍🍳</span><b>Guardaroba</b><small>{save.skins.length}/{SKINS.length} divise</small>
+        </button>
       </div>
-      <button className="btn tile wide wardrobe" onClick={() => { sfx.tap(); setShop(true); }}>👨‍🍳 <b>Guardaroba del cuoco</b></button>
-      <button className="btn tile focus wide" disabled={!pool.length} onClick={() => go('focus')}>
-        🩹 <b>Turno punti deboli</b><small>Solo i 5 piatti dove sbagli di più</small>
-      </button>
+
+      <section className="card collection">
+        <div className="row-between"><div className="card-h">⭐ Menu a memoria</div><b className="coll-n">{mastered}/{save.dishes.length}</b></div>
+        <Bar value={save.dishes.length ? mastered / save.dishes.length : 0} color="linear-gradient(90deg,#2ee59d,#4cc9f0)" h={10} />
+        <div className="muted sm">Un piatto è tuo quando lo servi a memoria in giorni diversi: la ripetizione distanziata lo fissa per sempre.</div>
+      </section>
       {shop && <Shop onClose={() => setShop(false)} />}
       {build && <Build onClose={() => setBuild(false)} />}
     </div>
