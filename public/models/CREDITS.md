@@ -22,7 +22,7 @@ li passa `tools/prepare-models.mjs`, che per ogni modello
 - unisce i vertici doppi, butta via quello che non serve e **quantizza** la geometria
   (`KHR_mesh_quantization`, three lo legge senza bisogno di decoder esterni).
 
-L'HDRI passa da 1024×128 a 256×128 e viene riscritto in RGBE: serve solo come luce riflessa e
+L'HDRI passa da 1024×512 a 256×128 e viene riscritto in RGBE: serve solo come luce riflessa e
 viene comunque sfocato dal PMREM, quindi la resa non cambia (luminanza media entro lo 0,3%).
 
 Risultato: **1,7 MB** in tutto al posto di 4,7 MB, e i personaggi si scaricano uno alla volta,

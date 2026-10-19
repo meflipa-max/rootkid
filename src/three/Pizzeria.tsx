@@ -38,7 +38,7 @@ function Dehors({ tables }: { tables: number }) {
                   file="chairCushion"
                   tall={0.78}
                   position={[s * 0.62, 0, 0]}
-                  rotation={[0, s * Math.PI * 0.5, 0]}
+                  rotation={[0, -s * Math.PI * 0.5, 0]}
                   spare={<Box s={[0.26, 0.34, 0.26]} p={[s * 0.5, 0.17, 0]} c="#8a6a4a" />}
                 />
               ))}
@@ -389,6 +389,7 @@ export function Pizzeria({ build, night, cutaway, onPick }: { build: Record<stri
               <Kit
                 file={l('frigo') > 1 ? 'kitchenFridgeLarge' : 'kitchenFridge'}
                 tall={1.8}
+                tint="#bfdccf"
                 spare={
                   <>
                     <Box s={[l('frigo') > 1 ? 1.2 : 0.75, 1.8, 0.7]} p={[0, 0.9, 0]} c="#bfdccf" />

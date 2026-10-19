@@ -96,7 +96,8 @@ export function EnvLight({ intensity = 0.55 }: { intensity?: number }) {
     use(room);
     loadHdr()
       .then((tex) => {
-        if (!alive) return;
+        // il Canvas è già andato via: lo studio non lo usa più nessuno
+        if (!alive) return room.dispose();
         const env = pm.fromEquirectangular(tex).texture;
         tex.dispose();
         cooked.set(gl, env);

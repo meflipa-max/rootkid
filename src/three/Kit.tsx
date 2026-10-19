@@ -17,7 +17,7 @@ const DIR = `${import.meta.env.BASE_URL}models/furniture/`;
 
 type V3 = [number, number, number];
 
-function Model({ file, tall, position = [0, 0, 0], rotation, flip }: { file: string; tall: number; position?: V3; rotation?: V3; flip?: boolean }) {
+function Model({ file, tall, tint, position = [0, 0, 0], rotation, flip }: { file: string; tall: number; tint?: string; position?: V3; rotation?: V3; flip?: boolean }) {
   const { scene } = useGLTF(DIR + file + '.glb');
   const obj = useMemo(() => {
     const o = scene.clone(true);
@@ -25,6 +25,14 @@ function Model({ file, tall, position = [0, 0, 0], rotation, flip }: { file: str
       if ((m as THREE.Mesh).isMesh) {
         m.castShadow = true;
         m.receiveShadow = true;
+        // tinta: si ricolorano solo i pezzi chiari (la scocca), i dettagli scuri restano come sono
+        const mesh = m as THREE.Mesh;
+        if (tint && mesh.material instanceof THREE.MeshStandardMaterial) {
+          const mt = mesh.material.clone();
+          const hsl = mt.color.getHSL({ h: 0, s: 0, l: 0 });
+          if (hsl.l > 0.6) mt.color.set(tint);
+          mesh.material = mt;
+        }
       }
     });
     const box = new THREE.Box3().setFromObject(o);
@@ -37,7 +45,7 @@ function Model({ file, tall, position = [0, 0, 0], rotation, flip }: { file: str
     o.scale.setScalar(k);
     g.add(o);
     return g;
-  }, [scene, tall]);
+  }, [scene, tall, tint]);
   return <primitive object={obj} position={position} rotation={rotation ?? [0, 0, 0]} scale={flip ? ([-1, 1, 1] as V3) : 1} />;
 }
 
@@ -51,7 +59,7 @@ class Spare extends Component<{ children: ReactNode; spare: ReactNode }, { faile
   }
 }
 
-export function Kit({ file, tall, spare, ...rest }: { file: string; tall: number; spare?: ReactNode; position?: V3; rotation?: V3; flip?: boolean }) {
+export function Kit({ file, tall, spare, ...rest }: { file: string; tall: number; tint?: string; spare?: ReactNode; position?: V3; rotation?: V3; flip?: boolean }) {
   return (
     <Spare spare={spare}>
       <Suspense fallback={spare}>
