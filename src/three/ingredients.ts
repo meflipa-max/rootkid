@@ -145,7 +145,131 @@ const SAUCE: Record<string, [string, string]> = {
   bosc: ['#c9906c', '#8a5a3a'],
 };
 
+/** creme e salse delle pizze: sul piatto sono uno strato spalmato, da sole un barattolo */
+const CREAMS: Record<string, string> = {
+  czucca: '#e8892c',
+  czucchine: '#a9c76a',
+  ccacio: '#efe3c4',
+  cgorgo: '#e6e2c8',
+  cradicchio: '#a24a63',
+  pesto: '#5d9a3a',
+  balsamico: '#3a1f14',
+  smarzano: '#c8301f',
+  pgiallo: '#f0b93a',
+};
+
+/** fettine tonde un po' sovrapposte (salumi, verdure) */
+function slices(b: B, n: number, r: number, c: string, rim?: string, dots?: string) {
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2 + b.r(0, 0.5);
+    const d = i === 0 ? 0 : 0.17;
+    const p: V3 = [Math.cos(a) * d, 0.012 + (i % 3) * 0.008, Math.sin(a) * d];
+    if (rim) b.cyl(r + 0.012, 0.016, rim, [p[0], p[1] - 0.002, p[2]], [1, 1, 1], 12);
+    b.cyl(r, 0.018, c, p, [1, 1, 1], 12);
+    if (dots) for (let k = 0; k < 4; k++) b.ball(0.012, dots, [p[0] + b.r(-r, r) * 0.6, p[1] + 0.02, p[2] + b.r(-r, r) * 0.6], [1, 0.4, 1], 0);
+  }
+  return 0.05;
+}
+/** striscioline sparse */
+function strips(b: B, n: number, c: string, c2: string, w = 0.16, t = 0.025) {
+  for (let i = 0; i < n; i++)
+    b.add(G.rbox(w, t, 0.045, 0.01), i % 2 ? c : c2, [b.r(-0.19, 0.19), b.r(0.015, 0.04), b.r(-0.19, 0.19)], [0, b.r(0, 3), b.r(-0.15, 0.15)]);
+  return 0.05;
+}
+/** pezzetti sparsi */
+function bits(b: B, n: number, r: number, c: string, c2 = c, s: V3 = [1, 0.7, 1]) {
+  for (let i = 0; i < n; i++) b.ball(r, i % 2 ? c : c2, [b.r(-0.2, 0.2), r * s[1], b.r(-0.2, 0.2)], s, 0);
+  return r * 2 * s[1];
+}
+
 const ART: Record<string, Build> = {
+  ...Object.fromEntries(Object.entries(CREAMS).map(([k, c]): [string, Build] => [k, (b, o) => (o.layer ? spread(b, c) : jar(b, c))])),
+  cotto: (b) => {
+    for (let i = 0; i < 3; i++) {
+      const p: V3 = [b.r(-0.06, 0.06), 0.02 + i * 0.015, (i - 1) * 0.1];
+      b.ball(0.13, '#fff3ec', [p[0], p[1] - 0.005, p[2]], [1.55, 0.22, 0.85], 1);
+      b.ball(0.12, '#f4b3a6', p, [1.5, 0.25, 0.8], 1);
+    }
+    return 0.07;
+  },
+  cipolla: (b) => {
+    for (let i = 0; i < 6; i++)
+      b.add(G.torus(0.06 + (i % 3) * 0.02, 0.008, Math.PI * 2, 14), i % 2 ? '#c98fb8' : '#efe1ea', [b.r(-0.16, 0.16), 0.012, b.r(-0.16, 0.16)], [Math.PI / 2, 0, 0]);
+    return 0.03;
+  },
+  salame: (b) => slices(b, 6, 0.075, '#b8352a', '#7a1f18', '#f1c8b8'),
+  mortadella: (b) => slices(b, 4, 0.12, '#f1a9a6', '#e58f8b', '#fbe9e4'),
+  capocollo: (b) => slices(b, 5, 0.09, '#9e2f2c', undefined, '#efc7bd'),
+  speck: (b) => strips(b, 7, '#8a2d26', '#a8443a', 0.18, 0.02),
+  pancetta: (b) => {
+    for (let i = 0; i < 9; i++) {
+      const p: V3 = [b.r(-0.18, 0.18), b.r(0.02, 0.04), b.r(-0.18, 0.18)];
+      const r = b.r(0, 3);
+      b.add(G.rbox(0.06, 0.04, 0.05, 0.01), '#f6e2d6', p, [0, r, 0]);
+      b.add(G.rbox(0.062, 0.02, 0.052, 0.008), '#c4564a', [p[0], p[1] + 0.012, p[2]], [0, r, 0]);
+    }
+    return 0.06;
+  },
+  salsiccia: (b) => bits(b, 10, 0.045, '#b5654a', '#9a4f3a', [1.1, 0.65, 1]),
+  polpette: (b) => {
+    pieces(b, 5, (x, z) => b.ball(0.07, '#7d4027', [x, 0.06, z], [1, 0.85, 1], 1));
+    return 0.13;
+  },
+  gamberetti: (b) => {
+    for (let i = 0; i < 6; i++) b.add(G.torus(0.04, 0.02, Math.PI * 1.3, 12), i % 2 ? '#f08a68' : '#f6a986', [b.r(-0.17, 0.17), 0.025, b.r(-0.17, 0.17)], [Math.PI / 2, 0, b.r(0, 6)]);
+    return 0.05;
+  },
+  salmone: (b) => {
+    for (let i = 0; i < 4; i++) b.ball(0.11, i % 2 ? '#f08a5a' : '#f5a070', [b.r(-0.12, 0.12), 0.02 + i * 0.01, b.r(-0.12, 0.12)], [1.4, 0.18, 0.7], 1);
+    return 0.06;
+  },
+  acciughe: (b) => {
+    for (let i = 0; i < 5; i++) b.add(G.cap(0.018, 0.2), i % 2 ? '#7a5a48' : '#8e6c58', [b.r(-0.12, 0.12), 0.02, (i - 2) * 0.07], [0, b.r(-0.4, 0.4), Math.PI / 2]);
+    return 0.04;
+  },
+  capperi: (b) => bits(b, 14, 0.025, '#6f8a3a', '#5d7a2e', [1, 0.9, 1]),
+  carciofi: (b) => {
+    pieces(b, 5, (x, z, i) => {
+      b.add(G.cone(0.06, 0.12, 6), '#9aa65a', [x, 0.04, z], [Math.PI / 2, i, 0], [1, 1, 0.5]);
+      b.add(G.cone(0.04, 0.09, 6), '#d7cf8a', [x, 0.05, z], [Math.PI / 2, i, 0], [1, 1, 0.5]);
+    });
+    return 0.08;
+  },
+  melanzane: (b) => slices(b, 5, 0.085, '#e8d7a0', '#4b2a4f'),
+  zucchine: (b) => slices(b, 7, 0.055, '#e9eebc', '#4f8a3a'),
+  zuccfritte: (b) => strips(b, 9, '#d9a94c', '#b9b04a', 0.14, 0.03),
+  peperoni: (b) => strips(b, 8, '#d83a2a', '#f0c030', 0.15, 0.03),
+  radicchio: (b) => strips(b, 10, '#8e2a4a', '#f0e6ea', 0.14, 0.012),
+  verdure: (b) => bits(b, 9, 0.06, '#2f6a28', '#3f7d30', [1.3, 0.4, 1]),
+  basilico: (b) => {
+    for (let i = 0; i < 5; i++) b.ball(0.05, '#3f9a3a', [b.r(-0.15, 0.15), 0.02, b.r(-0.15, 0.15)], [1.5, 0.2, 0.9], 1);
+    return 0.03;
+  },
+  noci: (b) => bits(b, 7, 0.04, '#9a6a3a', '#7d5230', [1.2, 0.7, 1]),
+  mandorle: (b) => {
+    for (let i = 0; i < 9; i++) b.ball(0.035, '#d9b483', [b.r(-0.18, 0.18), 0.012, b.r(-0.18, 0.18)], [1.5, 0.35, 0.8], 1);
+    return 0.03;
+  },
+  burrata: (b) => {
+    b.ball(0.16, '#fbf8ef', [0, 0.13, 0], [1, 0.8, 1], 1);
+    b.add(G.cone(0.05, 0.08, 8), '#f1ecdc', [0, 0.28, 0]);
+    return 0.31;
+  },
+  emmenthal: (b) => {
+    pieces(b, 4, (x, z, i) => {
+      b.add(G.rbox(0.11, 0.05, 0.11, 0.01), '#f6dd7a', [x, 0.025, z], [0, i, 0]);
+      b.ball(0.018, '#e2c35a', [x + 0.02, 0.05, z], [1, 0.3, 1], 0);
+    });
+    return 0.06;
+  },
+  gorgonzola: (b) => {
+    pieces(b, 4, (x, z, i) => {
+      b.add(G.rbox(0.1, 0.06, 0.1, 0.015), '#efe9cf', [x, 0.03, z], [0, i, 0]);
+      b.ball(0.02, '#5d8a8a', [x - 0.02, 0.06, z + 0.01], [1.4, 0.3, 1], 0);
+      b.ball(0.015, '#4b7a7a', [x + 0.02, 0.06, z - 0.02], [1.4, 0.3, 1], 0);
+    });
+    return 0.07;
+  },
   patty: (b) => {
     b.cyl(0.3, 0.1, '#6b3a22', [0, 0, 0], [1, 1, 1], 12);
     b.cyl(0.26, 0.012, '#7d4529', [0, 0.1, 0], [1, 1, 1], 12);
@@ -544,7 +668,7 @@ export function parseIng(name: string): IngInfo {
   return { key: onlyCount ? 'pezzi' : keyOf(base) || base.toLowerCase(), count, n: count ? parseInt(count, 10) : 1, onlyCount };
 }
 
-const SPREADS = new Set(['nutella', 'nutbianca', 'pistacchio']);
+const SPREADS = new Set(['nutella', 'nutbianca', 'pistacchio', ...Object.keys(CREAMS)]);
 export const isSpread = (name: string) => {
   const k = parseIng(name).key;
   return SPREADS.has(k) || k in SAUCE || k === 'guac' || (k === 'funghi' && name.toLowerCase().includes('crema'));
