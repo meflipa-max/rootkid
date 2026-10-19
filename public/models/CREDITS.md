@@ -39,3 +39,11 @@ I pacchetti originali non stanno nel repo. Per rigenerare `public/models/`:
 2. `node tools/prepare-models.mjs <quella-cartella>`
 
 Se aggiungi un pacchetto, mettilo nella tabella qui sopra.
+
+## Giuseppe (il cuoco)
+
+`characters/giuseppe.glb` è fatto in Blender a partire da `character-male-a.glb` (stesso scheletro,
+quindi usa le stesse animazioni): berretto girato, occhiali, faccia dipinta con barba e baffi,
+maglietta bianca e pantaloni a quadretti. Per rigenerarlo:
+
+    blender -b --python tools/giuseppe.py -- public/models/characters/character-male-a.glb public/models/characters/giuseppe.glb [anteprima.png]

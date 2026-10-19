@@ -3,7 +3,7 @@ import { createPortal } from '@react-three/fiber';
 import { useAnimations, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { SkeletonUtils } from 'three-stdlib';
-import { Apron, ChefHat, Crown, PersonMesh, type Pose3 } from './PersonMesh';
+import { Apron, Crown, PersonMesh, type Pose3 } from './PersonMesh';
 import type { Look, Mood } from '../components/Person';
 import type { ChefSkin } from '../lib/skins';
 
@@ -55,8 +55,9 @@ const hash = (s: string) => {
 };
 
 /** stesso aspetto ⇒ stesso modello: un cliente non cambia faccia mentre aspetta */
+/** il cuoco è sempre Giuseppe, il pizzaiolo vero: fatto in Blender da tools/giuseppe.py */
 const modelFor = (look: Look, chef?: ChefSkin) =>
-  chef ? NAMES[0] : NAMES[hash(`${look.skin}${look.hair}${look.shirt}${look.style}${look.extra}`) % NAMES.length];
+  chef ? 'giuseppe' : NAMES[hash(`${look.skin}${look.hair}${look.shirt}${look.style}${look.extra}`) % NAMES.length];
 
 function PersonGLB({ look, pose = 'idle', chef, crown, seed = 0 }: PersonProps) {
   const url = DIR + modelFor(look, chef) + '.glb';
@@ -108,7 +109,6 @@ function PersonGLB({ look, pose = 'idle', chef, crown, seed = 0 }: PersonProps) 
           // dentro all'osso le misure sono quelle del modello: la scala 1/k le riporta alle nostre,
           // così cappello e corona restano quelli disegnati a mano, con le stesse proporzioni
           <group scale={1 / k}>
-            {chef && <ChefHat color={chef.hat} position={[0, 0.3, -0.02]} rotation={[-0.08, 0, 0]} />}
             {crown && !chef && <Crown position={[0, 0.37, -0.02]} rotation={[-0.18, 0, 0.12]} />}
           </group>,
           head,

@@ -159,7 +159,7 @@ function Plate({ items, cat, onRemove }: { items: string[]; cat: string | null; 
   );
 }
 
-/** il piatto pronto vola dal cliente; poi esplodono le monete */
+/** il piatto pronto si mette in mostra un attimo, poi vola dal cliente; poi esplodono le monete */
 function Flights() {
   const [list, setList] = useState<{ id: number; e: Extract<StageEvent, { type: 'serve' }>; t0: number }[]>([]);
   const clock = useThree((s) => s.clock);
@@ -179,6 +179,9 @@ function Flights() {
   );
 }
 
+/** quanto dura la vetrina del piatto pronto, in secondi */
+const SHOW = 0.5;
+
 function Flight({ f, done }: { f: { e: Extract<StageEvent, { type: 'serve' }>; t0: number }; done: () => void }) {
   const g = useRef<THREE.Group>(null);
   const top = useRef<THREE.Group>(null);
@@ -187,22 +190,36 @@ function Flight({ f, done }: { f: { e: Extract<StageEvent, { type: 'serve' }>; t
   const base = useMemo(() => (baseKey ? buildIng(baseKey, true).obj : null), [baseKey]);
   const lid = useMemo(() => (f.e.cat === 'hamburger' ? buildIng('buntop', true).obj : null), [f]);
   const [coins, setCoins] = useState(false);
+  const ring = useRef<THREE.Mesh>(null);
   useFrame(({ clock }) => {
     const e = clock.elapsedTime - f.t0;
     const grp = g.current;
     if (!grp) return;
     if (top.current) top.current.position.y = topY + Math.max(0, 0.6 - e * 4);
-    const k = Math.max(0, Math.min(1, (e - 0.18) / 0.45));
+    // vetrina: mezzo secondo in cui il piatto salta su, fa un giro e brilla — breve, il turno non si ferma
+    const s = Math.min(1, e / SHOW);
+    const pop = Math.sin(s * Math.PI);
+    const k = Math.max(0, Math.min(1, (e - SHOW) / 0.42));
     const to = [SLOT_X[f.e.slot], 1.05, WAIT_Z + 0.35];
-    grp.position.set(PLATE[0] + (to[0] - PLATE[0]) * k, PLATE[1] + 0.05 + (to[1] - PLATE[1]) * k + Math.sin(k * Math.PI) * 0.9, PLATE[2] + (to[2] - PLATE[2]) * k);
-    grp.scale.setScalar(1 - k * 0.45);
-    grp.rotation.y = k * 2;
+    const lift = pop * 0.35;
+    grp.position.set(PLATE[0] + (to[0] - PLATE[0]) * k, PLATE[1] + 0.05 + lift + (to[1] - PLATE[1]) * k + Math.sin(k * Math.PI) * 0.9, PLATE[2] + (to[2] - PLATE[2]) * k);
+    grp.scale.setScalar((1 + pop * 0.22) * (1 - k * 0.45));
+    grp.rotation.y = (1 - Math.pow(1 - s, 3)) * Math.PI * 2 + k * 2;
+    if (ring.current) {
+      ring.current.visible = s < 1;
+      ring.current.scale.setScalar(0.6 + s * 0.9);
+      (ring.current.material as THREE.MeshBasicMaterial).opacity = (1 - s) * 0.8;
+    }
     if (k >= 1 && !coins) setCoins(true);
     grp.visible = k < 1;
-    if (e > 2) done();
+    if (e > 2.3) done();
   });
   return (
     <>
+      <mesh ref={ring} position={[PLATE[0], PLATE[1] + 0.12, PLATE[2]]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.55, 0.68, 40]} />
+        <meshBasicMaterial color="#ffd36b" transparent depthWrite={false} toneMapped={false} />
+      </mesh>
       <group ref={g} position={PLATE}>
         {base && <primitive object={base} />}
         {out.map((o, i) => (
