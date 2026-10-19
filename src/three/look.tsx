@@ -5,6 +5,7 @@ import { Bloom, BrightnessContrast, EffectComposer, HueSaturation, N8AO, ToneMap
 import { ToneMappingMode } from 'postprocessing';
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { RGBELoader } from 'three-stdlib';
 
 /**
  * L'"aspetto da gioco": luce d'ambiente morbida (environment map), tone mapping cinematografico,
@@ -60,18 +61,53 @@ export const GL_PROPS = {
   toneMappingExposure: 1.0,
 };
 
-/** luce riflessa "da studio" generata in locale (nessun file da scaricare) */
+/**
+ * Luce riflessa dell'ambiente. Parte subito con lo studio generato in locale (così non c'è mai
+ * un fotogramma al buio), poi passa all'HDRI di Poly Haven appena è scaricato: è una bottega
+ * vera, quindi dà riflessi caldi e irregolari che un ambiente finto non ha.
+ * Se l'HDRI non arriva (offline, file mancante) resta lo studio: la scena funziona lo stesso.
+ */
+const HDRI = `${import.meta.env.BASE_URL}models/hdri/artist_workshop.hdr`;
+let hdrLoad: Promise<THREE.DataTexture> | null = null;
+const loadHdr = () => (hdrLoad ??= new Promise<THREE.DataTexture>((ok, no) => new RGBELoader().load(HDRI, ok, undefined, no)));
+/** la mappa cotta vive nel contesto del suo renderer: una per Canvas, non si può riusare altrove */
+const cooked = new WeakMap<THREE.WebGLRenderer, THREE.Texture>();
+
 export function EnvLight({ intensity = 0.55 }: { intensity?: number }) {
   const { gl, scene } = useThree();
   useEffect(() => {
+    let alive = true;
+    const s = scene as THREE.Scene & { environmentIntensity?: number };
+    const use = (tex: THREE.Texture) => {
+      if (!alive) return;
+      s.environment = tex;
+      s.environmentIntensity = intensity;
+    };
+    const ready = cooked.get(gl);
+    if (ready) {
+      use(ready);
+      return () => {
+        alive = false;
+        s.environment = null;
+      };
+    }
     const pm = new THREE.PMREMGenerator(gl);
-    const tex = pm.fromScene(new RoomEnvironment(), 0.04).texture;
-    scene.environment = tex;
-    (scene as THREE.Scene & { environmentIntensity?: number }).environmentIntensity = intensity;
+    const room = pm.fromScene(new RoomEnvironment(), 0.04).texture;
+    use(room);
+    loadHdr()
+      .then((tex) => {
+        if (!alive) return;
+        const env = pm.fromEquirectangular(tex).texture;
+        tex.dispose();
+        cooked.set(gl, env);
+        use(env);
+        room.dispose();
+      })
+      .catch(() => cooked.set(gl, room))
+      .finally(() => pm.dispose());
     return () => {
-      scene.environment = null;
-      tex.dispose();
-      pm.dispose();
+      alive = false;
+      s.environment = null;
     };
   }, [gl, scene, intensity]);
   return null;

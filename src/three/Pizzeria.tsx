@@ -5,6 +5,7 @@ import { G, buildIng, mat } from './ingredients';
 import { lvlOf } from '../lib/build';
 import { Person3D } from './Person3D';
 import { World } from './World';
+import { Kit } from './Kit';
 import type { Look } from '../components/Person';
 
 /** Il locale in miniatura: stanza, esterno al tramonto e tutte le migliorie come oggetti veri. */
@@ -31,7 +32,16 @@ function Dehors({ tables }: { tables: number }) {
               <mesh geometry={G.cyl(0.04, 0.62, 8)} material={mat('#2b211c')} position={[0, 0.31, 0]} />
               <mesh geometry={G.cyl(0.03, 1.5, 8)} material={mat('#8a6a4a')} position={[0, 1.2, 0]} />
               <mesh geometry={G.cone(0.78, 0.35, 12)} material={mat(col)} position={[0, 1.95, 0]} castShadow />
-              {[-1, 1].map((s) => <Box key={s} s={[0.26, 0.34, 0.26]} p={[s * 0.5, 0.17, 0]} c="#8a6a4a" />)}
+              {[-1, 1].map((s) => (
+                <Kit
+                  key={s}
+                  file="chairCushion"
+                  tall={0.78}
+                  position={[s * 0.62, 0, 0]}
+                  rotation={[0, s * Math.PI * 0.5, 0]}
+                  spare={<Box s={[0.26, 0.34, 0.26]} p={[s * 0.5, 0.17, 0]} c="#8a6a4a" />}
+                />
+              ))}
             </group>
           </Grow>
         );
@@ -221,10 +231,18 @@ function Clock() {
 function Plant({ p, s = 1 }: { p: V3; s?: number }) {
   return (
     <group position={p} scale={s}>
-      <mesh geometry={G.cyl(0.22, 0.36, 8, 0.17)} material={mat('#c65a3c')} position={[0, 0.18, 0]} castShadow />
-      {[0, 1, 2, 3, 4].map((i) => (
-        <mesh key={i} geometry={G.ball(0.2 - i * 0.02, 0)} material={mat(i % 2 ? '#5f9a52' : '#4a8541')} position={[Math.cos(i * 1.3) * 0.12, 0.5 + i * 0.12, Math.sin(i * 1.3) * 0.12]} castShadow />
-      ))}
+      <Kit
+        file="pottedPlant"
+        tall={1.12}
+        spare={
+          <>
+            <mesh geometry={G.cyl(0.22, 0.36, 8, 0.17)} material={mat('#c65a3c')} position={[0, 0.18, 0]} castShadow />
+            {[0, 1, 2, 3, 4].map((i) => (
+              <mesh key={i} geometry={G.ball(0.2 - i * 0.02, 0)} material={mat(i % 2 ? '#5f9a52' : '#4a8541')} position={[Math.cos(i * 1.3) * 0.12, 0.5 + i * 0.12, Math.sin(i * 1.3) * 0.12]} castShadow />
+            ))}
+          </>
+        }
+      />
     </group>
   );
 }
@@ -368,9 +386,17 @@ export function Pizzeria({ build, night, cutaway, onPick }: { build: Record<stri
         <Pick id="frigo" onPick={onPick}>
           <Grow k={l('frigo')} first>
             <group position={[cutaway ? 3.2 : 3.3, 0, -1.6]} rotation={[0, -Math.PI / 2, 0]}>
-              <Box s={[l('frigo') > 1 ? 1.2 : 0.75, 1.8, 0.7]} p={[0, 0.9, 0]} c="#bfdccf" />
-              <Box s={[0.04, 0.5, 0.06]} p={[0.25, 1.2, 0.37]} c="#8a939c" />
-              {l('frigo') > 1 && <Box s={[0.02, 1.7, 0.02]} p={[0, 0.9, 0.36]} c="#8aa79a" />}
+              <Kit
+                file={l('frigo') > 1 ? 'kitchenFridgeLarge' : 'kitchenFridge'}
+                tall={1.8}
+                spare={
+                  <>
+                    <Box s={[l('frigo') > 1 ? 1.2 : 0.75, 1.8, 0.7]} p={[0, 0.9, 0]} c="#bfdccf" />
+                    <Box s={[0.04, 0.5, 0.06]} p={[0.25, 1.2, 0.37]} c="#8a939c" />
+                    {l('frigo') > 1 && <Box s={[0.02, 1.7, 0.02]} p={[0, 0.9, 0.36]} c="#8aa79a" />}
+                  </>
+                }
+              />
             </group>
           </Grow>
         </Pick>
