@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
+import { CAT_ING, Icon } from '../components/Icon';
+import { Ing } from '../components/Ing';
 import type { Dish } from '../lib/types';
 import { useApp } from '../store';
 import { mastery } from '../lib/mastery';
@@ -39,7 +41,7 @@ export function Learn({ pool, onExit }: { pool: Dish[]; onExit: () => void }) {
   if (finished) {
     return (
       <div className="screen over">
-        <div className="over-emoji">📚</div>
+        <div className="over-icon"><Icon name="book" size={56} /></div>
         <h1>Ripasso finito!</h1>
         <p className="muted c">Ora mettiti alla prova con un turno: ricordare sotto pressione fissa le ricette molto più che rileggerle.</p>
         <div className="stat-row">
@@ -82,7 +84,7 @@ export function Learn({ pool, onExit }: { pool: Dish[]; onExit: () => void }) {
         <div className={`flip ${flip ? 'on' : ''}`} onClick={() => { sfx.tap(); setFlip((f) => !f); }}>
           <div className="face front" style={{ borderColor: cat.color, ['--cat' as string]: cat.color }}>
             <DishBadge dish={dish} />
-            <div className="face-emoji">{cat.emoji}</div>
+            <div className="face-emoji"><Ing name={CAT_ING[dish.category]} /></div>
             <div className="face-name">{dish.name}</div>
             <div className="face-count">
               {dish.ingredients.map((_, k) => <i key={k} />)}
@@ -98,7 +100,7 @@ export function Learn({ pool, onExit }: { pool: Dish[]; onExit: () => void }) {
             {dish.ingredients.some((x) => weak.has(norm(x))) && <div className="muted sm">Tratteggiati: quelli che dimentichi più spesso</div>}
             {sim && (
               <div className="sim">
-                <div className="sm">⚖️ Non confonderlo con <b>{sim.other.name}</b></div>
+                <div className="sm"><Icon name="scale" size={15} /> Non confonderlo con <b>{sim.other.name}</b></div>
                 {sim.onlyHere.length > 0 && <div className="sm">Solo qui: <b className="g">{sim.onlyHere.map(cap).join(', ')}</b></div>}
                 {sim.onlyThere.length > 0 && <div className="sm">Solo lì: <b className="r">{sim.onlyThere.map(cap).join(', ')}</b></div>}
               </div>
@@ -109,8 +111,8 @@ export function Learn({ pool, onExit }: { pool: Dish[]; onExit: () => void }) {
       <div className="rate">
         {flip ? (
           <>
-            <button className="btn danger" onClick={() => rate(false)}>😵 Da rivedere</button>
-            <button className="btn good" onClick={() => rate(true)}>😎 Lo sapevo!</button>
+            <button className="btn danger" onClick={() => rate(false)}>Da rivedere</button>
+            <button className="btn good" onClick={() => rate(true)}>Lo sapevo!</button>
           </>
         ) : (
           <button className="btn primary wide" onClick={() => { sfx.tap(); setFlip(true); }}>Gira la scheda</button>

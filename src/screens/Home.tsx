@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useApp } from '../store';
 import { CATEGORIES } from '../lib/data';
 import { dueCount, levelBounds, levelOf, mastery, titleOf } from '../lib/mastery';
@@ -10,26 +10,33 @@ import { SKINS } from '../lib/skins';
 import { UPGRADES, lvlOf, totalBuilt, totalMax, upgradeCost } from '../lib/build';
 import { Awning, Scene } from '../components/Scene';
 import { currentDaily, missionById, progressOf, type Mission } from '../lib/missions';
+import { CAT_ING, Coin, Icon, MISSION_ICON, UPGRADE_ICON } from '../components/Icon';
+import { Ing } from '../components/Ing';
+import { hasWebGL } from '../three/thumbs';
+import { ChefPreview, Diorama } from '../three/Diorama';
 
 export type Mode = 'game' | 'focus' | 'learn';
 
 function Shop({ onClose }: { onClose: () => void }) {
   const app = useApp();
   const { coins, skins, skin } = app.save;
+  const [pv, setPv] = useState(skin);
+  const show = SKINS.find((s) => s.id === pv) ?? SKINS[0];
   return (
     <div className="modal" onClick={onClose}>
       <div className="modal-in" onClick={(e) => e.stopPropagation()}>
-        <div className="row-between"><h3>👨‍🍳 Guardaroba</h3><span className="coins-big">🪙 {coins}</span></div>
+        <div className="row-between"><h3>Guardaroba</h3><span className="coins-big"><Coin /> {coins}</span></div>
+        {hasWebGL() ? <div className="chef-stage"><ChefPreview skin={show} /></div> : <div className="chef-stage flat"><Person look={CHEF_LOOK} chef={show} /></div>}
         {SKINS.map((s) => {
           const own = skins.includes(s.id);
           return (
-            <div key={s.id} className="skin-row">
-              <div className="pv"><Person look={CHEF_LOOK} chef={s} /></div>
+            <div key={s.id} className={`skin-row ${pv === s.id ? 'on' : ''}`} onClick={() => { sfx.tap(); setPv(s.id); }}>
+              <span className="swatch"><i style={{ background: s.hat }} /><i style={{ background: s.shirt }} /><i style={{ background: s.apron }} /></span>
               <div className="nm">{s.name}</div>
               {own ? (
-                <button className={`btn sm ${skin === s.id ? 'good' : ''}`} onClick={() => { sfx.tap(); app.selectSkin(s.id); }}>{skin === s.id ? 'In uso' : 'Usa'}</button>
+                <button className={`btn sm ${skin === s.id ? 'good' : ''}`} onClick={(e) => { e.stopPropagation(); sfx.tap(); app.selectSkin(s.id); setPv(s.id); }}>{skin === s.id ? 'In uso' : 'Usa'}</button>
               ) : (
-                <button className="btn primary sm" disabled={coins < s.cost} onClick={() => { if (app.buySkin(s.id, s.cost)) sfx.win(); }}>🪙 {s.cost}</button>
+                <button className="btn primary sm" disabled={coins < s.cost} onClick={(e) => { e.stopPropagation(); if (app.buySkin(s.id, s.cost)) { sfx.win(); setPv(s.id); } }}><Coin size={15} /> {s.cost}</button>
               )}
             </div>
           );
@@ -40,28 +47,32 @@ function Shop({ onClose }: { onClose: () => void }) {
   );
 }
 
-function Build({ onClose }: { onClose: () => void }) {
+/** foglio basso: il diorama resta visibile sopra, così vedi comparire l'oggetto che compri */
+function Build({ focus, onClose }: { focus: string | null; onClose: () => void }) {
   const app = useApp();
   const { coins, build } = app.save;
+  const list = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (focus) list.current?.querySelector(`[data-up="${focus}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, [focus]);
   return (
-    <div className="modal" onClick={onClose}>
-      <div className="modal-in" onClick={(e) => e.stopPropagation()}>
-        <div className="row-between"><h3>🏗️ Il tuo locale</h3><span className="coins-big">🪙 {coins}</span></div>
-        <div className="muted sm">Costruisci Core a Core con le monete dei turni: i miglioramenti aiutano davvero in gioco.</div>
-        <Bar value={totalBuilt(build) / totalMax} color="linear-gradient(90deg,#ff8a3d,#ff3d81)" h={10} />
+    <div className="modal half" onClick={onClose}>
+      <div className="modal-in" onClick={(e) => e.stopPropagation()} ref={list}>
+        <div className="row-between"><h3>Il tuo locale</h3><span className="coins-big"><Coin /> {coins}</span></div>
+        <Bar value={totalBuilt(build) / totalMax} color="#c65a3c" h={10} />
         {UPGRADES.map((u) => {
           const lvl = lvlOf(build, u.id);
           const maxed = lvl >= u.max;
           const cost = upgradeCost(u, lvl);
           return (
-            <div key={u.id} className="skin-row">
-              <div className="up-e">{u.emoji}</div>
+            <div key={u.id} data-up={u.id} className={`skin-row ${focus === u.id ? 'on' : ''}`}>
+              <div className="up-e"><Icon name={UPGRADE_ICON[u.id]} size={22} /></div>
               <div style={{ flex: 1 }}>
                 <div className="nm">{u.name} <span className="muted sm">Lv {lvl}/{u.max}</span></div>
                 <div className="muted sm">{u.desc(maxed ? lvl : lvl + 1)}{!maxed && ' (prossimo)'}</div>
               </div>
-              {maxed ? <span className="badge" style={{ background: '#2ee59d26', color: '#2ee59d' }}>MAX</span> : (
-                <button className="btn primary sm" disabled={coins < cost} onClick={() => { if (app.upgrade(u.id)) sfx.win(); }}>🪙 {cost}</button>
+              {maxed ? <span className="badge max">MAX</span> : (
+                <button className="btn primary sm" disabled={coins < cost} onClick={() => { if (app.upgrade(u.id)) sfx.win(); }}><Coin size={15} /> {cost}</button>
               )}
             </div>
           );
@@ -76,7 +87,7 @@ export function Home({ cat, setCat, start }: { cat: Category | 'all'; setCat: (c
   const app = useApp();
   const { save } = app;
   const [shop, setShop] = useState(false);
-  const [build, setBuild] = useState(false);
+  const [build, setBuild] = useState<string | null | false>(false);
   const [chest, setChest] = useState<number | null>(null);
   const lvl = levelOf(save.xp);
   const [lo, hi] = levelBounds(lvl);
@@ -94,20 +105,23 @@ export function Home({ cat, setCat, start }: { cat: Category | 'all'; setCat: (c
     sfx.tap();
     start(m);
   };
+  const openBuild = (id: string | null) => {
+    sfx.tap();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setBuild(id);
+  };
   const claim = (m: Mission, el: HTMLElement) => {
     const got = app.claim(m.id);
     if (!got) return;
     sfx.win();
-    const at = centerOf(el);
-    if (at) burst(at.x, at.y, 1.2, ['#ffd24a', '#fff3b0', '#ffb300']);
-    flyCoins(at, document.querySelector('.coin-pill'), 8);
+    flyCoins(centerOf(el), document.querySelector('.coin-pill'), 8);
   };
   const openChest = (el: HTMLElement) => {
     const got = app.openChest();
     if (!got) return;
     sfx.chest();
     const at = centerOf(el);
-    if (at) burst(at.x, at.y, 2.2, ['#ffd24a', '#fff3b0', '#ff3d81', '#4cc9f0']);
+    if (at) burst(at.x, at.y, 1.6, ['#e3a83a', '#c65a3c', '#6f9a6a', '#fbf7ef']);
     confetti(got >= 180 ? 1.8 : 1);
     setTimeout(() => flyCoins(at, document.querySelector('.coin-pill'), 10), 250);
     setChest(got);
@@ -115,21 +129,36 @@ export function Home({ cat, setCat, start }: { cat: Category | 'all'; setCat: (c
 
   return (
     <div className="page">
-      <header className="hero-scene">
-        <Scene build={save.build} night={0.12} />
-        <Awning lights={lvlOf(save.build, 'luci')} />
+      <header className="hero">
         <div className="hero-top">
           <div>
             <div className="hello">Il tuo locale</div>
-            <h1 className="brand">Core <span>a Core</span></h1>
+            <h1 className="brand">Core a Core</h1>
           </div>
           <div className="pills">
-            <div className={`streak ${save.streakDays > 0 ? 'lit' : ''}`} title="Giorni di fila">🔥 {save.streakDays}</div>
-            <div className="coin-pill">🪙 {save.coins}</div>
+            <div className={`streak ${save.streakDays > 0 ? 'lit' : ''}`} title="Giorni di fila"><Icon name="flame" size={16} /> {save.streakDays}</div>
+            <div className="coin-pill"><Coin /> {save.coins}</div>
           </div>
         </div>
-        <div className="hero-chef"><Person look={CHEF_LOOK} chef={skin} mood="happy" pose="idle" /></div>
-        <div className="hero-counter" />
+        <div className="diorama">
+          {hasWebGL() ? (
+            <>
+              <Diorama
+                build={save.build}
+                skin={skin}
+                onPick={(id) => openBuild(id)}
+                ghosts={UPGRADES.filter((u) => lvlOf(save.build, u.id) === 0).map((u) => ({ id: u.id, can: save.coins >= upgradeCost(u, 0) }))}
+              />
+              <span className="diorama-hint">Trascina per girare · tocca un oggetto per migliorarlo</span>
+            </>
+          ) : (
+            <div className="hero-scene">
+              <Scene build={save.build} night={0.12} />
+              <Awning lights={lvlOf(save.build, 'luci')} />
+              <div className="hero-chef"><Person look={CHEF_LOOK} chef={skin} mood="happy" pose="idle" /></div>
+            </div>
+          )}
+        </div>
       </header>
 
       <section className="card lvl-card">
@@ -137,30 +166,30 @@ export function Home({ cat, setCat, start }: { cat: Category | 'all'; setCat: (c
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="lvl-n">{titleOf(lvl)}</div>
           <div className="muted sm">{save.xp - lo} / {hi - lo} XP al prossimo livello</div>
-          <div style={{ marginTop: 8 }}><Bar value={(save.xp - lo) / (hi - lo)} color="linear-gradient(90deg,#ffb35c,#ff3d81,#b388ff)" h={10} /></div>
+          <div style={{ marginTop: 8 }}><Bar value={(save.xp - lo) / (hi - lo)} color="#c65a3c" h={10} /></div>
         </div>
-        <Ring value={active / goal} size={62} stroke={7} color={active >= goal ? '#2ee59d' : '#ffd24a'}>
-          <b style={{ fontSize: 17 }}>{active >= goal ? '✓' : Math.min(active, goal)}</b>
+        <Ring value={active / goal} size={60} stroke={7} color={active >= goal ? '#6f9a6a' : '#e3a83a'}>
+          <b style={{ fontSize: 17 }}>{active >= goal ? <Icon name="check" /> : Math.min(active, goal)}</b>
         </Ring>
       </section>
 
       <div className="cats">
-        <button className={`cat ${cat === 'all' ? 'on' : ''}`} onClick={() => { sfx.tap(); setCat('all'); }}>✨ Tutto il menu</button>
+        <button className={`cat ${cat === 'all' ? 'on' : ''}`} onClick={() => { sfx.tap(); setCat('all'); }}>Tutto il menu</button>
         {CATEGORIES.map((c) => (
-          <button key={c.id} className={`cat ${cat === c.id ? 'on' : ''}`} style={cat === c.id ? { background: c.color, color: '#1a1030', borderColor: c.color } : undefined} onClick={() => { sfx.tap(); setCat(c.id); }}>
-            {c.emoji} {c.name}
+          <button key={c.id} className={`cat ${cat === c.id ? 'on' : ''}`} onClick={() => { sfx.tap(); setCat(c.id); }}>
+            <Ing name={CAT_ING[c.id]} /> {c.name}
           </button>
         ))}
       </div>
 
       <button className="btn primary wide big hero-btn" disabled={!pool.length} onClick={() => go('game')}>
-        <span>▶ INIZIA IL TURNO</span>
+        <span><Icon name="play" size={22} /> Inizia il turno</span>
         <small>Padronanza {Math.round(avg * 100)}% · record {save.bestShift}</small>
       </button>
 
       <section className="card missions">
         <div className="row-between">
-          <div className="card-h">🎯 Missioni di oggi</div>
+          <div className="card-h">Missioni di oggi</div>
           <span className="muted sm">{daily.claimed.length}/3</span>
         </div>
         {missions.map((m) => {
@@ -169,46 +198,46 @@ export function Home({ cat, setCat, start }: { cat: Category | 'all'; setCat: (c
           const claimed = daily.claimed.includes(m.id);
           return (
             <div key={m.id} className={`mission ${claimed ? 'claimed' : ok ? 'ready' : ''}`}>
-              <span className="m-e">{m.emoji}</span>
+              <span className="m-e"><Icon name={MISSION_ICON[m.kind]} size={20} /></span>
               <div className="m-b">
                 <div className="m-t">{m.text}</div>
-                <Bar value={p / m.goal} color={ok ? '#2ee59d' : 'linear-gradient(90deg,#ffb35c,#ff3d81)'} h={7} />
+                <Bar value={p / m.goal} color={ok ? '#6f9a6a' : '#e3a83a'} h={7} />
               </div>
-              {claimed ? <span className="m-done">✓</span> : ok ? (
-                <button className="btn primary sm claim" onClick={(e) => claim(m, e.currentTarget)}>+{m.reward}🪙</button>
+              {claimed ? <span className="m-done"><Icon name="check" /></span> : ok ? (
+                <button className="btn primary sm claim" onClick={(e) => claim(m, e.currentTarget)}>+{m.reward} <Coin size={15} /></button>
               ) : <span className="m-r">{p}/{m.goal}</span>}
             </div>
           );
         })}
         <button className={`chest ${allClaimed && !daily.chest ? 'ready' : ''} ${daily.chest ? 'open' : ''}`} disabled={!allClaimed || daily.chest} onClick={(e) => openChest(e.currentTarget)}>
-          <span className="chest-e">{daily.chest ? '🎉' : '🎁'}</span>
-          <span>{daily.chest ? (chest ? `Hai trovato ${chest}🪙!` : 'Forziere aperto: torna domani!') : allClaimed ? 'Apri il forziere a sorpresa!' : 'Completa le 3 missioni per il forziere'}</span>
+          <span className="chest-e"><Icon name="gift" size={26} /></span>
+          <span>{daily.chest ? (chest ? `Hai trovato ${chest} monete!` : 'Forziere aperto: torna domani!') : allClaimed ? 'Apri il forziere a sorpresa!' : 'Completa le 3 missioni per il forziere'}</span>
         </button>
       </section>
 
       <div className="hub-grid">
         <button className="hub review" disabled={!pool.length} onClick={() => go('focus')}>
           {due > 0 && <span className="hub-badge">{due}</span>}
-          <span className="hub-e">🧠</span><b>Ripasso</b><small>{due ? `${due} piatti da rinfrescare` : 'I tuoi punti deboli'}</small>
+          <span className="hub-e"><Icon name="brain" size={26} /></span><b>Ripasso</b><small>{due ? `${due} piatti da rinfrescare` : 'I tuoi punti deboli'}</small>
         </button>
         <button className="hub learn" disabled={!pool.length} onClick={() => go('learn')}>
-          <span className="hub-e">📖</span><b>Ricettario</b><small>Schede da girare</small>
+          <span className="hub-e"><Icon name="book" size={26} /></span><b>Ricettario</b><small>Schede da girare</small>
         </button>
-        <button className="hub build" onClick={() => { sfx.tap(); setBuild(true); }}>
-          <span className="hub-e">🏗️</span><b>Costruisci</b><small>{totalBuilt(save.build)}/{totalMax} migliorie</small>
+        <button className="hub build" onClick={() => openBuild(null)}>
+          <span className="hub-e"><Icon name="hammer" size={26} /></span><b>Costruisci</b><small>{totalBuilt(save.build)}/{totalMax} migliorie</small>
         </button>
         <button className="hub wardrobe" onClick={() => { sfx.tap(); setShop(true); }}>
-          <span className="hub-e">👨‍🍳</span><b>Guardaroba</b><small>{save.skins.length}/{SKINS.length} divise</small>
+          <span className="hub-e"><Icon name="shirt" size={26} /></span><b>Guardaroba</b><small>{save.skins.length}/{SKINS.length} divise</small>
         </button>
       </div>
 
       <section className="card collection">
-        <div className="row-between"><div className="card-h">⭐ Menu a memoria</div><b className="coll-n">{mastered}/{save.dishes.length}</b></div>
-        <Bar value={save.dishes.length ? mastered / save.dishes.length : 0} color="linear-gradient(90deg,#2ee59d,#4cc9f0)" h={10} />
+        <div className="row-between"><div className="card-h">Menu a memoria</div><b className="coll-n">{mastered}/{save.dishes.length}</b></div>
+        <Bar value={save.dishes.length ? mastered / save.dishes.length : 0} color="#6f9a6a" h={10} />
         <div className="muted sm">Un piatto è tuo quando lo servi a memoria in giorni diversi: la ripetizione distanziata lo fissa per sempre.</div>
       </section>
       {shop && <Shop onClose={() => setShop(false)} />}
-      {build && <Build onClose={() => setBuild(false)} />}
+      {build !== false && <Build focus={build} onClose={() => setBuild(false)} />}
     </div>
   );
 }

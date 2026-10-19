@@ -1,4 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { CAT_ING, Icon } from './components/Icon';
+import { prewarm } from './three/thumbs';
+import { askTilt } from './three/bus';
 import { AppProvider, useApp } from './store';
 import type { Category, Dish } from './lib/types';
 import { Home, type Mode } from './screens/Home';
@@ -17,8 +20,12 @@ function Shell() {
   const [tab, setTab] = useState<Tab>('home');
   const [cat, setCat] = useState<Category | 'all'>('all');
   const [run, setRun] = useState<{ mode: Mode; pool: Dish[]; n: number } | null>(null);
+  useEffect(() => {
+    prewarm([...Object.values(CAT_ING), ...save.dishes.flatMap((d) => d.ingredients)]);
+  }, [save.dishes]);
 
   const launch = (mode: Mode, pool?: Dish[]) => {
+    askTilt();
     let p = pool ?? save.dishes.filter((d) => cat === 'all' || d.category === cat);
     if (mode === 'focus' && !pool) {
       // ripasso: prima i piatti "maturi" per la ripetizione dilazionata, poi i più deboli
@@ -52,13 +59,13 @@ function Shell() {
       <nav className="tabs">
         {(
           [
-            ['home', '🍕', 'Gioca'],
-            ['stats', '📊', 'Statistiche'],
-            ['settings', '⚙️', 'Impostazioni'],
+            ['home', 'store', 'Gioca'],
+            ['stats', 'chart', 'Statistiche'],
+            ['settings', 'gear', 'Impostazioni'],
           ] as const
         ).map(([id, e, l]) => (
           <button key={id} className={tab === id ? 'on' : ''} onClick={() => { sfx.tap(); setTab(id); window.scrollTo(0, 0); }}>
-            <span>{e}</span>
+            <span><Icon name={e} size={22} /></span>
             {l}
           </button>
         ))}

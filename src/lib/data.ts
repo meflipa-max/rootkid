@@ -1,11 +1,11 @@
 import type { Category, Dish } from './types';
 
 export const CATEGORIES: { id: Category; name: string; emoji: string; color: string }[] = [
-  { id: 'hamburger', name: 'Hamburger', emoji: '🍔', color: '#ff8a3d' },
-  { id: 'insalatone', name: 'Insalatone', emoji: '🥗', color: '#2ee59d' },
-  { id: 'focacce', name: 'Focacce', emoji: '🥪', color: '#ffd24a' },
-  { id: 'dolci', name: 'Pizze dolci', emoji: '🍫', color: '#ff6fb5' },
-  { id: 'fritti', name: 'Friggitoria', emoji: '🍟', color: '#4cc9f0' },
+  { id: 'hamburger', name: 'Hamburger', emoji: '🍔', color: '#c65a3c' },
+  { id: 'insalatone', name: 'Insalatone', emoji: '🥗', color: '#6f9a6a' },
+  { id: 'focacce', name: 'Focacce', emoji: '🥪', color: '#e3a83a' },
+  { id: 'dolci', name: 'Pizze dolci', emoji: '🍫', color: '#8a6aa0' },
+  { id: 'fritti', name: 'Friggitoria', emoji: '🍟', color: '#5b8db8' },
 ];
 
 export const catOf = (id: Category) => CATEGORIES.find((c) => c.id === id)!;

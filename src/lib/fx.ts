@@ -96,7 +96,7 @@ export const sfx = {
   },
 };
 
-const COLORS = ['#ff8a3d', '#ff3d81', '#ffd24a', '#2ee59d', '#4cc9f0', '#b388ff'];
+const COLORS = ['#c65a3c', '#e3a83a', '#6f9a6a', '#5b8db8', '#8a6aa0', '#fffaf1'];
 
 export function confetti(power = 1) {
   const cv = document.createElement('canvas');

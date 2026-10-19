@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { CAT_ING, Icon } from '../components/Icon';
 import { useApp } from '../store';
 import { CATEGORIES, catOf, PIZZA_INGREDIENTS } from '../lib/data';
 import type { Category, Dish } from '../lib/types';
@@ -33,7 +34,7 @@ function Editor({ dish, onClose }: { dish: Dish | null; onClose: () => void }) {
         <label>Nome<input value={name} onChange={(e) => setName(e.target.value)} placeholder="Es. Esagerato" /></label>
         <label>Categoria
           <select value={category} onChange={(e) => setCategory(e.target.value as Category)}>
-            {CATEGORIES.map((c) => <option key={c.id} value={c.id}>{c.emoji} {c.name}</option>)}
+            {CATEGORIES.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </label>
         <label>Ingredienti <span className="muted sm">(uno per riga)</span>
@@ -78,10 +79,10 @@ export function Settings() {
       <button className={`chip ${filter === 'all' ? 'sel' : ''}`} onClick={() => setFilter('all')}>Tutti</button>
       {CATEGORIES.map((c) => (
         <button key={c.id} className={`chip ${filter === c.id ? 'sel' : ''}`} onClick={() => setFilter(c.id)}>
-          {c.emoji} {c.name} ({app.save.dishes.filter((d) => d.category === c.id).length})
+          <Ing name={CAT_ING[c.id]} /> {c.name} ({app.save.dishes.filter((d) => d.category === c.id).length})
         </button>
       ))}
-      <button className={`chip ${filter === 'pizze' ? 'sel' : ''}`} onClick={() => setFilter('pizze')}>🍕 Pizze</button>
+      <button className={`chip ${filter === 'pizze' ? 'sel' : ''}`} onClick={() => setFilter('pizze')}>Pizze</button>
     </div>
   );
   const toVerify = app.save.dishes.filter((d) => d.verify).length;
@@ -91,9 +92,9 @@ export function Settings() {
       <h2 className="h">Impostazioni</h2>
 
       <section className="card">
-        <label className="toggle"><span>🔊 Suoni</span><input type="checkbox" checked={settings.sound} onChange={(e) => app.setSettings({ sound: e.target.checked })} /></label>
-        <label className="toggle"><span>📳 Vibrazione</span><input type="checkbox" checked={settings.haptics} onChange={(e) => app.setSettings({ haptics: e.target.checked })} /></label>
-        <label className="toggle"><span>🎯 Obiettivo giornaliero</span>
+        <label className="toggle"><span><Icon name="sound" /> Suoni</span><input type="checkbox" checked={settings.sound} onChange={(e) => app.setSettings({ sound: e.target.checked })} /></label>
+        <label className="toggle"><span><Icon name="phone" /> Vibrazione</span><input type="checkbox" checked={settings.haptics} onChange={(e) => app.setSettings({ haptics: e.target.checked })} /></label>
+        <label className="toggle"><span><Icon name="target" /> Obiettivo giornaliero</span>
           <select value={settings.dailyGoal} onChange={(e) => app.setSettings({ dailyGoal: +e.target.value })}>
             {[10, 20, 30, 50].map((n) => <option key={n} value={n}>{n} risposte</option>)}
           </select>
@@ -105,7 +106,7 @@ export function Settings() {
         <button className="btn primary sm" onClick={() => setEdit('new')}>+ Nuovo piatto</button>
       </div>
       {toVerify > 0 && (
-        <div className="card warn sm">⚠️ Ho letto le ricette da una foto scritta a mano: i piatti con ⚠️ ({toVerify}) hanno parti tagliate o poco leggibili. Controllali e correggili!</div>
+        <div className="card warn sm">Ho letto le ricette da una foto scritta a mano: i piatti segnalati ({toVerify}) hanno parti tagliate o poco leggibili. Controllali e correggili!</div>
       )}
       {filterBar}
       {filter === 'pizze' && <div className="card muted sm">Le pizze non sono ancora piatti dell'app: qui trovi solo i loro ingredienti, nella sezione Ingredienti.</div>}
@@ -115,10 +116,10 @@ export function Settings() {
         if (!list.length) return null;
         return (
           <section key={c.id} className="card">
-            <div className="card-h" style={{ color: c.color }}>{c.emoji} {c.name}</div>
+            <div className="card-h cat-h"><Ing name={CAT_ING[c.id]} /> {c.name}</div>
             {list.map((d) => (
               <button key={d.id} className="recipe" onClick={() => setEdit(d)}>
-                <div className="recipe-n">{d.verify && '⚠️ '}{d.name}</div>
+                <div className="recipe-n">{d.verify && <Icon name="warn" size={15} />} {d.name}</div>
                 <div className="muted sm">{d.ingredients.map(cap).join(' · ')}</div>
               </button>
             ))}

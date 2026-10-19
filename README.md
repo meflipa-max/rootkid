@@ -2,6 +2,15 @@
 
 Gioco mobile-first per memorizzare le ricette della pizzeria (hamburger, insalatone, focacce, pizze dolci, friggitoria).
 
+## Grafica 3D
+Stile "giocattolo low-poly": tutto è modellato in codice con three.js / React Three Fiber (`src/three/`), quindi stessa mano per ogni oggetto, anche per i prodotti locali che non esistono nei pacchetti di modelli.
+
+- **Ingredienti 3D** (`ingredients.ts`): un modello per ogni ingrediente, più le basi dei piatti (panino, focaccia, ciotola, pizza, cestino). Le icone in tutta l'app sono render di questi modelli (`thumbs.ts`).
+- **Il locale** (`Pizzeria.tsx`): stanza, strada al tramonto che diventa sera durante il turno, e ogni miglioria come oggetto vero (forno con le fiamme, cassa, frigo, campanello, orologio, mensola, garzone, piante, quadri, luci, insegna al neon, tavolini fuori).
+- **Turno** (`Stage3D.tsx`): i clienti entrano dalla porta, aspettano, battono il piede se hanno fretta; trascini gli ingredienti sul piatto e cadono rimbalzando; il piatto pronto vola dal cliente e saltano fuori le monete. Il telefono inclinato muove la camera.
+- **Home** (`Diorama.tsx`): il locale in miniatura da girare col dito; tocchi un oggetto (o un "+") per migliorarlo e lo vedi comparire.
+- Senza WebGL il gioco torna da solo alla versione 2D.
+
 ## Il turno
 Un cuoco animato, una pizzeria al tramonto (che diventa sera man mano che arrivano i clienti) e 8 clienti da servire prima che perdano la pazienza.
 

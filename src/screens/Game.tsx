@@ -11,6 +11,10 @@ import { SKINS } from '../lib/skins';
 import { lvlOf } from '../lib/build';
 import { CHEF_LOOK, Person, randomLook, type Look, type Mood, type Pose } from '../components/Person';
 import { Chip, Pips, useCountUp } from '../components/ui';
+import { CAT_ING, Coin, Heart, Icon } from '../components/Icon';
+import { Stage3D } from '../three/Stage3D';
+import { stageBus } from '../three/bus';
+import { hasWebGL } from '../three/thumbs';
 import { Awning, Bunting, Kitchen, Scene } from '../components/Scene';
 import { currentDaily, missionById, progressOf, type Mission } from '../lib/missions';
 
@@ -115,7 +119,9 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
   const addPop = (g: G, text: string, kind: string, slot: number): G => ({
     ...g, uid: g.uid + 1, pops: [...g.pops, { id: g.uid, text, kind, x: slot * 33.3 + 16.6, t: 1300 }],
   });
-  const custEl = (c: Cust) => document.querySelector(`[data-cust="${c.id}"] .bubble`);
+  const custEl = (c: Cust) => document.querySelector(`.bubble[data-cust="${c.id}"]`);
+  const use3d = hasWebGL();
+  const stageRef = useRef<HTMLDivElement>(null);
 
   const spawn = (g: G): G => {
     const taken = new Set(g.customers.map((c) => c.slot));
@@ -166,6 +172,7 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
     const severity = kind === 'wrong' && missing.length + extra.length > 1 ? 2 : 1;
     const r = appRef.current.record(c.dish.id, false, missing, 0, { extra, severity });
     sfx.bad();
+    stageBus.emit({ type: 'fail', slot: c.slot });
     const notes: string[] = [];
     for (const x of extra) {
       const o = whereIs(x, c.dish, dishes);
@@ -181,7 +188,7 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
       customers: g.customers.map((x) => (x.id === c.id ? { ...x, state: 'angry', t: 0 } : x)),
     };
     n = track(n, c.dish.id, c.dish.name, r.prevBox, r.box);
-    return addPop(n, kind === 'late' ? '⏰ Troppo tardi!' : '😡 Sbagliato!', 'bad', c.slot);
+    return addPop(n, kind === 'late' ? 'Troppo tardi!' : 'Sbagliato!', 'bad', c.slot);
   };
 
   const success = (g0: G, c: Cust, mult: number, recCap?: number) => {
@@ -201,7 +208,7 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
       const r = appRef.current.record(c.dish.id, true, [], Math.round(6 * mult), { cap: recCap });
       n = track(n, c.dish.id, c.dish.name, r.prevBox, r.box, r.held);
       if (r.leveledUp) {
-        n = { ...n, toast: { text: `⭐ LIVELLO ${r.level}!`, sub: 'Clienti più esigenti, mance più ricche', t: 1900 } };
+        n = { ...n, toast: { text: `Livello ${r.level}!`, sub: 'Clienti più esigenti, mance più ricche', t: 1900 } };
         setTimeout(() => { sfx.level(); confetti(1.2); }, 350);
       }
     }
@@ -209,11 +216,12 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
     sfx.ok(combo);
     const el = custEl(c);
     const at = centerOf(el);
-    if (at) burst(at.x, at.y, c.vip || fever ? 1.6 : 1, c.vip ? ['#ffd24a', '#fff3b0', '#ffb300'] : undefined);
+    if (at && !use3d) burst(at.x, at.y, c.vip || fever ? 1.6 : 1, c.vip ? ['#ffd24a', '#fff3b0', '#ffb300'] : undefined);
+    stageBus.emit({ type: 'serve', slot: c.slot, items: c.kind === 'build' ? c.plate : c.dish.ingredients, cat: c.dish.category, coins: coins + tip, vip: c.vip });
     setTimeout(() => flyCoins(at, coinRef.current, coins + tip), 120);
     if (fever && !g0.fever) {
       sfx.fever();
-      n = { ...n, toast: { text: '🔥 FEVER!', sub: 'Punti ×1.5 finché non sbagli', t: 1600 } };
+      n = { ...n, toast: { text: 'FEVER!', sub: 'Punti ×1.5 finché non sbagli', t: 1600 } };
     }
     if (combo % 4 === 0) confetti(0.7);
     n = {
@@ -226,10 +234,10 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
       customers: n.customers.map((x) => (x.id === c.id ? { ...x, state: 'happy', t: 0 } : alive(x) ? { ...x, left: Math.min(x.max, x.left + 1500 * lvlOf(b, 'cronometro')) } : x)),
     };
     n = addPop(n, `+${pts}`, 'gain', c.slot);
-    const hype = c.vip ? `👑 VIP! +${coins}🪙` : c.retry ? '🔁 RISCATTO!' : c.kind === 'guess' ? '🎯 INDOVINATO!' : memory && c.hint === 'none' ? '🧠 A MEMORIA!' : frac > 0.6 ? '⚡ VELOCE!' : '✨ PERFETTO!';
+    const hype = c.vip ? `VIP +${coins}` : c.retry ? 'Riscatto!' : c.kind === 'guess' ? 'Indovinato!' : memory && c.hint === 'none' ? 'A memoria!' : frac > 0.6 ? 'Veloce!' : 'Perfetto!';
     n = addPop(n, hype, c.vip ? 'vip' : 'hype', c.slot);
-    if (tip) n = addPop(n, `+${tip}🪙 mancia`, 'tip', c.slot);
-    else if (combo >= 3) n = addPop(n, `🔥 COMBO x${combo}`, 'combo', c.slot);
+    if (tip) n = addPop(n, `+${tip} mancia`, 'tip', c.slot);
+    else if (combo >= 3) n = addPop(n, `Combo ×${combo}`, 'combo', c.slot);
     commit(n);
   };
 
@@ -348,6 +356,41 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
   };
   const setPaused = (p: boolean) => commit({ ...gr.current, paused: p });
 
+  const bubbleOf = (c: Cust) => {
+    const f = c.left / c.max;
+    return (
+      <button data-cust={c.id} className={`bubble ${selected?.id === c.id ? 'sel' : ''} ${c.vip ? 'vip' : ''} ${c.retry ? 'retry' : ''} ${f < 0.22 && alive(c) ? 'urgent' : ''}`} onClick={() => select(c.id)}>
+        {(c.vip || c.retry || c.kind === 'guess') && <span className="b-tag">{c.vip ? 'VIP ×3' : c.retry ? 'Rivincita' : 'Indeciso'}</span>}
+        <span className="b-n">{c.kind === 'guess' ? '«Quello con…»' : c.dish.name}</span>
+        <span className="pbar"><i style={{ width: `${Math.max(0, f * 100)}%`, background: f > 0.5 ? '#6f9a6a' : f > 0.22 ? '#e3a83a' : '#c8463b' }} /></span>
+      </button>
+    );
+  };
+
+  // trascina un ingrediente dal bancone al piatto (il tocco semplice funziona sempre)
+  const drag = useRef<{ ing: string; x0: number; y0: number; moved: boolean } | null>(null);
+  const [ghost, setGhost] = useState<{ ing: string; x: number; y: number } | null>(null);
+  const dragStart = (e: React.PointerEvent, ing: string) => {
+    drag.current = { ing, x0: e.clientX, y0: e.clientY, moved: false };
+    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+  };
+  const dragMove = (e: React.PointerEvent) => {
+    const d = drag.current;
+    if (!d) return;
+    if (!d.moved && Math.hypot(e.clientX - d.x0, e.clientY - d.y0) > 12) d.moved = true;
+    if (d.moved) setGhost({ ing: d.ing, x: e.clientX, y: e.clientY });
+  };
+  const dragEnd = (e: React.PointerEvent) => {
+    const d = drag.current;
+    drag.current = null;
+    setGhost(null);
+    if (!d) return;
+    if (!d.moved) return toggle(d.ing);
+    const r = stageRef.current?.getBoundingClientRect();
+    const c = gr.current.customers.find((x) => x.id === gr.current.selected);
+    if (r && e.clientY < r.bottom && c && !c.plate.includes(d.ing)) toggle(d.ing);
+  };
+
   const moodOf = (c: Cust): Mood => (c.state === 'happy' ? 'happy' : c.state === 'angry' ? 'angry' : c.left / c.max > 0.5 ? 'idle' : c.left / c.max > 0.22 ? 'worried' : 'angry');
 
   if (g.phase === 'end') return <End g={g} title={title} again={again} onExit={onExit} />;
@@ -361,71 +404,87 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
   return (
     <div className={`game ${g.shake > 0 ? 'shake' : ''} ${g.fever ? 'is-fever' : ''}`}>
       <div className="hud">
-        <button className="icon-btn" onClick={() => setPaused(true)} aria-label="Pausa">⏸</button>
-        <div className="hearts">{Array.from({ length: g.maxLives }, (_, i) => i).map((i) => <span key={i} className={i < g.lives ? '' : 'lost'}>{i < g.lives ? '❤️' : '🖤'}</span>)}</div>
+        <button className="icon-btn" onClick={() => setPaused(true)} aria-label="Pausa"><Icon name="pause" /></button>
+        <div className="hearts">{Array.from({ length: g.maxLives }, (_, i) => <Heart key={i} on={i < g.lives} />)}</div>
         <div className="score" key={g.score}>{g.score}</div>
-        <div className="coins" ref={coinRef}>🪙 {g.coins}</div>
+        <div className="coins" ref={coinRef}><Coin /> {g.coins}</div>
       </div>
       <div className="hud2">
         <span>{title} · {Math.min(g.spawned, TOTAL)}/{TOTAL}</span>
         <div className={`cmeter ${g.fever ? 'fever' : ''}`} aria-label={`Combo ${g.combo}`}>
-          {g.fever ? <b>🔥 FEVER ×1.5</b> : <span className="cm-l">Combo</span>}
+          {g.fever ? <b><Icon name="flame" size={14} /> FEVER ×1.5</b> : <span className="cm-l">Combo</span>}
           {!g.fever && Array.from({ length: FEVER_AT }, (_, i) => <i key={i} className={i < comboFill ? 'on' : ''} />)}
         </div>
       </div>
 
-      <div className="shop-top">
-        <Scene build={app.save.build} night={night} />
-        <Awning lights={L('luci')} />
-        <Bunting rows={L('quadri')} />
-        <div className={`neon lv${Math.min(L('insegna'), 5)}`}>🍕 CORE A CORE</div>
-        <div className="slots">
-          {[0, 1, 2].map((slot) => {
-            const c = g.customers.find((x) => x.slot === slot);
-            const f = c ? c.left / c.max : 1;
-            return (
-              <div className="slot" key={slot}>
-                {c && (
-                  <div className={`cust st-${c.state}`} key={c.id} data-cust={c.id}>
-                    <button className={`bubble ${selected?.id === c.id ? 'sel' : ''} ${c.vip ? 'vip' : ''} ${c.retry ? 'retry' : ''} ${f < 0.22 && alive(c) ? 'urgent' : ''}`} onClick={() => select(c.id)}>
-                      {(c.vip || c.retry || c.kind === 'guess') && <span className="b-tag">{c.vip ? '👑 VIP ×3' : c.retry ? '🔁 Rivincita' : '🤔 Indeciso'}</span>}
-                      <span className="b-n">{c.kind === 'guess' ? '«Quello con…»' : <>{catOf(c.dish.category).emoji} {c.dish.name}</>}</span>
-                      <span className="pbar"><i style={{ width: `${Math.max(0, f * 100)}%`, background: f > 0.5 ? '#2ee59d' : f > 0.22 ? '#ffd24a' : '#ff4d6d' }} /></span>
-                    </button>
-                    <div className="who"><Person look={c.look} mood={moodOf(c)} pose={c.state === 'happy' ? 'cheer' : 'idle'} crown={c.vip} /></div>
-                    {c.state === 'happy' && <div className="hearts-fx">💖</div>}
-                  </div>
-                )}
+      <div className={`stage ${use3d ? 'is3d' : ''}`} ref={stageRef}>
+        {use3d ? (
+          <Stage3D
+            customers={g.customers.map((c) => ({
+              id: c.id, look: c.look, slot: c.slot, state: c.state, vip: c.vip, mood: moodOf(c), impatient: c.state === 'wait' && c.left / c.max < 0.22, bubble: bubbleOf(c),
+            }))}
+            onSelect={select}
+            plate={selected?.kind === 'build' ? selected.plate : []}
+            cat={selected?.kind === 'build' ? selected.dish.category : null}
+            onRemove={toggle}
+            build={app.save.build}
+            night={night}
+            skin={skin}
+            chefPose={g.pose}
+            fever={g.fever}
+          />
+        ) : (
+          <>
+            <div className="shop-top">
+              <Scene build={app.save.build} night={night} />
+              <Awning lights={L('luci')} />
+              <Bunting rows={L('quadri')} />
+              <div className={`neon lv${Math.min(L('insegna'), 5)}`}>CORE A CORE</div>
+              <div className="slots">
+                {[0, 1, 2].map((slot) => {
+                  const c = g.customers.find((x) => x.slot === slot);
+                  return (
+                    <div className="slot" key={slot}>
+                      {c && (
+                        <div className={`cust st-${c.state}`} key={c.id}>
+                          {bubbleOf(c)}
+                          <div className="who"><Person look={c.look} mood={moodOf(c)} pose={c.state === 'happy' ? 'cheer' : 'idle'} crown={c.vip} /></div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
+              <div className="counter-bar" />
+            </div>
+            <div className="kitchen">
+              <Kitchen forno={L('forno')} />
+              <div className="chef"><Person look={CHEF_LOOK} chef={skin} pose={g.pose} mood={g.pose === 'cheer' ? 'happy' : g.pose === 'sad' ? 'worried' : 'idle'} /></div>
+              <div className="plate-wrap">
+                <div className="plate">
+                  {selected?.kind === 'build' && selected.plate.map((p) => (
+                    <button key={p} className="pitem" onClick={() => toggle(p)}><Ing name={p} /></button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+        <div className="plate-ui">
+          {ticket?.kind === 'guess' ? <span className="plate-q">Quale piatto è?</span> : (
+            <>
+              {showCount && ticket && (
+                <span className="plate-pips">
+                  {ticket.dish.ingredients.map((_, i) => <i key={i} className={i < ticket.plate.length ? (ticket.plate.length > ticket.dish.ingredients.length ? 'over' : 'on') : ''} />)}
+                </span>
+              )}
+              {!!ticket && !ticket.plate.length && <span className="plate-q">Trascina o tocca gli ingredienti</span>}
+              <button className="trash" onClick={clearPlate} disabled={!selected?.plate.length} aria-label="Svuota il piatto"><Icon name="trash" /></button>
+            </>
+          )}
         </div>
-        <div className="counter-bar" />
         <div className="pops">
-          {g.pops.map((p) => <span key={p.id} className={`pop ${p.kind}`} style={{ left: `${p.x}%` }}>{p.text}</span>)}
-        </div>
-      </div>
-
-      <div className="kitchen">
-        <Kitchen forno={L('forno')} />
-        <div className="chef"><Person look={CHEF_LOOK} chef={skin} pose={g.pose} mood={g.pose === 'cheer' ? 'happy' : g.pose === 'sad' ? 'worried' : 'idle'} /></div>
-        <div className="plate-wrap">
-          <div className="plate">
-            {ticket?.kind === 'guess' ? <span className="plate-hint">🤔 Quale piatto è?</span> : (
-              <>
-                {selected?.plate.map((p) => (
-                  <button key={p} className="pitem" onClick={() => toggle(p)}><Ing name={p} /></button>
-                ))}
-                {!selected?.plate.length && <span className="plate-hint">Piatto vuoto</span>}
-              </>
-            )}
-            {showCount && ticket && (
-              <span className="plate-pips">
-                {ticket.dish.ingredients.map((_, i) => <i key={i} className={i < ticket.plate.length ? (ticket.plate.length > ticket.dish.ingredients.length ? 'over' : 'on') : ''} />)}
-              </span>
-            )}
-          </div>
-          <button className="trash" onClick={clearPlate} disabled={!selected?.plate.length} aria-label="Svuota il piatto">🗑️</button>
+          {g.pops.map((p) => <span key={p.id} className={`pop ${p.kind}`} style={{ left: `${use3d ? [24, 50, 76][Math.round((p.x - 16.6) / 33.3)] : p.x}%` }}>{p.text}</span>)}
         </div>
       </div>
 
@@ -434,26 +493,26 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
           <span className="muted">Aspetta il prossimo cliente…</span>
         ) : ticket.kind === 'guess' ? (
           <>
-            <div className="t-top"><b>🤔 «Vorrei quello con…»</b><span className="mem">×{GUESS_MULT}</span></div>
+            <div className="t-top"><b>«Vorrei quello con…»</b><span className="mem">×{GUESS_MULT}</span></div>
             <div className="t-chips">{ticket.dish.ingredients.map((i) => <span key={i} className="mini"><Ing name={i} /> {cap(i)}</span>)}</div>
           </>
         ) : (
           <>
             <div className="t-top">
-              <b>🧾 {ticket.dish.name}</b>
+              <b>{ticket.dish.name}</b>
               {ticket.retry && <span className="mem alt">Riscatto ×1.5</span>}
               {!ticket.peeked && ticket.hint !== 'full' && <span className="mem">×{MULT[ticket.hint]}</span>}
-              {!showFull && <button className="peek" onClick={peek}>📖 Aiuto</button>}
+              {!showFull && <button className="peek" onClick={peek}><Icon name="book" size={14} /> Aiuto</button>}
             </div>
             {showFull ? (
               <>
-                {ticket.hint === 'flash' && !ticket.peeked && <div className="flash-tip">👀 Memorizza! Sparisce al primo ingrediente</div>}
+                {ticket.hint === 'flash' && !ticket.peeked && <div className="flash-tip"><Icon name="eye" size={14} /> Memorizza: sparisce al primo ingrediente</div>}
                 <div className="t-chips">{ticket.dish.ingredients.map((i) => <span key={i} className="mini"><Ing name={i} /> {cap(i)}</span>)}</div>
               </>
             ) : ticket.hint === 'icons' ? (
               <div className="t-chips">{ticket.dish.ingredients.map((i, k) => <span key={k} className="mini"><Ing name={i} /></span>)}<span className="muted sm">({ticket.dish.ingredients.length})</span></div>
             ) : ticket.hint === 'none' ? (
-              <div className="muted sm">🧠 Nessun aiuto: ti fidi della tua memoria?</div>
+              <div className="muted sm">Nessun aiuto: ti fidi della tua memoria?</div>
             ) : (
               <div className="muted sm">{ticket.dish.ingredients.length} {ticket.dish.ingredients.length === 1 ? 'ingrediente' : 'ingredienti'} — ricordi quali?</div>
             )}
@@ -465,14 +524,22 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
         <div className="gopts">
           {ticket.options.map((o) => (
             <button key={o.id} className="gopt" onClick={() => answer(o)} disabled={ticket.state !== 'wait'}>
-              <span>{catOf(o.category).emoji}</span>{o.name}
+              <Ing name={CAT_ING[o.category]} />{o.name}
             </button>
           ))}
         </div>
       ) : (
         <div className="tray">
           {(selected?.tray ?? []).map((t) => (
-            <button key={t} className={`itile ${selected?.plate.includes(t) ? 'used' : ''}`} onClick={() => toggle(t)}>
+            <button
+              key={t}
+              className={`itile ${selected?.plate.includes(t) ? 'used' : ''} ${ghost?.ing === t ? 'dragging' : ''}`}
+              onPointerDown={(e) => dragStart(e, t)}
+              onPointerMove={dragMove}
+              onPointerUp={dragEnd}
+              onPointerCancel={() => { drag.current = null; setGhost(null); }}
+              onClick={(e) => { if (e.detail === 0) toggle(t); }}
+            >
               <span className="t-e"><Ing name={t} /></span>
               <span className="t-l">{cap(t)}</span>
             </button>
@@ -480,20 +547,21 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
         </div>
       )}
       {ticket?.kind !== 'guess' && (
-        <button className={`serve ${showCount && ticket && ticket.plate.length === ticket.dish.ingredients.length ? 'ready' : ''}`} disabled={!selected || selected.state !== 'wait' || !selected.plate.length} onClick={serve}>🔔 SERVI!</button>
+        <button className={`serve ${showCount && ticket && ticket.plate.length === ticket.dish.ingredients.length ? 'ready' : ''}`} disabled={!selected || selected.state !== 'wait' || !selected.plate.length} onClick={serve}><Icon name="bell" size={22} /> SERVI</button>
       )}
 
       {g.toast && <div className="toast" key={g.toast.text}><b>{g.toast.text}</b>{g.toast.sub && <span>{g.toast.sub}</span>}</div>}
+      {ghost && <div className="drag-ghost" style={{ transform: `translate(${ghost.x}px, ${ghost.y}px)` }}><Ing name={ghost.ing} /></div>}
       {g.phase === 'intro' && (
         <div className="intro">
-          <div className="intro-t" key={g.introLeft > 900 ? 'a' : 'b'}>{g.introLeft > 900 ? 'Si apre il locale!' : 'VIA! 🍕'}</div>
+          <div className="intro-t" key={g.introLeft > 900 ? 'a' : 'b'}>{g.introLeft > 900 ? 'Si apre il locale!' : 'Via!'}</div>
           {g.introLeft > 900 && <div className="intro-s">Più la ricetta è a memoria, più guadagni</div>}
         </div>
       )}
       {g.paused && (
         <div className="modal">
           <div className="modal-in c">
-            <h3>⏸ Pausa</h3>
+            <h3>Pausa</h3>
             <button className="btn primary wide" onClick={() => setPaused(false)}>Riprendi</button>
             <button className="btn danger wide" onClick={onExit}>Esci dal turno</button>
           </div>
@@ -505,7 +573,7 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
 }
 
 function FailSheet({ o, lives, onClose }: { o: Overlay; lives: number; onClose: () => void }) {
-  const title = o.kind === 'late' ? '⏰ Il cliente se n\'è andato!' : o.kind === 'guess' ? '🤔 Non era quello!' : '😡 Piatto sbagliato!';
+  const title = o.kind === 'late' ? 'Il cliente se n\'è andato' : o.kind === 'guess' ? 'Non era quello!' : 'Piatto sbagliato';
   return (
     <div className="modal">
       <div className="modal-in fail">
@@ -522,10 +590,10 @@ function FailSheet({ o, lives, onClose }: { o: Overlay; lives: number; onClose: 
         </div>
         {o.missing.length > 0 && <div className="sm">Ti mancava: <b>{o.missing.map(cap).join(', ')}</b></div>}
         {o.extra.length > 0 && <div className="sm">Di troppo: <b>{o.extra.map(cap).join(', ')}</b></div>}
-        {o.notes.map((n) => <div key={n} className="note">💡 {n}</div>)}
-        {o.retry && <div className="note retry">🔁 Tra poco questo piatto torna: è la tua <b>rivincita</b> (punti ×1.5)</div>}
-        <div className="sm muted">Ti rimangono {Math.max(0, lives)} ❤️</div>
-        <button className="btn primary wide" onClick={onClose}>Ho capito 💪</button>
+        {o.notes.map((n) => <div key={n} className="note"><Icon name="bulb" size={16} /><span>{n}</span></div>)}
+        {o.retry && <div className="note retry"><Icon name="refresh" size={16} /><span>Tra poco questo piatto torna: è la tua <b>rivincita</b> (punti ×1.5)</span></div>}
+        <div className="sm muted">Ti rimangono {Math.max(0, lives)} vite</div>
+        <button className="btn primary wide" onClick={onClose}>Ho capito</button>
       </div>
     </div>
   );
@@ -571,24 +639,24 @@ function End({ g, title, again, onExit }: { g: G; title: string; again: () => vo
   const lvl = levelOf(app.save.xp);
   return (
     <div className="screen over">
-      <div className="over-emoji">{failed ? '😵' : stars === 3 ? '🏆' : '🍕'}</div>
+      <div className={`over-icon ${failed ? 'bad' : ''}`}><Icon name={failed ? 'sad' : stars === 3 ? 'trophy' : 'smile'} size={56} /></div>
       <h1>{failed ? 'Il locale è nel caos!' : 'Turno finito!'}</h1>
-      <div className="muted sm">{failed ? 'Niente panico: ogni errore di oggi è un ricordo più forte domani.' : title}</div>
+      {(failed || title !== 'Turno') && <div className="muted sm">{failed ? 'Niente panico: ogni errore di oggi è un ricordo più forte domani.' : title}</div>}
       <div className="stars">{[0, 1, 2].map((i) => <span key={i} className={i < stars ? 'on' : ''} style={{ animationDelay: `${250 + i * 280}ms` }}>★</span>)}</div>
       <div className="bigscore">{score}</div>
-      {best && <div className="levelup">🎉 Nuovo record!</div>}
-      {lvl > startLvl.current && <div className="levelup">⭐ Livello {lvl}!</div>}
+      {best && <div className="levelup">Nuovo record!</div>}
+      {lvl > startLvl.current && <div className="levelup">Livello {lvl}!</div>}
       <div className="stat-row">
         <div className="stat"><b>{g.served}/{TOTAL}</b><span>Serviti</span></div>
         <div className="stat"><b>x{g.bestCombo}</b><span>Combo</span></div>
-        <div className="stat"><b>🪙 {coins}</b><span>{stars ? `+${bonusCoins} stelle` : 'Monete'}{g.tally.tips ? ` · ${g.tally.tips} mance` : ''}</span></div>
+        <div className="stat"><b><Coin size={20} /> {coins}</b><span>{stars ? `+${bonusCoins} stelle` : 'Monete'}{g.tally.tips ? ` · ${g.tally.tips} mance` : ''}</span></div>
       </div>
       {done.map((m) => (
-        <div key={m.id} className="mission-done">🎁 Missione completata: <b>{m.text}</b> — ritira {m.reward}🪙 in home!</div>
+        <div key={m.id} className="mission-done"><Icon name="gift" /> <span>Missione completata: <b>{m.text}</b>. Ritira {m.reward} monete in home!</span></div>
       ))}
       {prog.length > 0 && (
         <div className="card">
-          <div className="card-h">🧠 La tua memoria</div>
+          <div className="card-h">La tua memoria</div>
           {prog.some(([, p]) => p.held && p.to === p.from) && <div className="muted sm">⏳ = già fissato per oggi: torna domani e salirà ancora (il cervello consolida dormendo)</div>}
           {prog.map(([id, p]) => (
             <div key={id} className="mem-row">
@@ -604,7 +672,7 @@ function End({ g, title, again, onExit }: { g: G; title: string; again: () => vo
           <div className="card-h">Da ripassare</div>
           {g.missedDishes.map((d) => (
             <div key={d.id} className="miss-row">
-              <b>{catOf(d.category).emoji} {d.name}</b>
+              <b>{d.name}</b>
               <div className="chips">{d.ingredients.map((i) => <Chip key={i} text={i} />)}</div>
             </div>
           ))}

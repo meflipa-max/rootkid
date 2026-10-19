@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
+import { Icon } from './Icon';
 import type { Dish } from '../lib/types';
 import { cap } from '../lib/emoji';
 import { Ing } from './Ing';
@@ -27,8 +28,8 @@ export function RecipeChips({ dish }: { dish: Dish }) {
 export function DishBadge({ dish }: { dish: Dish }) {
   const c = catOf(dish.category);
   return (
-    <span className="badge" style={{ background: c.color + '26', color: c.color }}>
-      {c.emoji} {c.name}
+    <span className="badge">
+      {c.name}
     </span>
   );
 }
@@ -41,7 +42,7 @@ export function Bar({ value, color, h = 8 }: { value: number; color: string; h?:
   );
 }
 
-export function Ring({ value, size = 84, stroke = 9, color = '#ffd24a', children }: { value: number; size?: number; stroke?: number; color?: string; children?: ReactNode }) {
+export function Ring({ value, size = 84, stroke = 9, color = '#e3a83a', children }: { value: number; size?: number; stroke?: number; color?: string; children?: ReactNode }) {
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   return (
@@ -71,7 +72,7 @@ export function TopBar({ title, onExit, right }: { title: string; onExit: () => 
   return (
     <div className="topbar">
       <button className="icon-btn" onClick={onExit} aria-label="Esci">
-        ✕
+        <Icon name="x" />
       </button>
       <div className="topbar-title">{title}</div>
       <div className="topbar-right">{right}</div>

@@ -18,15 +18,15 @@ export const dueCount = (stats: Record<string, DishStat>, ids: string[], now = D
   ids.filter((id) => stats[id]?.seen && isDue(stats[id], now)).length;
 
 export function masteryLabel(s?: DishStat): { text: string; color: string } {
-  if (!s || !s.seen) return { text: 'Nuovo', color: '#8b86a8' };
+  if (!s || !s.seen) return { text: 'Nuovo', color: '#85776a' };
   const m = mastery(s);
-  if (m < 0.3) return { text: 'Da studiare', color: '#ff4d6d' };
-  if (m < 0.6) return { text: 'In crescita', color: '#ff9f43' };
-  if (m < 1) return { text: 'Quasi!', color: '#ffd24a' };
-  return { text: 'Padroneggiato', color: '#2ee59d' };
+  if (m < 0.3) return { text: 'Da studiare', color: '#c8463b' };
+  if (m < 0.6) return { text: 'In crescita', color: '#d98a3c' };
+  if (m < 1) return { text: 'Quasi!', color: '#e3a83a' };
+  return { text: 'Padroneggiato', color: '#6f9a6a' };
 }
 
-export const masteryColor = (m: number) => (m < 0.3 ? '#ff4d6d' : m < 0.6 ? '#ff9f43' : m < 1 ? '#ffd24a' : '#2ee59d');
+export const masteryColor = (m: number) => (m < 0.3 ? '#c8463b' : m < 0.6 ? '#d98a3c' : m < 1 ? '#e3a83a' : '#6f9a6a');
 
 /** quanto "serve" ripassare un piatto */
 export function weight(s: DishStat | undefined, now: number) {

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { hasWebGL, useThumb } from '../three/thumbs';
 
 /** Illustrazioni degli ingredienti: ognuno ha forma e colori propri, così si riconoscono a colpo d'occhio. */
 
@@ -57,7 +58,7 @@ const KEYS: [RegExp, string][] = [
   [/arancin/, 'arancini'],
 ];
 
-const keyOf = (name: string) => {
+export const keyOf = (name: string) => {
   const s = name.toLowerCase();
   for (const [re, k] of KEYS) if (re.test(s)) return k;
   return '';
@@ -697,7 +698,7 @@ function Fallback({ name }: { name: string }) {
 }
 
 /** "3 crocchette" -> disegno della crocchetta + badge "×3"; "8 pezzi" -> badge numerico. */
-export function Ing({ name, className = '' }: { name: string; className?: string }) {
+export function IngSvg({ name, className = '' }: { name: string; className?: string }) {
   const m = name.trim().match(/^(\d+(?:\/\d+)?)\s+(.+)$/);
   const count = m ? m[1] : null;
   const base = m ? m[2] : name;
@@ -725,4 +726,14 @@ export function Ing({ name, className = '' }: { name: string; className?: string
       )}
     </svg>
   );
+}
+
+/** icona dell'ingrediente: render del modello 3D se c'è WebGL, altrimenti il disegno SVG */
+export function Ing({ name, className = '' }: { name: string; className?: string }) {
+  return hasWebGL() ? <Ing3D name={name} className={className} /> : <IngSvg name={name} className={className} />;
+}
+
+function Ing3D({ name, className }: { name: string; className: string }) {
+  const url = useThumb(name);
+  return url ? <img className={`ing ${className}`} src={url} alt="" draggable={false} /> : <span className={`ing ing-wait ${className}`} />;
 }

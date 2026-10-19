@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { CAT_ING } from '../components/Icon';
+import { Ing } from '../components/Ing';
 import { useApp } from '../store';
 import { CATEGORIES, catOf } from '../lib/data';
 import { accuracy, mastery, masteryColor, masteryLabel } from '../lib/mastery';
@@ -26,13 +28,13 @@ export function Stats({ focus }: { focus: () => void }) {
         <div className="kv">
           <div><b>{mastered}</b>/{rows.length} piatti padroneggiati</div>
           <div><b>{save.totalAnswered}</b> risposte · <b>{Math.round(acc * 100)}%</b> giuste</div>
-          <div>🔥 serie {save.streakDays} gg · ⚡ record turno {save.bestShift}</div>
+          <div>Serie {save.streakDays} gg · record turno {save.bestShift}</div>
         </div>
       </section>
 
       {weakest.length > 0 && (
         <section className="card warn">
-          <div className="card-h">🩹 Dove sei più carente</div>
+          <div className="card-h">Dove sei più carente</div>
           {weakest.map(({ d, s }) => (
             <div key={d.id} className="weak">
               <b>{d.name}</b>
@@ -51,7 +53,7 @@ export function Stats({ focus }: { focus: () => void }) {
           const v = list.reduce((a, r) => a + r.m, 0) / list.length;
           return (
             <div key={c.id} className="cat-row">
-              <span>{c.emoji} {c.name}</span>
+              <span className="cat-l"><Ing name={CAT_ING[c.id]} /> {c.name}</span>
               <Bar value={v} color={c.color} />
               <b>{Math.round(v * 100)}%</b>
             </div>
@@ -67,7 +69,7 @@ export function Stats({ focus }: { focus: () => void }) {
           return (
             <div key={d.id} className="dish-row" onClick={() => setOpen(open === d.id ? null : d.id)}>
               <div className="dr-top">
-                <span className="dr-n">{catOf(d.category).emoji} {d.name}</span>
+                <span className="dr-n">{d.name}</span>
                 <span className="dr-l" style={{ color: lab.color }}>{lab.text}</span>
               </div>
               <div className="dr-pips"><Pips box={s?.seen ? s.box : 0} size={12} /><Bar value={m} color={masteryColor(m)} /></div>
