@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Dish, DishStat, MKind, Save, Settings } from './lib/types';
-import { DEFAULT_DISHES, MENU_VERSION, OLD_DEFAULTS } from './lib/data';
+import { DEFAULT_DISHES, ING_ALIASES, MENU_VERSION, OLD_DEFAULTS } from './lib/data';
 import { emptyStat, isDue, levelOf } from './lib/mastery';
 import { setFx } from './lib/fx';
 import { UPGRADES, lvlOf, upgradeCost } from './lib/build';
@@ -53,8 +53,8 @@ function load(): Save {
     if (raw) {
       const s = JSON.parse(raw) as Save;
       if (s && s.v === 1 && Array.isArray(s.dishes)) {
-        // "nutella nera" era un doppione della nutella normale
-        s.dishes = s.dishes.map((d) => ({ ...d, ingredients: [...new Set(d.ingredients.map((i) => (i.trim().toLowerCase() === 'nutella nera' ? 'nutella' : i)))] }));
+        // ingredienti doppi (es. "insalata iceberg" e "insalata") ridotti a un nome solo
+        s.dishes = s.dishes.map((d) => ({ ...d, ingredients: [...new Set(d.ingredients.map((i) => ING_ALIASES[i.trim().toLowerCase()] ?? i))] }));
         if ((s.menuV ?? 1) < MENU_VERSION) s.dishes = migrateMenu(s.dishes);
         s.menuV = MENU_VERSION;
         return { ...fresh(), ...s, settings: { ...fresh().settings, ...s.settings } };

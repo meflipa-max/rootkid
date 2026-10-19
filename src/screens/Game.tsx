@@ -361,7 +361,7 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
     return (
       <button data-cust={c.id} className={`bubble ${selected?.id === c.id ? 'sel' : ''} ${c.vip ? 'vip' : ''} ${c.retry ? 'retry' : ''} ${f < 0.22 && alive(c) ? 'urgent' : ''}`} onClick={() => select(c.id)}>
         {(c.vip || c.retry || c.kind === 'guess') && <span className="b-tag">{c.vip ? 'VIP ×3' : c.retry ? 'Rivincita' : 'Indeciso'}</span>}
-        <span className="b-n">{c.kind === 'guess' ? '«Quello con…»' : c.dish.name}</span>
+        <span className="b-n">{c.kind === 'guess' ? '«Quello con…»' : <>{catOf(c.dish.category).emoji} {c.dish.name}</>}</span>
         <span className="pbar"><i style={{ width: `${Math.max(0, f * 100)}%`, background: f > 0.5 ? '#6f9a6a' : f > 0.22 ? '#e3a83a' : '#c8463b' }} /></span>
       </button>
     );
@@ -499,7 +499,7 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
         ) : (
           <>
             <div className="t-top">
-              <b>{ticket.dish.name}</b>
+              <b>{catOf(ticket.dish.category).emoji} {catOf(ticket.dish.category).short} {ticket.dish.name}</b>
               {ticket.retry && <span className="mem alt">Riscatto ×1.5</span>}
               {!ticket.peeked && ticket.hint !== 'full' && <span className="mem">×{MULT[ticket.hint]}</span>}
               {!showFull && <button className="peek" onClick={peek}><Icon name="book" size={14} /> Aiuto</button>}
