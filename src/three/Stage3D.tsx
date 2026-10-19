@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
-import { BASE_OF, STACKED, G, buildIng, isSpread, mat } from './ingredients';
+import { BASE_OF, G, buildIng, mat } from './ingredients';
+import { layoutDish } from './dish3d';
 import { Person3D, type Pose3 } from './Person3D';
 import { Lights, Pizzeria } from './Pizzeria';
 import { stageBus, startTilt, tilt, type StageEvent } from './bus';
@@ -126,36 +127,6 @@ function Drop({ name, at, scale, onPick }: { name: string; at: [number, number, 
   );
 }
 
-function layout(items: string[], cat: string | null) {
-  const baseKey = cat ? BASE_OF[cat] : null;
-  const baseH = baseKey ? buildIng(baseKey, true).h * (baseKey === 'ciotola' ? 0.75 : 1) : 0;
-  const out: { name: string; at: [number, number, number]; scale: number }[] = [];
-  if (cat && STACKED.has(cat)) {
-    let y = baseH;
-    items.forEach((n, i) => {
-      out.push({ name: n, at: [Math.sin(i * 2.7) * 0.03, y, Math.cos(i * 1.9) * 0.03], scale: 1 });
-      y += buildIng(n, true).h * 0.92;
-    });
-    return { out, baseKey, top: y };
-  }
-  let ys = baseH;
-  let k = 0;
-  items.forEach((n) => {
-    if (isSpread(n)) {
-      out.push({ name: n, at: [0, ys, 0], scale: cat === 'dolci' ? 1.1 : 0.9 });
-      ys += 0.03;
-    }
-  });
-  items.forEach((n) => {
-    if (isSpread(n)) return;
-    const a = k * 2.4;
-    const r = k === 0 && items.length === 1 ? 0 : 0.14 + 0.07 * (k % 3);
-    out.push({ name: n, at: [Math.cos(a) * r, ys + (k >= 6 ? 0.08 : 0), Math.sin(a) * r], scale: items.length > 3 ? 0.7 : 0.85 });
-    k++;
-  });
-  return { out, baseKey, top: ys };
-}
-
 function Plate({ items, cat, onRemove }: { items: string[]; cat: string | null; onRemove: (n: string) => void }) {
   const g = useRef<THREE.Group>(null);
   const shake = useRef(0);
@@ -171,7 +142,7 @@ function Plate({ items, cat, onRemove }: { items: string[]; cat: string | null; 
     shake.current = Math.max(0, shake.current - dt);
     g.current.rotation.z = Math.sin(shake.current * 50) * shake.current * 0.3;
   });
-  const { out } = layout(items, cat);
+  const { out } = layoutDish(items, cat);
   return (
     <group ref={g} position={PLATE} scale={0.85}>
       <mesh geometry={G.cyl(0.62, 0.05, 20)} material={mat('#fbf7ef', { smooth: true, r: 0.5 })} position={[0, 0.025, 0]} receiveShadow castShadow />
@@ -209,7 +180,7 @@ function Flights() {
 function Flight({ f, done }: { f: { e: Extract<StageEvent, { type: 'serve' }>; t0: number }; done: () => void }) {
   const g = useRef<THREE.Group>(null);
   const top = useRef<THREE.Group>(null);
-  const { out, baseKey, top: topY } = useMemo(() => layout(f.e.items, f.e.cat), [f]);
+  const { out, baseKey, top: topY } = useMemo(() => layoutDish(f.e.items, f.e.cat), [f]);
   const objs = useMemo(() => out.map((o) => buildIng(o.name, true).obj), [out]);
   const base = useMemo(() => (baseKey ? buildIng(baseKey, true).obj : null), [baseKey]);
   const lid = useMemo(() => (f.e.cat === 'hamburger' ? buildIng('buntop', true).obj : null), [f]);

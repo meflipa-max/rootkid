@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { CAT_ING } from '../components/Icon';
-import { Ing } from '../components/Ing';
+import { DishPic, Ing } from '../components/Ing';
 import { useApp } from '../store';
 import { CATEGORIES, catOf } from '../lib/data';
 import { accuracy, mastery, masteryColor, masteryLabel } from '../lib/mastery';
@@ -45,6 +45,33 @@ export function Stats({ focus }: { focus: () => void }) {
         </section>
       )}
 
+      <h3 className="h3">La tua vetrina <span className="muted sm">{mastered}/{rows.length} a memoria</span></h3>
+      <section className="card vetrina">
+        {CATEGORIES.map((c) => {
+          const list = save.dishes.filter((d) => d.category === c.id);
+          if (!list.length) return null;
+          return (
+            <div key={c.id} className="shelf">
+              <div className="shelf-row">
+                {list.map((d) => {
+                  const st = save.stats[d.id];
+                  const box = st?.seen ? st.box : -1;
+                  return (
+                    <button key={d.id} className={`vt ${box < 0 ? 'locked' : box >= 5 ? 'gold' : box >= 3 ? 'warm' : 'cold'}`} onClick={() => { setOpen(d.id); setTimeout(() => document.querySelector(`[data-dish="${d.id}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50); }}>
+                      <DishPic dish={d} />
+                      <span className="vt-n">{box < 0 ? '???' : d.name}</span>
+                      {box >= 0 && <Pips box={box} size={6} />}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="shelf-board"><Ing name={CAT_ING[c.id]} /> {c.name}</div>
+            </div>
+          );
+        })}
+        <div className="muted sm">I piatti mai serviti sono sagome: servili per sbloccarli, portali a 5 tacche per la cornice d'oro.</div>
+      </section>
+
       <h3 className="h3">Per categoria</h3>
       <section className="card">
         {CATEGORIES.map((c) => {
@@ -67,7 +94,7 @@ export function Stats({ focus }: { focus: () => void }) {
           const lab = masteryLabel(s);
           const missed = Object.entries(s?.missed ?? {}).sort((a, b) => b[1] - a[1]).slice(0, 4);
           return (
-            <div key={d.id} className="dish-row" onClick={() => setOpen(open === d.id ? null : d.id)}>
+            <div key={d.id} data-dish={d.id} className="dish-row" onClick={() => setOpen(open === d.id ? null : d.id)}>
               <div className="dr-top">
                 <span className="dr-n">{d.name}</span>
                 <span className="dr-l" style={{ color: lab.color }}>{lab.text}</span>

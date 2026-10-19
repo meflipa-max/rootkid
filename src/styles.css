@@ -182,6 +182,11 @@ button.chip:active { transform: scale(.96); }
 .mission-done { width: 100%; display: flex; align-items: center; gap: 10px; background: #e3eedd; border: 2px solid var(--sage); border-radius: 14px; padding: 10px 14px; font-size: 14px; text-align: left; animation: pop .5s 1s both; }
 .mem-row { display: grid; grid-template-columns: 1fr auto 30px; gap: 10px; align-items: center; font-size: 14px; }
 .mem-row b { text-align: right; font-family: 'Fredoka'; }
+.mem-n { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.mem-n .ing { width: 38px; height: 38px; margin: -6px 0; }
+.fail-h { display: flex; align-items: center; gap: 10px; }
+.fail-h .ing { width: 56px; height: 56px; margin: -8px 0; }
+.gopt .ing.dish { width: 46px; height: 46px; }
 .mem-row b.up { color: var(--sage-d); }
 .mem-row b.down { color: var(--red); }
 
@@ -195,13 +200,17 @@ button.chip:active { transform: scale(.96); }
 .shake { animation: shake .45s; }
 
 /* flashcards */
-.flip { position: relative; width: 100%; height: 420px; perspective: 1100px; cursor: pointer; }
+.flip { position: relative; width: 100%; height: min(560px, 68dvh); perspective: 1100px; cursor: pointer; }
 .face { position: absolute; inset: 0; background: var(--card); border: 2px solid var(--ink) !important; box-shadow: 0 6px 0 var(--ink); border-radius: 28px; padding: 22px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; backface-visibility: hidden; -webkit-backface-visibility: hidden; transition: transform .6s cubic-bezier(.3,.8,.3,1); text-align: center; overflow-y: auto; }
 .face::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 14px; background: var(--cat, var(--terra)); border-bottom: 2px solid var(--ink); }
 .face.back { transform: rotateY(180deg); justify-content: flex-start; padding-top: 30px; }
 .flip.on .front { transform: rotateY(-180deg); }
 .flip.on .back { transform: rotateY(0); }
-.face-emoji .ing { width: 120px; height: 120px; animation: float 3s ease-in-out infinite; }
+.face-emoji .ing { width: 130px; height: 130px; animation: float 3s ease-in-out infinite; }
+.dish-view { position: relative; width: 100%; height: 230px; flex: none; border-radius: 18px; background: radial-gradient(circle at 50% 60%, #fbefd9, #efe2cb); border: 2px solid #2b211c22; touch-action: none; cursor: grab; }
+.dish-view canvas { border-radius: 16px; }
+.dv-label { font-size: 11px; font-weight: 800; white-space: nowrap; background: var(--card); border: 1.5px solid var(--ink); border-radius: 99px; padding: 1px 7px; opacity: 0; pointer-events: none; }
+.dv-label.side { transform: translateY(-50%); }
 .face-name { font-size: 32px; line-height: 1.1; }
 .face-name.sm { font-size: 26px; }
 .face-count { display: flex; gap: 8px; }
@@ -221,6 +230,18 @@ button.chip:active { transform: scale(.96); }
 .dr-n { font-family: 'Fredoka'; font-size: 16px; }
 .dr-l { font-size: 12px; }
 .dr-pips { display: flex; align-items: center; gap: 10px; }
+.vetrina { gap: 14px; }
+.shelf-row { display: flex; gap: 6px; overflow-x: auto; padding: 4px 2px 0; scrollbar-width: none; }
+.shelf-row::-webkit-scrollbar { display: none; }
+.shelf-board { height: 22px; margin-top: -4px; border-radius: 6px; background: #a8703f; border: 2px solid var(--ink); box-shadow: 0 3px 0 var(--ink); display: flex; align-items: center; gap: 4px; padding: 0 8px; font-size: 11px; color: #fff; }
+.shelf-board .ing { width: 18px; height: 18px; }
+.vt { flex: none; width: 78px; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 2px 8px; border-radius: 12px 12px 0 0; }
+.vt .ing.dish { width: 64px; height: 64px; }
+.vt-n { font-size: 10.5px; line-height: 1.1; text-align: center; height: 2.2em; overflow: hidden; }
+.vt.locked .ing { filter: brightness(0) opacity(.18); }
+.vt.locked .vt-n { color: var(--muted); }
+.vt.cold .ing { filter: saturate(.35); }
+.vt.gold { background: #f8e3ae; box-shadow: inset 0 0 0 2px var(--mustard); }
 .dr-more { display: flex; flex-direction: column; gap: 8px; padding-top: 4px; animation: rise .25s both; }
 
 /* settings */

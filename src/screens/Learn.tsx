@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { CAT_ING, Icon } from '../components/Icon';
-import { Ing } from '../components/Ing';
+import { Icon } from '../components/Icon';
+import { DishPic } from '../components/Ing';
+import { DishViewer } from '../three/DishViewer';
+import { hasWebGL } from '../three/thumbs';
 import type { Dish } from '../lib/types';
 import { useApp } from '../store';
 import { mastery } from '../lib/mastery';
@@ -84,7 +86,7 @@ export function Learn({ pool, onExit }: { pool: Dish[]; onExit: () => void }) {
         <div className={`flip ${flip ? 'on' : ''}`} onClick={() => { sfx.tap(); setFlip((f) => !f); }}>
           <div className="face front" style={{ borderColor: cat.color, ['--cat' as string]: cat.color }}>
             <DishBadge dish={dish} />
-            <div className="face-emoji"><Ing name={CAT_ING[dish.category]} /></div>
+            <div className="face-emoji"><DishPic dish={{ ingredients: [], category: dish.category }} /></div>
             <div className="face-name">{dish.name}</div>
             <div className="face-count">
               {dish.ingredients.map((_, k) => <i key={k} />)}
@@ -94,6 +96,7 @@ export function Learn({ pool, onExit }: { pool: Dish[]; onExit: () => void }) {
           </div>
           <div className="face back" style={{ borderColor: cat.color }}>
             <div className="face-name sm">{dish.name}</div>
+            {flip && hasWebGL() && <DishViewer key={dish.id + i} items={dish.ingredients} cat={dish.category} />}
             <div className="chips center">
               {dish.ingredients.map((x, k) => <Chip key={x + k} text={x} state={weak.has(norm(x)) ? 'miss' : ''} delay={k * 60} />)}
             </div>

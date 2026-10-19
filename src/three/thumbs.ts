@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { useSyncExternalStore } from 'react';
 import { buildIng, parseIng } from './ingredients';
+import { buildDish } from './dish3d';
 
 /**
  * Icone degli ingredienti renderizzate dai modelli 3D (una volta sola, poi in cache come immagini):
@@ -22,6 +23,8 @@ export function hasWebGL() {
 const SIZE = 144;
 const cache = new Map<string, string>();
 const queue: string[] = [];
+/** come costruire ciò che va fotografato: ingredienti (chiave = nome) o piatti interi (chiave "dish|…") */
+const makers = new Map<string, () => string>();
 const subs = new Set<() => void>();
 let renderer: THREE.WebGLRenderer | null = null;
 let scene: THREE.Scene;
@@ -48,32 +51,38 @@ function setup() {
 const box = new THREE.Box3();
 const sphere = new THREE.Sphere();
 
-function render(name: string): string {
+function shoot(obj: THREE.Object3D, up = 0.62) {
   if (!renderer) setup();
-  const info = parseIng(name);
-  const { obj } = buildIng(name, false);
   obj.rotation.y = -0.35;
   scene.add(obj);
   box.setFromObject(obj).getBoundingSphere(sphere);
-  const dist = sphere.radius / Math.sin(THREE.MathUtils.degToRad(14)) * 1.02;
-  const dir = new THREE.Vector3(0, 0.62, 1).normalize();
+  const dist = (sphere.radius / Math.sin(THREE.MathUtils.degToRad(14))) * 1.02;
+  const dir = new THREE.Vector3(0, up, 1).normalize();
   camera.position.copy(sphere.center).addScaledVector(dir, dist);
   camera.lookAt(sphere.center);
   renderer!.render(scene, camera);
   scene.remove(obj);
-
   const out = document.createElement('canvas');
   out.width = out.height = SIZE;
+  out.getContext('2d')!.drawImage(renderer!.domElement, 0, 0);
+  return out;
+}
+
+function render(name: string): string {
+  const info = parseIng(name);
+  const out = shoot(buildIng(name, false).obj);
   const g = out.getContext('2d')!;
-  g.drawImage(renderer!.domElement, 0, 0);
   const font = (px: number) => `700 ${px}px Fredoka, Nunito, system-ui, sans-serif`;
   if (info.onlyCount && info.count) {
-    // gettone col numero dei pezzi
+    // numero grande sopra il gettone: nelle icone piccole quello stampato in 3D non si legge
     g.fillStyle = '#5a3b00';
-    g.font = font(info.count.length > 2 ? 40 : 52);
+    g.font = font(info.count.length > 2 ? 44 : 58);
     g.textAlign = 'center';
     g.textBaseline = 'middle';
-    g.fillText(info.count, SIZE / 2, SIZE / 2 + 6);
+    g.lineWidth = 8;
+    g.strokeStyle = '#f2c45c';
+    g.strokeText(info.count, SIZE / 2, SIZE / 2 + 4);
+    g.fillText(info.count, SIZE / 2, SIZE / 2 + 4);
   } else if (info.count) {
     const t = `×${info.count}`;
     g.font = font(30);
@@ -101,7 +110,7 @@ function pump() {
       const n = queue.shift()!;
       if (cache.has(n)) continue;
       try {
-        cache.set(n, render(n));
+        cache.set(n, (makers.get(n) ?? (() => render(n)))());
       } catch {
         cache.set(n, '');
       }
@@ -132,6 +141,13 @@ export function thumbOf(name: string): string | undefined {
   return v;
 }
 
+/** icona del piatto finito (base + ingredienti), per scelte, vetrina e riepiloghi */
+export function dishThumbOf(items: string[], cat: string): string | undefined {
+  const k = `dish|${cat}|${items.map(norm).join(',')}`;
+  if (!makers.has(k)) makers.set(k, () => shoot(buildDish(items, cat), cat === 'hamburger' || cat === 'focacce' ? 0.5 : 0.95).toDataURL('image/png'));
+  return thumbOf(k);
+}
+
 const subscribe = (f: () => void) => {
   subs.add(f);
   return () => subs.delete(f);
@@ -139,4 +155,8 @@ const subscribe = (f: () => void) => {
 
 export function useThumb(name: string): string | undefined {
   return useSyncExternalStore(subscribe, () => thumbOf(name));
+}
+
+export function useDishThumb(items: string[], cat: string): string | undefined {
+  return useSyncExternalStore(subscribe, () => dishThumbOf(items, cat));
 }

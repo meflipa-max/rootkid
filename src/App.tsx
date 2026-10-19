@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { CAT_ING, Icon } from './components/Icon';
-import { prewarm } from './three/thumbs';
+import { dishThumbOf, hasWebGL, prewarm } from './three/thumbs';
 import { askTilt } from './three/bus';
 import { AppProvider, useApp } from './store';
 import type { Category, Dish } from './lib/types';
@@ -22,6 +22,7 @@ function Shell() {
   const [run, setRun] = useState<{ mode: Mode; pool: Dish[]; n: number } | null>(null);
   useEffect(() => {
     prewarm([...Object.values(CAT_ING), ...save.dishes.flatMap((d) => d.ingredients)]);
+    if (hasWebGL()) save.dishes.forEach((d) => dishThumbOf(d.ingredients, d.category));
   }, [save.dishes]);
 
   const launch = (mode: Mode, pool?: Dish[]) => {

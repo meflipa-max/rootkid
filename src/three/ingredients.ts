@@ -491,6 +491,28 @@ const ART: Record<string, Build> = {
   },
 };
 
+const nums = new Map<string, THREE.MeshStandardMaterial>();
+function numberMat(n: string) {
+  let m = nums.get(n);
+  if (!m) {
+    const c = document.createElement('canvas');
+    c.width = c.height = 128;
+    const g = c.getContext('2d')!;
+    g.fillStyle = '#f2c45c';
+    g.fillRect(0, 0, 128, 128);
+    g.fillStyle = '#5a3b00';
+    g.font = `700 ${n.length > 2 ? 54 : 74}px Fredoka, Nunito, sans-serif`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText(n, 64, 70);
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace;
+    m = new THREE.MeshStandardMaterial({ map: t, roughness: 0.8 });
+    nums.set(n, m);
+  }
+  return m;
+}
+
 const PALETTE = ['#c65a3c', '#e3a83a', '#6f9a6a', '#5b8db8', '#9a6fb0', '#d98a5f'];
 function fallback(b: B, name: string, layer: boolean) {
   const c = PALETTE[hash(name) % PALETTE.length];
@@ -532,6 +554,13 @@ export function buildIng(name: string, layer = false): { obj: THREE.Group; h: nu
     h = layer ? blob(b, body) : bottle(b, body, capc);
   } else if (ART[info.key]) h = ART[info.key](b, { layer, n: info.n, name: lname });
   else h = fallback(b, lname, layer);
+  if (info.onlyCount && info.count) {
+    // il numero stampato sul gettone dei pezzi
+    const m = new THREE.Mesh(G.cyl(0.165, 0.002, 20), numberMat(info.count));
+    m.position.y = 0.076;
+    m.rotation.y = 0.35;
+    b.g.add(m);
+  }
   return { obj: b.g, h };
 }
 

@@ -5,13 +5,13 @@ import { availableKinds, makeQuestion, norm, trayFor, whereIs } from '../lib/que
 import { levelOf, pickWeighted, weight } from '../lib/mastery';
 import { catOf } from '../lib/data';
 import { cap } from '../lib/emoji';
-import { Ing } from '../components/Ing';
+import { DishPic, Ing } from '../components/Ing';
 import { burst, centerOf, confetti, flyCoins, sfx } from '../lib/fx';
 import { SKINS } from '../lib/skins';
 import { lvlOf } from '../lib/build';
 import { CHEF_LOOK, Person, randomLook, type Look, type Mood, type Pose } from '../components/Person';
 import { Chip, Pips, useCountUp } from '../components/ui';
-import { CAT_ING, Coin, Heart, Icon } from '../components/Icon';
+import { Coin, Heart, Icon } from '../components/Icon';
 import { Stage3D } from '../three/Stage3D';
 import { stageBus } from '../three/bus';
 import { hasWebGL } from '../three/thumbs';
@@ -524,7 +524,7 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
         <div className="gopts">
           {ticket.options.map((o) => (
             <button key={o.id} className="gopt" onClick={() => answer(o)} disabled={ticket.state !== 'wait'}>
-              <Ing name={CAT_ING[o.category]} />{o.name}
+              <DishPic dish={o} />{o.name}
             </button>
           ))}
         </div>
@@ -577,7 +577,7 @@ function FailSheet({ o, lives, onClose }: { o: Overlay; lives: number; onClose: 
   return (
     <div className="modal">
       <div className="modal-in fail">
-        <h3>{title}</h3>
+        <div className="fail-h"><DishPic dish={o.dish} /><h3>{title}</h3></div>
         {o.chosen && (
           <div className="cmp">
             <div className="muted sm">Hai scelto <b>{o.chosen.name}</b>:</div>
@@ -635,6 +635,7 @@ function End({ g, title, again, onExit }: { g: G; title: string; again: () => vo
     return () => timers.forEach(clearTimeout);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const dishOf = (id: string) => app.save.dishes.find((d) => d.id === id);
   const prog = Object.entries(g.progress).sort((a, b) => b[1].to - b[1].from - (a[1].to - a[1].from));
   const lvl = levelOf(app.save.xp);
   return (
@@ -660,7 +661,7 @@ function End({ g, title, again, onExit }: { g: G; title: string; again: () => vo
           {prog.some(([, p]) => p.held && p.to === p.from) && <div className="muted sm">⏳ = già fissato per oggi: torna domani e salirà ancora (il cervello consolida dormendo)</div>}
           {prog.map(([id, p]) => (
             <div key={id} className="mem-row">
-              <span>{p.name}</span>
+              <span className="mem-n">{dishOf(id) && <DishPic dish={dishOf(id)!} />}{p.name}</span>
               <Pips box={p.to} from={p.from} />
               <b className={p.to > p.from ? 'up' : p.to < p.from ? 'down' : ''}>{p.to > p.from ? `+${p.to - p.from}` : p.to < p.from ? `${p.to - p.from}` : p.held ? '⏳' : '='}</b>
             </div>

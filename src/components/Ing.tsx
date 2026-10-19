@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { hasWebGL, useThumb } from '../three/thumbs';
+import { hasWebGL, useDishThumb, useThumb } from '../three/thumbs';
 
 /** Illustrazioni degli ingredienti: ognuno ha forma e colori propri, così si riconoscono a colpo d'occhio. */
 
@@ -736,4 +736,17 @@ export function Ing({ name, className = '' }: { name: string; className?: string
 function Ing3D({ name, className }: { name: string; className: string }) {
   const url = useThumb(name);
   return url ? <img className={`ing ${className}`} src={url} alt="" draggable={false} /> : <span className={`ing ing-wait ${className}`} />;
+}
+
+/** il piatto finito in 3D (senza WebGL: l'icona della categoria) */
+export function DishPic({ dish, className = '' }: { dish: { ingredients: string[]; category: string }; className?: string }) {
+  if (!hasWebGL()) return <IngSvg name={CAT_FALLBACK[dish.category] ?? dish.ingredients[0] ?? ''} className={`dish ${className}`} />;
+  return <DishPic3D dish={dish} className={className} />;
+}
+
+const CAT_FALLBACK: Record<string, string> = { hamburger: 'hamburger', insalatone: 'insalata', focacce: 'cotoletta', dolci: 'nutella', fritti: 'patatine' };
+
+function DishPic3D({ dish, className }: { dish: { ingredients: string[]; category: string }; className: string }) {
+  const url = useDishThumb(dish.ingredients, dish.category);
+  return url ? <img className={`ing dish ${className}`} src={url} alt="" draggable={false} /> : <span className={`ing dish ing-wait ${className}`} />;
 }

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Html, OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
@@ -33,8 +33,18 @@ const SPOTS: Record<string, [number, number, number]> = {
 };
 
 export function Diorama({ build, skin, onPick, ghosts = [] }: { build: Record<string, number>; skin: ChefSkin; onPick: (id: string) => void; ghosts?: { id: string; can: boolean }[] }) {
+  // fuori dallo schermo non disegna: niente batteria sprecata mentre scorri la home
+  const ref = useRef<HTMLCanvasElement>(null);
+  const [vis, setVis] = useState(true);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || !('IntersectionObserver' in window)) return;
+    const io = new IntersectionObserver(([e]) => setVis(e.isIntersecting));
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
   return (
-    <Canvas className="diorama3d" shadows flat dpr={[1, 1.75]} camera={{ position: [9.5, 8.2, 11], fov: 27, near: 0.5, far: 80 }} gl={{ antialias: true, alpha: true }}>
+    <Canvas ref={ref} frameloop={vis ? 'always' : 'never'} className="diorama3d" shadows flat dpr={[1, 1.75]} camera={{ position: [9.5, 8.2, 11], fov: 27, near: 0.5, far: 80 }} gl={{ antialias: true, alpha: true }}>
       <Lights night={0.12} />
       <group position={[0, -0.6, 0]}>
         <Pizzeria build={build} night={0.12} cutaway onPick={onPick} />
