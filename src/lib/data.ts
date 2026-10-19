@@ -28,6 +28,9 @@ export const ING_ALIASES: Record<string, string> = {
   'insalata iceberg': 'insalata',
   'crocchette di patate': 'crocchette',
   'patatine fritte': 'patatine',
+  'olive leccine': 'olive',
+  'mortadella igp': 'mortadella',
+  'frigitelli piccanti fritti': 'frigitelli',
 };
 
 /** vecchie ricette di default, per aggiornarle nei salvataggi solo se l'utente non le ha modificate */
@@ -45,7 +48,7 @@ export const DEFAULT_DISHES: Dish[] = [
   d('esagerato-pollo', 'Esagerato Pollo', 'hamburger', ['cotoletta di pollo', 'bacon', 'cheddar', 'anelli di cipolla', 'pomodoro', 'valeriana', 'salsa BBQ']),
   d('buono-cosi', 'Buono Così', 'hamburger', ['veggie burger', 'insalata', 'frigitelli', 'salsa guacamole']),
   // Insalatone (servite con pane pizza)
-  d('rustica', 'Rustica', 'insalatone', ['insalata', 'pomodorini', 'tonno', 'olive leccine']),
+  d('rustica', 'Rustica', 'insalatone', ['insalata', 'pomodorini', 'tonno', 'olive']),
   d('chicken', 'Chicken', 'insalatone', ['insalata', 'valeriana', 'pomodori', 'pollo fritto', 'grana', 'salsa caesar']),
   d('delicata', 'Delicata', 'insalatone', ['insalata', 'pomodori', 'bresaola', 'mozzarella']),
   // Focacce (impasto di pizza)
@@ -57,11 +60,11 @@ export const DEFAULT_DISHES: Dish[] = [
   d('hot-dog', 'Hot Dog', 'focacce', ['würstel', 'cheddar', 'bacon', 'cipolla croccante', 'insalata', 'salsa hamburger']),
   // Pizze classiche (dal menu stampato)
   d('pz-margherita', 'Margherita', 'classiche', ['pomodoro', 'fior di latte', 'olive']),
-  d('pz-diavola', 'Diavola', 'classiche', ['pomodoro', 'fior di latte', 'salamino piccante', 'olive leccine']),
-  d('pz-napoli', 'Napoli', 'classiche', ['pomodoro', 'fior di latte', 'acciughe', 'capperi', 'olive leccine']),
+  d('pz-diavola', 'Diavola', 'classiche', ['pomodoro', 'fior di latte', 'salamino piccante', 'olive']),
+  d('pz-napoli', 'Napoli', 'classiche', ['pomodoro', 'fior di latte', 'acciughe', 'capperi', 'olive']),
   d('pz-bufala', 'Bufala', 'classiche', ['pomodoro', 'Bufala DOP']),
   d('pz-fume', 'Fumè', 'classiche', ['pomodoro', 'fior di latte', 'scamorza affumicata', 'pancetta']),
-  d('pz-tonno-cipolla', 'Tonno e cipolla', 'classiche', ['pomodoro', 'fior di latte', 'filetto di tonno', 'cipolla', 'olive leccine']),
+  d('pz-tonno-cipolla', 'Tonno e cipolla', 'classiche', ['pomodoro', 'fior di latte', 'filetto di tonno', 'cipolla', 'olive']),
   d('pz-pata-wurstel', 'Pata-würstel', 'classiche', ['pomodoro', 'fior di latte', 'patatine', 'würstel']),
   d('pz-cotto-funghi', 'Cotto e funghi', 'classiche', ['pomodoro', 'fior di latte', 'prosciutto cotto', 'funghi']),
   d('pz-caprese', 'Caprese', 'classiche', ['fior di latte', 'pomodorini freschi', 'rucola', 'Grana Padano DOP']),
@@ -74,13 +77,13 @@ export const DEFAULT_DISHES: Dish[] = [
   d('pz-core-a-core', 'Core a core', 'classiche', ['pomodoro', 'Bufala DOP', 'funghi porcini']),
   // Pizze speciali ("Del mese" cambia ogni mese: non è una ricetta da imparare)
   d('pz-boscaiola', 'Boscaiola', 'speciali', ['fior di latte', 'crema di funghi', 'funghi misti', 'funghi freschi']),
-  d('pz-bologna', 'Bologna', 'speciali', ['pomodoro', 'fior di latte', 'stracciatella', 'Mortadella IGP', 'granella di pistacchio']),
+  d('pz-bologna', 'Bologna', 'speciali', ['pomodoro', 'fior di latte', 'stracciatella', 'mortadella', 'granella di pistacchio']),
   d('pz-alpina', 'Alpina', 'speciali', ['pomodoro', 'fior di latte', 'speck', 'crema al gorgonzola', 'noci']),
   d('pz-panzerottina', 'Panzerottina', 'speciali', ['pomodoro', 'fior di latte', 'burrata', 'spianata piccante', 'panzerotti di patate']),
   d('pz-selvatica', 'Selvatica', 'speciali', ['pomodoro', 'fior di latte', 'capocollo di Martina Franca', 'stracciatella', 'valeriana', 'noci']),
   d('pz-scoglio', 'Scoglio', 'speciali', ['fior di latte', 'gamberetti', 'salmone', 'chips di zucchine impanate']),
   d('pz-autunno', 'Autunno', 'speciali', ['crema di zucca', 'fior di latte', 'salsiccia di Norcia', 'patate al forno', 'provola']),
-  d('pz-paesana', 'Paesana', 'speciali', ['fior di latte', 'pomodorini scattarisciati', 'frigitelli piccanti fritti', 'capocollo di Martina Franca', 'basilico']),
+  d('pz-paesana', 'Paesana', 'speciali', ['fior di latte', 'pomodorini scattarisciati', 'frigitelli', 'capocollo di Martina Franca', 'basilico']),
   d('pz-romantica', 'Romantica', 'speciali', ['fior di latte', 'crocchette', 'melanzane fritte', 'porchetta di Ariccia', 'peperoncino piccante']),
   d('pz-romana', 'Romana', 'speciali', ['crema cacio e pepe', 'fior di latte', 'guanciale croccante']),
   d('pz-extra-regina', 'Extra Regina', 'speciali', ['San Marzano DOP', 'fior di latte', 'Parmigiano Reggiano', 'olio', 'basilico']),
@@ -108,14 +111,14 @@ export const DEFAULT_DISHES: Dish[] = [
 
 /** ingredienti delle pizze del menu, tenuti anche nella lista ingredienti col filtro Pizze */
 export const PIZZA_INGREDIENTS: string[] = [
-  'pomodoro', 'pelato giallo', 'San Marzano DOP', 'fior di latte', 'mozzarella di bufala', 'Bufala DOP', 'olive', 'olive leccine',
+  'pomodoro', 'pelato giallo', 'San Marzano DOP', 'fior di latte', 'mozzarella di bufala', 'Bufala DOP', 'olive',
   'salamino piccante', 'acciughe', 'capperi', 'scamorza affumicata', 'pancetta', 'filetto di tonno', 'cipolla', 'patatine',
   'würstel', 'prosciutto cotto', 'funghi', 'funghi porcini', 'funghi misti', 'funghi freschi', 'crema di funghi', 'pomodorini freschi',
   'pomodorini scattarisciati', 'rucola', 'Grana Padano DOP', 'Parmigiano Reggiano', 'crudo', 'carciofi', 'melanzane', 'melanzane fritte',
   'peperoni', 'zucchine', 'salsiccia', 'friarielli', 'Emmenthal', 'Gorgonzola', 'crema al gorgonzola', 'bresaola', 'stracciatella',
-  'Mortadella IGP', 'mortadella', 'granella di pistacchio', 'speck', 'noci', 'mandorle', 'burrata', 'spianata piccante',
+  'mortadella', 'granella di pistacchio', 'speck', 'noci', 'mandorle', 'burrata', 'spianata piccante',
   'panzerotti di patate', 'capocollo di Martina Franca', 'gamberetti', 'salmone', 'chips di zucchine impanate', 'crema di zucca',
-  'salsiccia di Norcia', 'patate al forno', 'provola', 'frigitelli piccanti fritti', 'basilico', 'crocchette',
+  'salsiccia di Norcia', 'patate al forno', 'provola', 'frigitelli', 'basilico', 'crocchette',
   'porchetta di Ariccia', 'peperoncino piccante', 'crema cacio e pepe', 'guanciale croccante', 'olio', 'polpette di carne fritte',
   'cicoria', 'pancetta coppata', 'radicchio julienne', 'glassa di aceto balsamico', 'pesto di basilico', 'julienne di zucchine fritte',
   'caglio ricotta', 'crema di radicchio e speck', 'crema di zucchine', 'spinaci', 'valeriana',
