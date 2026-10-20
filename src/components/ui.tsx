@@ -71,8 +71,8 @@ export function Ring({ value, size = 84, stroke = 9, color = '#e3a83a', children
 export function TopBar({ title, onExit, right }: { title: string; onExit: () => void; right?: ReactNode }) {
   return (
     <div className="topbar">
-      <button className="icon-btn" onClick={onExit} aria-label="Esci">
-        <Icon name="x" />
+      <button className="icon-btn" onClick={onExit}>
+        <Icon name="x" /> Esci
       </button>
       <div className="topbar-title">{title}</div>
       <div className="topbar-right">{right}</div>

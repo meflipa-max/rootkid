@@ -2,6 +2,18 @@
 
 Gioco mobile-first per memorizzare le ricette della pizzeria (hamburger, insalatone, focacce, pizze dolci, friggitoria).
 
+## Comodo per tutti
+- **Primo avvio**: si sceglie la grandezza del testo (normale, grande, molto grande) e il ritmo (*con calma* o *più veloce*). Tutto si cambia poi da Impostazioni, in alto.
+- **Testo**: tutte le dimensioni dei caratteri sono in `rem` e seguono la scelta (`html[data-text]` in `styles.css`); con "molto grande" il bancone passa a 3 colonne. Contrasto più alto per i testi secondari, pulsanti di almeno 44–48 px, etichette scritte accanto alle icone (Pausa, Svuota, Esci).
+- **Ritmo tranquillo**: clienti pazienti quasi il doppio, arrivi più distanziati, niente fretta che cresce col livello.
+- **Come si gioca**: nei primi 3 turni il locale apre solo dopo aver letto le istruzioni in 4 passi.
+
+## App installabile (PWA)
+- `vite-plugin-pwa` genera manifest e service worker: il gioco funziona anche offline (modelli e font in cache).
+- **Installazione** (`src/lib/pwa.ts`, `src/components/Install.tsx`): su Chrome/Android il pulsante "Installa il gioco" usa `beforeinstallprompt`; su iPhone/iPad mostra i passi da Safari. L'invito sta in home (con "Non ora" che lo rimanda di 3 giorni) e sempre nelle Impostazioni.
+- **Sempre aggiornata**: controlla se c'è una versione nuova all'avvio, quando si torna sull'app e ogni 30 minuti, e la applica da sola ricaricando la pagina, ma mai durante un turno o mentre si modifica una ricetta (`useHoldUpdate`).
+- Icone in `public/` (`favicon.svg` è il disegno di partenza).
+
 ## Grafica 3D
 Stile "giocattolo low-poly": tutto è modellato in codice con three.js / React Three Fiber (`src/three/`), quindi stessa mano per ogni oggetto, anche per i prodotti locali che non esistono nei pacchetti di modelli.
 

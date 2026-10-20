@@ -5,11 +5,16 @@ import { CATEGORIES, catOf, PIZZA_INGREDIENTS } from '../lib/data';
 import type { Category, Dish } from '../lib/types';
 import { cap } from '../lib/emoji';
 import { Ing } from '../components/Ing';
+import { TextSize } from '../components/Welcome';
+import { InstallCard } from '../components/Install';
+import { useHoldUpdate } from '../lib/pwa';
 
 const slug = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'piatto';
 
 function Editor({ dish, onClose }: { dish: Dish | null; onClose: () => void }) {
   const app = useApp();
+  // mentre scrivi una ricetta l'app non si ricarica per aggiornarsi
+  useHoldUpdate(true);
   const [name, setName] = useState(dish?.name ?? '');
   const [category, setCategory] = useState<Category>(dish?.category ?? 'hamburger');
   const [text, setText] = useState(dish?.ingredients.join('\n') ?? '');
@@ -90,6 +95,16 @@ export function Settings() {
   return (
     <div className="page">
       <h2 className="h">Impostazioni</h2>
+
+      <section className="card">
+        <div className="setting-h"><Icon name="text" size={22} /> Grandezza del testo</div>
+        <TextSize />
+        <hr />
+        <label className="toggle"><span><Icon name="turtle" size={22} /> Ritmo tranquillo</span><input type="checkbox" checked={settings.calm} onChange={(e) => app.setSettings({ calm: e.target.checked })} /></label>
+        <div className="setting-d">I clienti aspettano quasi il doppio e arrivano più distanziati.</div>
+      </section>
+
+      <InstallCard where="settings" />
 
       <section className="card">
         <label className="toggle"><span><Icon name="sound" /> Suoni</span><input type="checkbox" checked={settings.sound} onChange={(e) => app.setSettings({ sound: e.target.checked })} /></label>

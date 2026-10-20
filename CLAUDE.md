@@ -6,6 +6,17 @@
 - Testi dell'interfaccia e commenti in italiano.
 - Git: si lavora sempre su `main`, niente branch separati.
 
+## PWA e accessibilità — 20 ottobre 2026
+
+- Impostazioni nuove in `Settings`: `text` (1/2/3, applicata come `data-text` su `<html>`), `calm`, `setup`.
+  Chi non ha ancora fatto la scelta vede il benvenuto (`components/Welcome.tsx`).
+- **Le dimensioni dei caratteri in `styles.css` sono in `rem`**: quelle nuove vanno scritte in rem, se no
+  non seguono la grandezza scelta. Minimo 13 px (0.8125rem).
+- Service worker con `registerType: 'prompt'`: l'aggiornamento lo applica `src/lib/pwa.ts` quando nessuno
+  lo trattiene; se si aggiunge una schermata dove un ricaricamento farebbe perdere qualcosa, usare
+  `useHoldUpdate(true)` lì dentro.
+- Da provare su un telefono vero: installazione su Android (pulsante) e iPhone (passi da Safari).
+
 ## Modelli CC0 — stato al 19 ottobre 2026
 
 Nella sessione cloud i siti degli asset erano bloccati, quindi la grafica 3D era tutta in codice.

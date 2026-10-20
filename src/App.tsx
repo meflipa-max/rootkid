@@ -12,6 +12,8 @@ import { Learn } from './screens/Learn';
 import { isDue, mastery, weight } from './lib/mastery';
 import { sfx } from './lib/fx';
 import { IngDefs } from './components/Ing';
+import { useHoldUpdate } from './lib/pwa';
+import { Welcome } from './components/Welcome';
 
 type Tab = 'home' | 'stats' | 'settings';
 
@@ -37,6 +39,8 @@ function Shell() {
     if (p.length) setRun({ mode, pool: p, n: Date.now() });
   };
   const exit = () => setRun(null);
+  // niente aggiornamenti automatici a metà turno
+  useHoldUpdate(!!run);
 
   if (run) {
     const key = run.n;
@@ -57,6 +61,7 @@ function Shell() {
         {tab === 'stats' && <Stats focus={() => launch('focus', weakPool())} />}
         {tab === 'settings' && <Settings />}
       </main>
+      {!save.settings.setup && <Welcome />}
       <nav className="tabs">
         {(
           [

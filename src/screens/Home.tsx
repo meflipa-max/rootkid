@@ -14,6 +14,7 @@ import { CAT_ING, Coin, Icon, MISSION_ICON, UPGRADE_ICON } from '../components/I
 import { Ing } from '../components/Ing';
 import { hasWebGL } from '../three/thumbs';
 import { ChefPreview, Diorama } from '../three/Diorama';
+import { InstallCard } from '../components/Install';
 
 export type Mode = 'game' | 'focus' | 'learn';
 
@@ -169,7 +170,7 @@ export function Home({ cat, setCat, start }: { cat: Category | 'all'; setCat: (c
           <div style={{ marginTop: 8 }}><Bar value={(save.xp - lo) / (hi - lo)} color="#c65a3c" h={10} /></div>
         </div>
         <Ring value={active / goal} size={60} stroke={7} color={active >= goal ? '#6f9a6a' : '#e3a83a'}>
-          <b style={{ fontSize: 17 }}>{active >= goal ? <Icon name="check" /> : Math.min(active, goal)}</b>
+          <b style={{ fontSize: '1.0625rem' }}>{active >= goal ? <Icon name="check" /> : Math.min(active, goal)}</b>
         </Ring>
       </section>
 
@@ -186,6 +187,8 @@ export function Home({ cat, setCat, start }: { cat: Category | 'all'; setCat: (c
         <span><Icon name="play" size={22} /> Inizia il turno</span>
         <small>Padronanza {Math.round(avg * 100)}% · record {save.bestShift}</small>
       </button>
+
+      <InstallCard where="home" />
 
       <section className="card missions">
         <div className="row-between">

@@ -81,6 +81,8 @@ interface G {
   tally: Tally;
   uid: number;
   introLeft: number;
+  /** istruzioni sul primo turno: il locale apre solo quando le hai lette */
+  howto: boolean;
 }
 
 const hintFor = (s?: DishStat): Hint => {
@@ -88,10 +90,10 @@ const hintFor = (s?: DishStat): Hint => {
   return s.box <= 0 ? 'flash' : s.box === 1 ? 'icons' : s.box <= 3 ? 'count' : 'none';
 };
 
-const initial = (maxLives: number): G => ({
+const initial = (maxLives: number, howto: boolean): G => ({
   phase: 'intro', customers: [], spawned: 0, nextSpawn: 900, selected: null, score: 0, coins: 0, combo: 0, bestCombo: 0, fever: false,
   lives: maxLives, maxLives, served: 0, overlay: null, paused: false, pops: [], toast: null, pose: 'idle', poseT: 0, shake: 0,
-  missedDishes: [], lastIds: [], retries: [], progress: {}, tally: { memory: 0, revenge: 0, guess: 0, vip: 0, tips: 0 }, uid: 1, introLeft: 2200,
+  missedDishes: [], lastIds: [], retries: [], progress: {}, tally: { memory: 0, revenge: 0, guess: 0, vip: 0, tips: 0 }, uid: 1, introLeft: 2200, howto,
 });
 
 const alive = (c: Cust) => c.state === 'in' || c.state === 'wait';
@@ -105,7 +107,7 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
   const app = useApp();
   const appRef = useRef(app);
   appRef.current = app;
-  const gr = useRef<G>(initial(3 + lvlOf(app.save.build, 'frigo')));
+  const gr = useRef<G>(initial(3 + lvlOf(app.save.build, 'frigo'), app.save.shifts < 3));
   const [g, setG] = useState<G>(gr.current);
   const serveRef = useRef<() => void>(() => {});
   const coinRef = useRef<HTMLDivElement>(null);
@@ -127,7 +129,7 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
     const taken = new Set(g.customers.map((c) => c.slot));
     const slot = [0, 1, 2].find((s) => !taken.has(s));
     if (slot === undefined) return g;
-    const { stats, dishes, xp, build } = appRef.current.save;
+    const { stats, dishes, xp, build, settings } = appRef.current.save;
     const now = Date.now();
 
     // la rivincita: il piatto sbagliato torna dopo un paio di clienti (richiamo a breve distanza)
@@ -147,7 +149,8 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
     const guess = !retry && box >= 2 && availableKinds(dish, dishes).includes('which') && Math.random() < 0.28;
     const vip = !retry && !guess && g.spawned >= 1 && Math.random() < 0.12;
     const hint: Hint = retry ? (box >= 4 ? 'none' : 'count') : hintFor(st);
-    const diff = Math.max(0.55, 1 - (levelOf(xp) - 1) * 0.04);
+    // ritmo tranquillo: niente fretta che cresce col livello e clienti quasi il doppio più pazienti
+    const diff = settings.calm ? 1.8 : Math.max(0.55, 1 - (levelOf(xp) - 1) * 0.04);
     const baseT = guess ? 15 + dish.ingredients.length * 1.2 : 24 + dish.ingredients.length * 2.5 + (hint === 'full' || hint === 'flash' ? 8 : 0);
     const max = Math.round(baseT * 1000 * diff * (1 + 0.1 * lvlOf(build, 'forno')) * (vip ? 0.85 : 1));
     const q = guess ? makeQuestion(dish, dishes, 'which') : null;
@@ -159,7 +162,7 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
     return {
       ...g, uid: g.uid + 1, customers: [...g.customers, c], spawned: g.spawned + 1, lastIds: [...g.lastIds, dish.id],
       retries: due ? g.retries.filter((r) => r !== due) : g.retries,
-      nextSpawn: Math.max(3500, 5500 + Math.random() * 3000 - g.spawned * 250),
+      nextSpawn: Math.max(3500, 5500 + Math.random() * 3000 - g.spawned * 250) + (settings.calm ? 4000 : 0),
     };
   };
 
@@ -251,6 +254,7 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
     };
     if (g.poseT === 0 && g.pose !== 'idle') g = { ...g, pose: 'idle' };
     if (g.phase === 'intro') {
+      if (g.howto) return commit(g);
       g = { ...g, introLeft: g.introLeft - dt };
       if (g.introLeft <= 0) g = { ...g, phase: 'play' };
       return commit(g);
@@ -355,6 +359,10 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
     commit({ ...gr.current, overlay: null });
   };
   const setPaused = (p: boolean) => commit({ ...gr.current, paused: p });
+  const startShift = () => {
+    sfx.tap();
+    commit({ ...gr.current, howto: false });
+  };
 
   const bubbleOf = (c: Cust) => {
     const f = c.left / c.max;
@@ -404,7 +412,7 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
   return (
     <div className={`game ${g.shake > 0 ? 'shake' : ''} ${g.fever ? 'is-fever' : ''}`}>
       <div className="hud">
-        <button className="icon-btn" onClick={() => setPaused(true)} aria-label="Pausa"><Icon name="pause" /></button>
+        <button className="icon-btn" onClick={() => setPaused(true)}><Icon name="pause" /> Pausa</button>
         <div className="hearts">{Array.from({ length: g.maxLives }, (_, i) => <Heart key={i} on={i < g.lives} />)}</div>
         <div className="score" key={g.score}>{g.score}</div>
         <div className="coins" ref={coinRef}><Coin /> {g.coins}</div>
@@ -478,8 +486,8 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
                   {ticket.dish.ingredients.map((_, i) => <i key={i} className={i < ticket.plate.length ? (ticket.plate.length > ticket.dish.ingredients.length ? 'over' : 'on') : ''} />)}
                 </span>
               )}
-              {!!ticket && !ticket.plate.length && <span className="plate-q">Trascina o tocca gli ingredienti</span>}
-              <button className="trash" onClick={clearPlate} disabled={!selected?.plate.length} aria-label="Svuota il piatto"><Icon name="trash" /></button>
+              {!!ticket && !ticket.plate.length && <span className="plate-q">Tocca gli ingredienti</span>}
+              {!!selected?.plate.length && <button className="trash" onClick={clearPlate} aria-label="Svuota il piatto"><Icon name="trash" /> Svuota</button>}
             </>
           )}
         </div>
@@ -552,7 +560,23 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
 
       {g.toast && <div className="toast" key={g.toast.text}><b>{g.toast.text}</b>{g.toast.sub && <span>{g.toast.sub}</span>}</div>}
       {ghost && <div className="drag-ghost" style={{ transform: `translate(${ghost.x}px, ${ghost.y}px)` }}><Ing name={ghost.ing} /></div>}
-      {g.phase === 'intro' && (
+      {g.phase === 'intro' && g.howto && (
+        <div className="intro">
+          <div className="howto">
+            <h3>Come si gioca</h3>
+            <ol>
+              <li><span>Arriva un cliente e chiede un piatto: lo vedi nel fumetto e nel foglietto</span></li>
+              <li><span><b>Tocca gli ingredienti</b> giusti qui sotto per metterli sul piatto</span></li>
+              <li><span>Hai sbagliato? Toccalo di nuovo per toglierlo, o premi <b>Svuota</b></span></li>
+              <li><span>Quando il piatto è pronto premi <b>SERVI</b></span></li>
+            </ol>
+            <div className="muted">Non ricordi la ricetta? Premi <b>Aiuto</b>. Con <b>Pausa</b> ti fermi quando vuoi.</div>
+            <button className="btn primary wide big" onClick={startShift}><Icon name="play" size={22} /> Ho capito, apri il locale!</button>
+            <button className="btn ghost wide" onClick={onExit}>Torna indietro</button>
+          </div>
+        </div>
+      )}
+      {g.phase === 'intro' && !g.howto && (
         <div className="intro">
           <div className="intro-t" key={g.introLeft > 900 ? 'a' : 'b'}>{g.introLeft > 900 ? 'Si apre il locale!' : 'Via!'}</div>
           {g.introLeft > 900 && <div className="intro-s">Più la ricetta è a memoria, più guadagni</div>}

@@ -26,6 +26,12 @@ export interface Settings {
   sound: boolean;
   haptics: boolean;
   dailyGoal: number;
+  /** grandezza del testo: 1 normale, 2 grande, 3 molto grande */
+  text: 1 | 2 | 3;
+  /** ritmo tranquillo: clienti molto più pazienti e arrivi più distanziati */
+  calm: boolean;
+  /** scelta iniziale (testo e ritmo) già fatta */
+  setup?: boolean;
 }
 
 export type MKind = 'serve' | 'memory' | 'combo' | 'shifts' | 'stars3' | 'revenge' | 'guess' | 'cards' | 'vip';

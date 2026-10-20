@@ -31,7 +31,7 @@ const fresh = (): Save => ({
   skin: 'classic',
   build: {},
   menuV: MENU_VERSION,
-  settings: { sound: true, haptics: true, dailyGoal: 20 },
+  settings: { sound: true, haptics: true, dailyGoal: 20, text: 2, calm: true },
 });
 
 /** aggiorna le ricette al menu stampato, rispettando quelle modificate a mano dall'utente */
@@ -121,6 +121,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     ref.current = save;
     setFx(save.settings);
+    document.documentElement.dataset.text = String(save.settings.text);
     try {
       localStorage.setItem(KEY, JSON.stringify(save));
     } catch {
