@@ -353,8 +353,9 @@ hr { border: 0; border-top: 2px dashed #2b211c33; width: 100%; margin: 4px 0; }
 
 .ticket { position: relative; background: var(--card); color: var(--ink); margin: 10px 10px 6px; border-radius: 14px; padding: 8px 12px; min-height: 56px; display: flex; flex-direction: column; gap: 4px; justify-content: center; flex: none; border: 2px solid var(--ink); box-shadow: 0 3px 0 var(--ink); }
 .ticket.vip { background: #fbefcf; }
-.t-top { display: flex; align-items: center; gap: 6px; font-family: 'Fredoka'; font-size: 1rem; }
-.t-top b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.t-top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-family: 'Fredoka'; font-size: 1rem; }
+/* il nome del piatto va a capo invece di essere tagliato con i puntini */
+.t-top b { flex: 1 1 9rem; min-width: 0; line-height: 1.15; overflow-wrap: anywhere; font-weight: 600; }
 .mem { background: var(--ink); color: var(--card); font-size: 0.8125rem; padding: 2px 8px; border-radius: 99px; flex: none; }
 .mem.alt { background: var(--sky); color: #fff; }
 .peek { background: var(--mustard); border: 2px solid var(--ink); font-size: 0.9375rem; padding: 6px 12px; min-height: 40px; box-shadow: 0 2px 0 var(--ink); border-radius: 99px; font-family: 'Fredoka'; flex: none; display: flex; align-items: center; gap: 4px; }
