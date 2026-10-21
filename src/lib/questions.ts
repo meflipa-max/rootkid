@@ -82,23 +82,53 @@ export function makeQuestion(dish: Dish, all: Dish[], kind: Kind): Q {
 }
 
 /**
+ * Quanto è grande il bancone, in base a quanto conosci il piatto:
+ * base = gli ingredienti giusti + pochi sbagliati (si va anche per esclusione),
+ * wide = il doppio dei distrattori, presi dai piatti più simili,
+ * pantry = la dispensa intera della categoria: per escludere non basta, bisogna ricordare.
+ * La friggitoria (quantità, non ingredienti) non arriva mai alla dispensa.
+ */
+export type TrayLevel = 'base' | 'wide' | 'pantry';
+export const trayLevelFor = (dish: Dish, box: number): TrayLevel =>
+  box >= 4 && !isPortion(dish) ? 'pantry' : box >= 2 ? 'wide' : 'base';
+
+/** classiche e speciali usano la stessa dispensa: sono tutte pizze */
+const shelfGroup = (d: Dish) => (d.category === 'speciali' ? 'classiche' : d.category);
+const PANTRY_MIN = 14;
+const PANTRY_MAX = 36;
+
+/**
  * Ingredienti sul bancone per un ordine: quelli giusti + distrattori.
  * Gli ingredienti che il giocatore ha già confuso con questo piatto tornano apposta come distrattori,
  * così la differenza viene allenata finché non è chiara.
+ * `drop` = distrattori tolti dalla Mise en place (mai le trappole).
  */
-export function trayFor(dish: Dish, all: Dish[], confused: Record<string, number> | undefined, drop: number): string[] {
+export function trayFor(dish: Dish, all: Dish[], confused: Record<string, number> | undefined, drop: number, level: TrayLevel = 'base'): string[] {
   const own = new Set(dish.ingredients.map(norm));
-  const q = makeQuestion(dish, all, 'build');
-  const base = q.kind === 'build' ? q.options : dish.ingredients;
-  let wrong = base.filter((o) => !own.has(norm(o)));
+  const seen = new Set(own);
+  const uniq = (list: string[]) => list.filter((x) => !seen.has(norm(x)) && (seen.add(norm(x)), true));
+  let wrong: string[];
+  if (level === 'pantry') {
+    const group = all.filter((x) => x.id !== dish.id && shelfGroup(x) === shelfGroup(dish)).flatMap((x) => x.ingredients);
+    wrong = uniq(shuffle(group));
+    if (wrong.length + own.size < PANTRY_MIN) wrong = [...wrong, ...uniq(distractors(dish, all, PANTRY_MIN))].slice(0, PANTRY_MIN - own.size);
+  } else {
+    const n = dish.ingredients.length;
+    wrong = uniq(distractors(dish, all, level === 'wide' ? 7 : Math.min(Math.max(3, 6 - n), 6)));
+  }
   const traps = Object.entries(confused ?? {})
     .sort((a, b) => b[1] - a[1])
     .map(([k]) => k)
-    .filter((k) => !own.has(norm(k)) && !wrong.some((w) => norm(w) === norm(k)))
+    .filter((k) => !own.has(norm(k)))
     .slice(0, 2);
-  if (traps.length) wrong = [...traps, ...wrong.slice(0, Math.max(0, wrong.length - traps.length))];
+  if (traps.length) {
+    const t = new Set(traps.map(norm));
+    const rest = wrong.filter((w) => !t.has(norm(w)));
+    wrong = [...traps, ...rest.slice(0, Math.max(0, (level === 'pantry' ? rest.length : wrong.length) - traps.length))];
+  }
+  if (level === 'pantry') wrong = wrong.slice(0, PANTRY_MAX - own.size);
   // la mise en place toglie distrattori, ma mai quelli su cui hai già sbagliato
-  const keep = Math.max(1, wrong.length - drop);
+  const keep = Math.max(Math.min(traps.length, wrong.length), 1, wrong.length - drop);
   wrong = wrong.slice(0, keep);
   return shuffle([...dish.ingredients, ...wrong]);
 }

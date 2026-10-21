@@ -83,6 +83,8 @@ export interface RecordOpts {
   severity?: 1 | 2;
   /** risposte "facili" (autovalutazione, riconoscimento) non portano la scatola oltre questo livello */
   cap?: number;
+  /** tacche guadagnate con una risposta giusta (la sfida scritta ne vale 2) */
+  step?: number;
 }
 
 interface Ctx {
@@ -146,7 +148,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (correct) {
           st.correct++;
           st.streak++;
-          if (ready) st.box = Math.max(st.box, Math.min(5, st.box + 1, opts.cap ?? 5));
+          if (ready) st.box = Math.max(st.box, Math.min(5, st.box + (opts.step ?? 1), opts.cap ?? 5));
           st.recentWrong = Math.max(0, st.recentWrong - 1);
         } else {
           st.streak = 0;

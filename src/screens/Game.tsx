@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Dish, DishStat, MKind } from '../lib/types';
 import { useApp } from '../store';
-import { availableKinds, makeQuestion, norm, trayFor, whereIs } from '../lib/questions';
+import { availableKinds, makeQuestion, norm, trayFor, trayLevelFor, whereIs, type TrayLevel } from '../lib/questions';
+import { fold, SHELVES, shelfOf } from '../lib/pantry';
 import { levelOf, pickWeighted, weight } from '../lib/mastery';
 import { catOf } from '../lib/data';
 import { cap } from '../lib/emoji';
@@ -42,6 +43,8 @@ interface Cust {
   max: number;
   plate: string[];
   tray: string[];
+  /** grandezza del bancone: con i piatti che conosci bene diventa la dispensa intera */
+  level: TrayLevel;
   peeked: boolean;
   /** aiuto "flash" già sparito */
   hidden: boolean;
@@ -151,12 +154,14 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
     const hint: Hint = retry ? (box >= 4 ? 'none' : 'count') : hintFor(st);
     // ritmo tranquillo: niente fretta che cresce col livello e clienti quasi il doppio più pazienti
     const diff = settings.calm ? 1.8 : Math.max(0.55, 1 - (levelOf(xp) - 1) * 0.04);
-    const baseT = guess ? 15 + dish.ingredients.length * 1.2 : 24 + dish.ingredients.length * 2.5 + (hint === 'full' || hint === 'flash' ? 8 : 0);
+    const level: TrayLevel = guess ? 'base' : trayLevelFor(dish, box);
+    // cercare in una dispensa grande richiede più tempo
+    const baseT = guess ? 15 + dish.ingredients.length * 1.2 : 24 + dish.ingredients.length * 2.5 + (hint === 'full' || hint === 'flash' ? 8 : 0) + (level === 'pantry' ? 12 : level === 'wide' ? 4 : 0);
     const max = Math.round(baseT * 1000 * diff * (1 + 0.1 * lvlOf(build, 'forno')) * (vip ? 0.85 : 1));
     const q = guess ? makeQuestion(dish, dishes, 'which') : null;
     const c: Cust = {
       id: g.uid, look: randomLook(), dish, kind: guess ? 'guess' : 'build', options: q && q.kind === 'which' ? q.options : [], hint, slot,
-      left: max, max, plate: [], tray: guess ? [] : trayFor(dish, dishes, st?.confused, 2 * lvlOf(build, 'mise')),
+      left: max, max, plate: [], tray: guess ? [] : trayFor(dish, dishes, st?.confused, 2 * lvlOf(build, 'mise'), level), level,
       peeked: false, hidden: false, retry, vip, state: 'in', t: 0,
     };
     return {
@@ -307,7 +312,8 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
     if (has) sfx.tap();
     else sfx.place(plate.length);
     commit({ ...g0, pose: 'work', poseT: 350, customers: g0.customers.map((x) => (x.id === c.id ? { ...x, plate, hidden: x.hidden || plate.length > 0 } : x)) });
-    if (lvlOf(appRef.current.save.build, 'campanello') > 0 && plate.length === c.dish.ingredients.length && c.dish.ingredients.every((i) => plate.map(norm).includes(norm(i)))) {
+    // il campanello non suona quando il numero di ingredienti è nascosto: suggerirebbe quando hai finito
+    if (lvlOf(appRef.current.save.build, 'campanello') > 0 && (c.hint !== 'none' || c.peeked) && plate.length === c.dish.ingredients.length && c.dish.ingredients.every((i) => plate.map(norm).includes(norm(i)))) {
       setTimeout(() => serveRef.current(), 220);
     }
   };
@@ -399,9 +405,28 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
     if (r && e.clientY < r.bottom && c && !c.plate.includes(d.ing)) toggle(d.ing);
   };
 
+  // dispensa: si può cercare scrivendo; dopo ogni ingrediente messo la ricerca si svuota
+  const [q, setQ] = useState('');
+  useEffect(() => setQ(''), [selected?.id, selected?.plate.length]);
+
   const moodOf = (c: Cust): Mood => (c.state === 'happy' ? 'happy' : c.state === 'angry' ? 'angry' : c.left / c.max > 0.5 ? 'idle' : c.left / c.max > 0.22 ? 'worried' : 'angry');
 
   if (g.phase === 'end') return <End g={g} title={title} again={again} onExit={onExit} />;
+
+  const tile = (t: string) => (
+    <button
+      key={t}
+      className={`itile ${selected?.plate.includes(t) ? 'used' : ''} ${ghost?.ing === t ? 'dragging' : ''}`}
+      onPointerDown={(e) => dragStart(e, t)}
+      onPointerMove={dragMove}
+      onPointerUp={dragEnd}
+      onPointerCancel={() => { drag.current = null; setGhost(null); }}
+      onClick={(e) => { if (e.detail === 0) toggle(t); }}
+    >
+      <span className="t-e"><Ing name={t} /></span>
+      <span className="t-l">{cap(t)}</span>
+    </button>
+  );
 
   const ticket = selected;
   const showFull = ticket && ticket.kind === 'build' && (ticket.hint === 'full' || ticket.peeked || (ticket.hint === 'flash' && !ticket.hidden));
@@ -520,7 +545,7 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
             ) : ticket.hint === 'icons' ? (
               <div className="t-chips">{ticket.dish.ingredients.map((i, k) => <span key={k} className="mini"><Ing name={i} /></span>)}<span className="muted sm">({ticket.dish.ingredients.length})</span></div>
             ) : ticket.hint === 'none' ? (
-              <div className="muted sm">Nessun aiuto: ti fidi della tua memoria?</div>
+              <div className="muted sm">{ticket.level === 'pantry' ? 'Dispensa completa e nessun aiuto: sai cosa ci va?' : 'Nessun aiuto: ti fidi della tua memoria?'}</div>
             ) : (
               <div className="muted sm">{ticket.dish.ingredients.length} {ticket.dish.ingredients.length === 1 ? 'ingrediente' : 'ingredienti'} — ricordi quali?</div>
             )}
@@ -537,21 +562,22 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
           ))}
         </div>
       ) : (
-        <div className="tray">
-          {(selected?.tray ?? []).map((t) => (
-            <button
-              key={t}
-              className={`itile ${selected?.plate.includes(t) ? 'used' : ''} ${ghost?.ing === t ? 'dragging' : ''}`}
-              onPointerDown={(e) => dragStart(e, t)}
-              onPointerMove={dragMove}
-              onPointerUp={dragEnd}
-              onPointerCancel={() => { drag.current = null; setGhost(null); }}
-              onClick={(e) => { if (e.detail === 0) toggle(t); }}
-            >
-              <span className="t-e"><Ing name={t} /></span>
-              <span className="t-l">{cap(t)}</span>
-            </button>
-          ))}
+        <div className={`tray ${selected?.level === 'pantry' ? 'pantry' : ''}`}>
+          {selected?.level === 'pantry' ? (
+            <>
+              <label className="pantry-q">
+                <Icon name="search" size={20} />
+                <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cerca in dispensa…" autoComplete="off" autoCorrect="off" spellCheck={false} enterKeyHint="search" aria-label="Cerca un ingrediente" />
+                {q && <button type="button" className="pantry-x" onClick={() => setQ('')} aria-label="Cancella la ricerca"><Icon name="x" size={18} /></button>}
+              </label>
+              {SHELVES.map((sh) => {
+                const list = selected.tray.filter((t) => shelfOf(t) === sh && (!q || fold(t).includes(fold(q)))).sort((a, b) => a.localeCompare(b, 'it'));
+                if (!list.length) return null;
+                return [<div key={sh} className="shelf-h">{sh}</div>, ...list.map(tile)];
+              })}
+              {q && !selected.tray.some((t) => fold(t).includes(fold(q))) && <div className="shelf-h muted">Nessun ingrediente con «{q}»</div>}
+            </>
+          ) : (selected?.tray ?? []).map(tile)}
         </div>
       )}
       {ticket?.kind !== 'guess' && (

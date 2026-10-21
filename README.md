@@ -36,6 +36,9 @@ Un cuoco animato, una pizzeria al tramonto (che diventa sera man mano che arriva
 - **Fine turno**: stelle, punteggio che rotola, monete e la tua memoria piatto per piatto (tacche che si accendono).
 
 ## Studio
+- **Bancone che cresce con la memoria** (`trayFor` in `questions.ts`): piatto nuovo → giusti + pochi sbagliati; 2–3 tacche → il doppio dei distrattori, presi dai piatti simili; 4–5 tacche → la **dispensa intera** della categoria (pizze classiche e speciali insieme, max 36 voci), divisa in ripiani (`lib/pantry.ts`) e con la ricerca scrivendo. La friggitoria non arriva alla dispensa.
+- **Sfida scritta** (Ricettario → Scrivi a memoria, `screens/Write.tsx`): solo il nome del piatto, gli ingredienti si scrivono. Perdona maiuscole, accenti, "di"/"e" e piccoli errori di battitura; le quantità devono essere esatte. Un ingrediente vero ma sbagliato è un errore, una parola sconosciuta no. Risposta perfetta = 2 tacche.
+- **Coerenza con le migliorie**: la Mise en place toglie distrattori anche dalla dispensa (mai quelli su cui hai già sbagliato); il Campanello non serve da solo quando il numero di ingredienti è nascosto, se no suggerirebbe quando hai finito; la dispensa dà 12 s di tempo in più (e Forno, Garzone, Cronometro si sommano).
 - **Ripetizione dilazionata (Leitner)**: 5 livelli per piatto. Oltre il livello 2 si sale solo quando il ripasso è "maturo" (1, 2, 4, 8 giorni): la padronanza misura la memoria a lungo termine, non la ripetizione nella stessa sessione.
 - **Ripasso** 🧠: prima i piatti in scadenza, poi i più deboli.
 - **Ricettario**: schede da girare con il numero di voci da ricordare, gli ingredienti che dimentichi più spesso e "non confonderlo con…" il piatto più simile. L'autovalutazione non porta oltre il livello 2.

@@ -9,6 +9,7 @@ import { Stats } from './screens/Stats';
 import { Settings } from './screens/Settings';
 import { Game } from './screens/Game';
 import { Learn } from './screens/Learn';
+import { Write } from './screens/Write';
 import { isDue, mastery, weight } from './lib/mastery';
 import { sfx } from './lib/fx';
 import { IngDefs } from './components/Ing';
@@ -45,6 +46,7 @@ function Shell() {
   if (run) {
     const key = run.n;
     if (run.mode === 'learn') return <Learn key={key} pool={run.pool} onExit={exit} />;
+    if (run.mode === 'write') return <Write key={key} pool={run.pool} onExit={exit} />;
     return <Game key={key} pool={run.pool} title={run.mode === 'focus' ? 'Ripasso' : 'Turno'} onExit={exit} />;
   }
 

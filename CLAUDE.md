@@ -17,6 +17,13 @@
   `useHoldUpdate(true)` lì dentro.
 - Da provare su un telefono vero: installazione su Android (pulsante) e iPhone (passi da Safari).
 
+## Dispensa e sfida scritta — 21 ottobre 2026
+
+- Il bancone dipende dalla scatola di Leitner (`trayLevelFor`): ≥4 = dispensa, ed è lo stesso livello in cui
+  sparisce il conteggio (hint `none`). Se si cambia una soglia, cambiare anche l'altra.
+- Il riconoscimento del testo scritto è `matchIngredient` in `src/lib/pantry.ts`; i ripiani sono regole a
+  parole chiave (`RULES`): un ingrediente nuovo che finisce in "Altro" va aggiunto lì.
+
 ## Modelli CC0 — stato al 19 ottobre 2026
 
 Nella sessione cloud i siti degli asset erano bloccati, quindi la grafica 3D era tutta in codice.

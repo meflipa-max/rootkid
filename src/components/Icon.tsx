@@ -42,6 +42,7 @@ const P: Record<string, string> = {
   scale: 'M12 4v16M7 20h10M4 8h16M4 8l-2 6a3 3 0 0 0 4 0zM20 8l-2 6a3 3 0 0 0 4 0z',
   plus: 'M12 5v14M5 12h14',
   bandage: 'M4.5 14.5l10-10a3.5 3.5 0 0 1 5 5l-10 10a3.5 3.5 0 0 1-5-5zM10 10l4 4',
+  search: 'M11 11m-6.5 0a6.5 6.5 0 1 0 13 0 6.5 6.5 0 1 0-13 0M16 16l4.5 4.5',
   share: 'M12 15V3.5M8 7l4-4 4 4M8.5 10H6v10.5h12V10h-2.5',
   download: 'M12 4v11M7.5 10.5L12 15l4.5-4.5M5 20h14',
   menu: 'M12 5h.01M12 12h.01M12 19h.01',

@@ -16,7 +16,7 @@ import { hasWebGL } from '../three/thumbs';
 import { ChefPreview, Diorama } from '../three/Diorama';
 import { InstallCard } from '../components/Install';
 
-export type Mode = 'game' | 'focus' | 'learn';
+export type Mode = 'game' | 'focus' | 'learn' | 'write';
 
 function Shop({ onClose }: { onClose: () => void }) {
   const app = useApp();
@@ -49,20 +49,27 @@ function Shop({ onClose }: { onClose: () => void }) {
 }
 
 /** Ricettario: prima si sceglie quali schede ripassare (solo i piatti già incontrati, oppure tutti) e la categoria */
-function Deck({ onPick, onClose }: { onPick: (pool: Dish[]) => void; onClose: () => void }) {
+function Deck({ onPick, onClose }: { onPick: (mode: 'learn' | 'write', pool: Dish[]) => void; onClose: () => void }) {
   const { save } = useApp();
   const known = save.dishes.filter((d) => save.stats[d.id]?.seen);
   const [onlyKnown, setOnlyKnown] = useState(known.length > 0);
+  const [mode, setMode] = useState<'learn' | 'write'>('learn');
   const base = onlyKnown ? known : save.dishes;
   const pick = (list: Dish[]) => {
     if (!list.length) return;
     sfx.tap();
-    onPick(list);
+    onPick(mode, list);
   };
   return (
     <div className="modal" onClick={onClose}>
       <div className="modal-in" onClick={(e) => e.stopPropagation()}>
         <h3>Ricettario</h3>
+        <div className="setting-h">Come vuoi ripassare?</div>
+        <div className="seg two">
+          <button className={mode === 'learn' ? 'on' : ''} onClick={() => { sfx.tap(); setMode('learn'); }}>Schede da girare<small>leggi e ripeti</small></button>
+          <button className={mode === 'write' ? 'on' : ''} onClick={() => { sfx.tap(); setMode('write'); }}>Scrivi a memoria<small>vale doppio</small></button>
+        </div>
+        {mode === 'write' && <div className="muted sm">Vedi solo il nome del piatto e scrivi tu gli ingredienti. Se li scrivi tutti senza errori il piatto sale di 2 tacche invece di 1.</div>}
         <div className="setting-h">Quali piatti vuoi ripassare?</div>
         <div className="seg two">
           <button className={onlyKnown ? 'on' : ''} disabled={!known.length} onClick={() => { sfx.tap(); setOnlyKnown(true); }}>Già incontrati<small>{known.length} piatti</small></button>
@@ -277,7 +284,7 @@ export function Home({ cat, setCat, start }: { cat: Category | 'all'; setCat: (c
           <span className="hub-e"><Icon name="brain" size={26} /></span><b>Ripasso</b><small>{due ? `${due} piatti da rinfrescare` : 'I tuoi punti deboli'}</small>
         </button>
         <button className="hub learn" disabled={!save.dishes.length} onClick={() => { sfx.tap(); setDeck(true); }}>
-          <span className="hub-e"><Icon name="book" size={26} /></span><b>Ricettario</b><small>Schede da girare</small>
+          <span className="hub-e"><Icon name="book" size={26} /></span><b>Ricettario</b><small>Schede e scrittura</small>
         </button>
         <button className="hub build" onClick={() => openBuild(null)}>
           <span className="hub-e"><Icon name="hammer" size={26} /></span><b>Costruisci</b><small>{totalBuilt(save.build)}/{totalMax} migliorie</small>
@@ -290,10 +297,10 @@ export function Home({ cat, setCat, start }: { cat: Category | 'all'; setCat: (c
       <section className="card collection">
         <div className="row-between"><div className="card-h">Menu a memoria</div><b className="coll-n">{mastered}/{save.dishes.length}</b></div>
         <Bar value={save.dishes.length ? mastered / save.dishes.length : 0} color="#6f9a6a" h={10} />
-        <div className="muted sm">Un piatto è tuo quando lo servi a memoria in giorni diversi: la ripetizione distanziata lo fissa per sempre.</div>
+        <div className="muted sm">Un piatto è tuo quando lo servi a memoria in giorni diversi: la ripetizione distanziata lo fissa per sempre. Scriverlo a memoria nel Ricettario vale doppio.</div>
       </section>
       {shop && <Shop onClose={() => setShop(false)} />}
-      {deck && <Deck onPick={(p) => { setDeck(false); start('learn', p); }} onClose={() => setDeck(false)} />}
+      {deck && <Deck onPick={(m, p) => { setDeck(false); start(m, p); }} onClose={() => setDeck(false)} />}
       {build !== false && <Build focus={build} onClose={() => setBuild(false)} />}
     </div>
   );
