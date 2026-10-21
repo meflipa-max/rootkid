@@ -70,7 +70,17 @@ function Build({ focus, onClose }: { focus: string | null; onClose: () => void }
               <div className="up-e"><Icon name={UPGRADE_ICON[u.id]} size={22} /></div>
               <div style={{ flex: 1 }}>
                 <div className="nm">{u.name} <span className="muted sm">Lv {lvl}/{u.max}</span></div>
-                <div className="muted sm">{u.desc(maxed ? lvl : lvl + 1)}{!maxed && ' (prossimo)'}</div>
+                {/* le decorazioni dicono la stessa cosa a ogni livello: niente confronto */}
+                {maxed || u.desc(1) === u.desc(2) ? (
+                  <div className="muted sm">{u.desc(Math.max(1, lvl))}</div>
+                ) : lvl === 0 ? (
+                  <div className="muted sm"><b>Comprando:</b> {u.desc(1)}</div>
+                ) : (
+                  <>
+                    <div className="muted sm"><b>Ora:</b> {u.desc(lvl)}</div>
+                    <div className="muted sm"><b>Livello {lvl + 1}:</b> {u.desc(lvl + 1)}</div>
+                  </>
+                )}
               </div>
               {maxed ? <span className="badge max">MAX</span> : (
                 <button className="btn primary sm" disabled={coins < cost} onClick={() => { if (app.upgrade(u.id)) sfx.win(); }}><Coin size={15} /> {cost}</button>
