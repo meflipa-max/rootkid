@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useApp } from '../store';
 import { CATEGORIES } from '../lib/data';
 import { dueCount, levelBounds, levelOf, mastery, titleOf } from '../lib/mastery';
-import type { Category } from '../lib/types';
+import type { Category, Dish } from '../lib/types';
 import { Bar, Ring } from '../components/ui';
 import { burst, centerOf, confetti, flyCoins, sfx } from '../lib/fx';
 import { CHEF_LOOK, Person } from '../components/Person';
@@ -40,6 +40,48 @@ function Shop({ onClose }: { onClose: () => void }) {
                 <button className="btn primary sm" disabled={coins < s.cost} onClick={(e) => { e.stopPropagation(); if (app.buySkin(s.id, s.cost)) { sfx.win(); setPv(s.id); } }}><Coin size={15} /> {s.cost}</button>
               )}
             </div>
+          );
+        })}
+        <button className="btn ghost wide" onClick={onClose}>Chiudi</button>
+      </div>
+    </div>
+  );
+}
+
+/** Ricettario: prima si sceglie quali schede ripassare (solo i piatti già incontrati, oppure tutti) e la categoria */
+function Deck({ onPick, onClose }: { onPick: (pool: Dish[]) => void; onClose: () => void }) {
+  const { save } = useApp();
+  const known = save.dishes.filter((d) => save.stats[d.id]?.seen);
+  const [onlyKnown, setOnlyKnown] = useState(known.length > 0);
+  const base = onlyKnown ? known : save.dishes;
+  const pick = (list: Dish[]) => {
+    if (!list.length) return;
+    sfx.tap();
+    onPick(list);
+  };
+  return (
+    <div className="modal" onClick={onClose}>
+      <div className="modal-in" onClick={(e) => e.stopPropagation()}>
+        <h3>Ricettario</h3>
+        <div className="setting-h">Quali piatti vuoi ripassare?</div>
+        <div className="seg two">
+          <button className={onlyKnown ? 'on' : ''} disabled={!known.length} onClick={() => { sfx.tap(); setOnlyKnown(true); }}>Già incontrati<small>{known.length} piatti</small></button>
+          <button className={onlyKnown ? '' : 'on'} onClick={() => { sfx.tap(); setOnlyKnown(false); }}>Tutto il menu<small>{save.dishes.length} piatti</small></button>
+        </div>
+        {!known.length && <div className="muted sm">Non hai ancora servito nessun piatto: gioca un turno e qui troverai quelli che hai incontrato.</div>}
+        <div className="setting-h">Scegli la categoria</div>
+        <button className="choice" onClick={() => pick(base)}>
+          <span className="ch-e"><Icon name="book" size={26} /></span>
+          <span><b>Tutte le categorie</b>{base.length} schede</span>
+        </button>
+        {CATEGORIES.map((c) => {
+          const list = base.filter((d) => d.category === c.id);
+          if (!list.length) return null;
+          return (
+            <button key={c.id} className="choice" onClick={() => pick(list)}>
+              <span className="ch-e"><Ing name={CAT_ING[c.id]} /></span>
+              <span><b>{c.name}</b>{list.length} {list.length === 1 ? 'scheda' : 'schede'}</span>
+            </button>
           );
         })}
         <button className="btn ghost wide" onClick={onClose}>Chiudi</button>
@@ -94,10 +136,11 @@ function Build({ focus, onClose }: { focus: string | null; onClose: () => void }
   );
 }
 
-export function Home({ cat, setCat, start }: { cat: Category | 'all'; setCat: (c: Category | 'all') => void; start: (m: Mode) => void }) {
+export function Home({ cat, setCat, start }: { cat: Category | 'all'; setCat: (c: Category | 'all') => void; start: (m: Mode, pool?: Dish[]) => void }) {
   const app = useApp();
   const { save } = app;
   const [shop, setShop] = useState(false);
+  const [deck, setDeck] = useState(false);
   const [build, setBuild] = useState<string | null | false>(false);
   const [chest, setChest] = useState<number | null>(null);
   const lvl = levelOf(save.xp);
@@ -233,7 +276,7 @@ export function Home({ cat, setCat, start }: { cat: Category | 'all'; setCat: (c
           {due > 0 && <span className="hub-badge">{due}</span>}
           <span className="hub-e"><Icon name="brain" size={26} /></span><b>Ripasso</b><small>{due ? `${due} piatti da rinfrescare` : 'I tuoi punti deboli'}</small>
         </button>
-        <button className="hub learn" disabled={!pool.length} onClick={() => go('learn')}>
+        <button className="hub learn" disabled={!save.dishes.length} onClick={() => { sfx.tap(); setDeck(true); }}>
           <span className="hub-e"><Icon name="book" size={26} /></span><b>Ricettario</b><small>Schede da girare</small>
         </button>
         <button className="hub build" onClick={() => openBuild(null)}>
@@ -250,6 +293,7 @@ export function Home({ cat, setCat, start }: { cat: Category | 'all'; setCat: (c
         <div className="muted sm">Un piatto è tuo quando lo servi a memoria in giorni diversi: la ripetizione distanziata lo fissa per sempre.</div>
       </section>
       {shop && <Shop onClose={() => setShop(false)} />}
+      {deck && <Deck onPick={(p) => { setDeck(false); start('learn', p); }} onClose={() => setDeck(false)} />}
       {build !== false && <Build focus={build} onClose={() => setBuild(false)} />}
     </div>
   );

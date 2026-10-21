@@ -471,6 +471,8 @@ html[data-text="3"] .hub-grid { grid-template-columns: 1fr; }
 .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .seg button { min-height: 56px; border-radius: 14px; border: 2px solid var(--ink); background: var(--card); font-family: 'Fredoka'; line-height: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 6px 4px; }
 .seg button small { font-family: 'Nunito'; font-size: 0.8125rem; color: var(--ink2); }
+.seg.two { grid-template-columns: 1fr 1fr; }
+.choice .ch-e .ing { width: 36px; height: 36px; }
 .seg button.on { background: var(--ink); color: var(--card); }
 .seg button.on small { color: var(--card); }
 .setting-h { display: flex; align-items: center; gap: 8px; font-size: 1.0625rem; }

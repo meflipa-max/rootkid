@@ -57,7 +57,7 @@ function Shell() {
   return (
     <div className="app">
       <main>
-        {tab === 'home' && <Home cat={cat} setCat={setCat} start={(m) => launch(m)} />}
+        {tab === 'home' && <Home cat={cat} setCat={setCat} start={(m, p) => launch(m, p)} />}
         {tab === 'stats' && <Stats focus={() => launch('focus', weakPool())} />}
         {tab === 'settings' && <Settings />}
       </main>
