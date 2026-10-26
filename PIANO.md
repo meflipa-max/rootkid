@@ -126,3 +126,43 @@ Idee rimaste fuori (possibili passi futuri): classifica fra colleghi (serve un s
 - Lavoro fatto sul branch `ccr-cc268492-2dm3k4` della sessione cloud e unito in `main` il 26 ottobre 2026.
 - Il salvataggio resta `v: 1`; i campi nuovi sono facoltativi e la migrazione è in `store.tsx`
   (`MENU_VERSION` per le ricette).
+
+---
+
+# Piano 2 (26 ottobre 2026): ingredienti riconoscibili e ingredienti uniti
+
+Richiesta: rifare gli ingredienti che si confondono o ingannano (Blender dove serve) e poter dire al gioco
+"questi due sono la stessa cosa, tieni questo". Ogni passo: build pulita, commit, push su `main`.
+
+Principio: un disegno aiuta a ricordare solo se è **diverso dagli altri** e **assomiglia a quello che si vede al banco**.
+
+### Passo A — Unire due ingredienti (Impostazioni → Ingredienti)
+- [ ] Tocchi un ingrediente → "Sostituisci con…" → scegli quello da tenere → vedi i piatti toccati → confermi.
+- [ ] Cambia tutte le ricette, le statistiche (dimenticati/confusi) e la postazione; il nome tolto non torna più
+      (alias dell'utente salvati, applicati anche agli aggiornamenti del menu e alla lista ingredienti delle pizze).
+
+### Passo B — Blender
+- [ ] Installare Blender nella sessione (pacchetto `bpy` o binario ufficiale).
+- [ ] Script `tools/ingredients.py`: modella in codice Blender gli ingredienti organici e li esporta in un solo
+      `public/models/ingredients/ingredients.glb` (nodi con il nome della chiave).
+- [ ] Nel gioco: il file si carica all'avvio in una cache sincrona; `buildIng` usa il modello se c'è, altrimenti il
+      disegno in codice di oggi. Le icone si rifanno quando arriva il file.
+
+### Passo C — Ingredienti da rifare (Blender)
+- [ ] Latticini: fior di latte, Bufala DOP (più grande e lucida), burrata (sacchetto col nodo), stracciatella (filante).
+- [ ] Funghi: champignon (funghi/freschi), misti, porcini (cappello scuro e gambo grosso), porcini panati fritti.
+- [ ] Creme: ciotolina con crema e un segno suo (zucca, zucchine, cacio e pepe col pepe, gorgonzola venato,
+      radicchio e speck, funghi, pesto, pistacchio, San Marzano, pelato giallo); glassa in bottiglietta.
+- [ ] Salumi: salamino (fettine piccole a coppetta), spianata (fette grandi ovali), capocollo (marezzato), speck
+      (fetta con cotenna), crudo (nastro col grasso), cotto (fetta rosa chiaro), pancetta a dadini, pancetta coppata
+      (arrotolata), guanciale croccante, salsiccia sbriciolata, salsiccia di Norcia.
+- [ ] Verdure: friarielli, cicoria, spinaci, peperoncino (curvo col picciolo), pomodorini scattarisciati.
+- [ ] Fritti e patate: pittule irregolari, panzerotto a mezzaluna, patate al forno a spicchi, patate saltate a cubetti.
+- [ ] Panini: kebab (falde sottili), pulled pork (sfilacciato scuro).
+
+### Passo D — Ritocchi in codice
+- [ ] Grana e Parmigiano diversi; salse in bottiglia con etichette diverse (boscaiola, caesar, maionese, burger).
+- [ ] Contrasto per cipolla, mandorle, scaglie; pizze intere inquadrate più da vicino nelle icone.
+
+### Passo E — Verifica
+- [ ] Fogli con tutte le icone prima/dopo, partita di prova, build, push su `main`.
