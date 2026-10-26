@@ -174,3 +174,28 @@ Principio: un disegno aiuta a ricordare solo se è **diverso dagli altri** e **a
 - [x] Salse con un segno diverso sull'etichetta; creme spalmate sulla pizza con il loro segno (pepe, venature, semi).
 
 Peso: `ingredients.glb` circa 850 kB (meshopt), si scarica una volta e resta in cache con gli altri modelli.
+
+---
+
+# Piano 3 (26 ottobre 2026): i miei banchi, poi costruzione e 3D
+
+### A — Categorie ("I miei banchi")
+- [ ] Impostazioni (e benvenuto): scegli le categorie che fai al lavoro; di partenza tutte.
+- [ ] Il filtro della home parte dai tuoi banchi e si ricorda.
+- [ ] Titolo, "Menu a memoria", piatti impolverati, Statistiche, Prima del turno e Sabato sera contano i tuoi banchi
+      (le altre categorie restano allenabili e contano come bonus).
+- [ ] Missioni: niente missioni impossibili (panini a chi non fa panini); missione "3 categorie in un turno" per chi ne fa più d'una.
+- [ ] Allarme dimenticanze: "Hai N piatti da ripassare in altre categorie" anche col filtro su una categoria.
+- [ ] Statistiche: copertura per categoria (mai visti, in corso, a memoria).
+- [ ] Con più categorie, i piatti nuovi arrivano a rotazione fra le categorie.
+
+### B — Costruzione e 3D
+- [ ] Divise del Guardaroba applicate a Giuseppe (berretto e maglietta; "Classico" = Giuseppe vero).
+- [ ] Momento dell'acquisto: la camera vola sull'oggetto, coriandoli, applauso, cosa cambia.
+- [ ] Obiettivo sempre in vista: "Prossimo: … mancano N monete" con la barra; a fine turno le monete ci volano dentro.
+- [ ] Il locale cresce con la memoria: angoli dei banchi che si accendono coi piatti a memoria, parete dei piatti d'oro
+      (si impolverano se da ripassare).
+- [ ] Migliorie che si vedono nel turno (tavolini = clienti seduti e mance, insegna = più VIP, forno = pizza perfetta, atmosfera).
+- [ ] Stelle del locale (1–5) con sblocchi; il critico gastronomico.
+- [ ] Sorprese: il fornitore con pezzi rari, offerta del giorno, set da completare.
+- [ ] Arredi di stagione e rinnovo del locale.
