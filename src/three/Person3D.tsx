@@ -68,14 +68,26 @@ function PersonGLB({ look, pose = 'idle', chef, crown, seed = 0 }: PersonProps) 
   // ogni personaggio ha bisogno del suo scheletro: SkeletonUtils copia anche le ossa
   const model = useMemo(() => {
     const c = SkeletonUtils.clone(scene) as THREE.Group;
+    // le divise del Guardaroba su Giuseppe: berretto, maglietta e logo prendono i colori della divisa
+    // ("Classico" è il Giuseppe vero, col berretto nero)
+    const tint: Record<string, string> | null = chef && chef.id !== 'classic' ? { berretto: chef.hat, maglietta: chef.shirt, logo: chef.apron, cuciture: chef.apron } : null;
     c.traverse((o) => {
-      if ((o as THREE.Mesh).isMesh) {
-        o.castShadow = true;
-        o.receiveShadow = true;
-      }
+      const m = o as THREE.Mesh;
+      if (!m.isMesh) return;
+      m.castShadow = true;
+      m.receiveShadow = true;
+      if (!tint) return;
+      const recolor = (x: THREE.Material) => {
+        const col = tint[x.name.replace(/\.\d+$/, '')]; // Blender aggiunge .001 ai nomi doppi
+        if (!col) return x;
+        const y = (x as THREE.MeshStandardMaterial).clone();
+        y.color.set(col);
+        return y;
+      };
+      m.material = Array.isArray(m.material) ? m.material.map(recolor) : recolor(m.material);
     });
     return c;
-  }, [scene]);
+  }, [scene, chef]);
 
   // il pacchetto non usa la stessa scala del resto della scena: lo riportiamo alla nostra altezza
   const k = useMemo(() => {
