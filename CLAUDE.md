@@ -109,3 +109,6 @@ Piano e stato in **`PIANO.md`**. In breve:
   (`lib/aliases.ts`).
 - **Piatti fuori menu** (`dish.off`): per giocare e contare usare `menu` dal contesto (`useApp().menu`), non
   `save.dishes`, che contiene anche i piatti spenti (servono solo a Impostazioni e alle unioni di ingredienti).
+- **I miei banchi** (`settings.banchi`, manca = tutte le categorie): per *contare* (titolo, menu a memoria,
+  statistiche, missioni, Prima del turno, Sabato sera) usare `mine` dal contesto; per *giocare* una categoria
+  scelta usare `menu`. Missioni con `cats`/`minCats` escono solo se possibili coi banchi scelti.

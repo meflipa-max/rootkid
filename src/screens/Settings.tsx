@@ -9,7 +9,7 @@ import { aliasList } from '../lib/aliases';
 import type { Category, Dish } from '../lib/types';
 import { cap } from '../lib/emoji';
 import { Ing } from '../components/Ing';
-import { TextSize } from '../components/Welcome';
+import { BanchiPicker, TextSize, banchiOf } from '../components/Welcome';
 import { InstallCard } from '../components/Install';
 import { ShareCard } from '../components/Share';
 import { useHoldUpdate } from '../lib/pwa';
@@ -288,6 +288,12 @@ export function Settings() {
         <hr />
         <label className="toggle"><span><Icon name="sparkle" size={22} /> Gesti</span><input type="checkbox" checked={!!settings.gestures} onChange={(e) => app.setSettings({ gestures: e.target.checked })} /></label>
         <div className="setting-d">Salse e creme si spalmano con un giro del dito, grana e granelle si spolverano con tre tocchi. Spento: basta un tocco.</div>
+      </section>
+
+      <h3 className="h3">I miei banchi</h3>
+      <section className="card">
+        <div className="muted sm">Le categorie che prepari al lavoro. Titolo, "Menu a memoria", missioni, Prima del turno e Sabato sera contano solo queste; le altre restano allenabili.</div>
+        <BanchiPicker value={settings.banchi ?? CATEGORIES.map((c) => c.id)} onChange={(v) => { const b = banchiOf(v); app.setSettings({ banchi: b, cat: b?.length === 1 ? b[0] : 'all' }); }} />
       </section>
 
       <h3 className="h3">La tua postazione</h3>

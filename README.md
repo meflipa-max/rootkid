@@ -20,6 +20,9 @@ Gioco mobile-first per memorizzare le ricette della pizzeria (hamburger, insalat
 ## Ingredienti fatti in Blender
 Quelli che disegnati in codice si confondevano (latticini bianchi, funghi, creme, salumi, verdure cotte, fritti, patate, kebab e pulled pork, Grana e Parmigiano) sono modellati in Blender con `tools/ingredients.py` e caricati da `src/three/models.ts`; se il file non arriva resta il disegno in codice. Come rigenerarli: `public/models/CREDITS.md`.
 
+## I miei banchi
+Nel benvenuto e nelle Impostazioni si scelgono le categorie che si fanno al lavoro. Il filtro della home parte da lì e si ricorda; titolo, "Menu a memoria", statistiche, missioni, Prima del turno e Sabato sera contano solo i tuoi banchi, le altre categorie restano allenabili. Se il filtro è su una categoria, un avviso ricorda i piatti da ripassare nelle altre; le Statistiche mostrano la copertura per categoria; con più categorie i piatti nuovi arrivano a rotazione.
+
 ## Piatti fuori menu
 Un piatto che non si fa più si spegne nella sua ricetta (Impostazioni → Ricette → "In menu"): resta salvato con le statistiche ma non compare in turni, ripassi, Ricettario e conteggi. "Rimetti" lo riporta in menu.
 

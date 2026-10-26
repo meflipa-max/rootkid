@@ -647,3 +647,12 @@ html[data-text="3"] .share-btns { grid-template-columns: 1fr; }
 .recipe-wrap.off .recipe { opacity: .55; }
 .recipe-wrap.off .recipe-n { text-decoration: line-through; }
 .off-h { margin-top: 6px; }
+
+/* i miei banchi */
+.cats .cat.extra { opacity: .6; border-style: dashed; }
+.note.elsewhere { width: 100%; text-align: left; cursor: pointer; }
+.chips.banchi .chip { min-height: 44px; }
+.cov-row { display: grid; grid-template-columns: 1fr auto; gap: 4px 8px; align-items: center; padding: 6px 0; border-bottom: 1px dashed #2b211c22; }
+.cov-bar { grid-column: 1 / -1; display: flex; height: 10px; border-radius: 99px; overflow: hidden; background: #e6dccd; }
+.cov-bar i { display: block; height: 100%; }
+.cov-row.extra { opacity: .65; }

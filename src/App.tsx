@@ -44,9 +44,11 @@ function MemoryNews() {
 }
 
 function Shell() {
-  const { save, menu } = useApp();
+  const { save, menu, mine } = useApp();
   const [tab, setTab] = useState<Tab>('home');
-  const [cat, setCat] = useState<Category | 'all'>('all');
+  // il filtro della home si ricorda; 'all' = i miei banchi
+  const cat: Category | 'all' = save.settings.cat ?? 'all';
+  const setCat = (c: Category | 'all') => app.setSettings({ cat: c });
   const app = useApp();
   const [run, setRun] = useState<{ mode: Mode; pool: Dish[]; n: number } | null>(null);
   useEffect(() => {
@@ -59,18 +61,18 @@ function Shell() {
 
   const launch = (mode: Mode, pool?: Dish[]) => {
     askTilt();
-    let p = pool ?? menu.filter((d) => cat === 'all' || d.category === cat);
+    let p = pool ?? (cat === 'all' ? mine : menu.filter((d) => d.category === cat));
     const now = Date.now();
     const due = (id: string) => (save.stats[id]?.seen && isDue(save.stats[id], now) ? 1 : 0);
     if (mode === 'focus' && !pool) {
       // ripasso: prima i piatti "maturi" per la ripetizione dilazionata, poi i più deboli
       p = [...p].sort((a, b) => due(b.id) - due(a.id) || weight(save.stats[b.id], now) - weight(save.stats[a.id], now)).slice(0, 6);
     }
-    if (mode === 'sabato') p = menu;
+    if (mode === 'sabato') p = mine;
     if (mode === 'warmup') {
       // prima del turno: i più ordinati, poi quelli da ripassare, poi i più deboli fra quelli già visti
-      const seen = menu.filter((d) => save.stats[d.id]?.seen);
-      const base = seen.length >= 3 ? seen : menu;
+      const seen = mine.filter((d) => save.stats[d.id]?.seen);
+      const base = seen.length >= 3 ? seen : mine;
       const pop = (d: Dish) => (isPopular(save, d) ? 1 : 0);
       p = [...base].sort((a, b) => pop(b) - pop(a) || due(b.id) - due(a.id) || weight(save.stats[b.id], now) - weight(save.stats[a.id], now)).slice(0, 6);
     }
@@ -103,8 +105,8 @@ function Shell() {
   }
 
   const weakPool = () => {
-    const seen = menu.filter((d) => save.stats[d.id]?.seen);
-    const base = seen.length >= 3 ? seen : menu;
+    const seen = mine.filter((d) => save.stats[d.id]?.seen);
+    const base = seen.length >= 3 ? seen : mine;
     return [...base].sort((a, b) => mastery(save.stats[a.id]) - mastery(save.stats[b.id])).slice(0, 5);
   };
 

@@ -9,15 +9,19 @@ import { RecipeView } from '../components/Recipe';
 import { Bar, Chip, Pips, Ring } from '../components/ui';
 
 export function Stats({ focus }: { focus: () => void }) {
-  const { save, menu } = useApp();
+  const { save, menu, mine } = useApp();
+  const banchi = save.settings.banchi;
   const [open, setOpen] = useState<string | null>(null);
-  const rows = menu
-    .map((d) => ({ d, s: save.stats[d.id], m: mastery(save.stats[d.id]) }))
-    .sort((a, b) => a.m - b.m || (a.s?.seen ? 1 : 0) - (b.s?.seen ? 1 : 0));
-  const avg = rows.length ? rows.reduce((a, r) => a + r.m, 0) / rows.length : 0;
+  const row = (d: (typeof menu)[number]) => ({ d, s: save.stats[d.id], m: mastery(save.stats[d.id]) });
+  const sort = (a: ReturnType<typeof row>, b: ReturnType<typeof row>) => a.m - b.m || (a.s?.seen ? 1 : 0) - (b.s?.seen ? 1 : 0);
+  // tutti i piatti in menu per la lista; i conteggi riassuntivi solo sui miei banchi
+  const rows = menu.map(row).sort(sort);
+  const mineRows = mine.map(row).sort(sort);
+  const avg = mineRows.length ? mineRows.reduce((a, r) => a + r.m, 0) / mineRows.length : 0;
   const acc = save.totalAnswered ? save.totalCorrect / save.totalAnswered : 0;
-  const mastered = rows.filter((r) => r.m >= 1).length;
-  const studied = rows.filter((r) => r.s?.seen);
+  const mastered = mineRows.filter((r) => r.m >= 1).length;
+  const extraMastered = rows.filter((r) => r.m >= 1).length - mastered;
+  const studied = mineRows.filter((r) => r.s?.seen);
   const weakest = studied.slice(0, 3);
 
   return (
@@ -28,7 +32,7 @@ export function Stats({ focus }: { focus: () => void }) {
           <b>{Math.round(avg * 100)}%</b>
         </Ring>
         <div className="kv">
-          <div><b>{mastered}</b>/{rows.length} piatti padroneggiati</div>
+          <div><b>{mastered}</b>/{mineRows.length} piatti padroneggiati{banchi ? ' nei tuoi banchi' : ''}{extraMastered > 0 ? ` (+${extraMastered} fuori)` : ''}</div>
           <div><b>{save.totalAnswered}</b> risposte · <b>{Math.round(acc * 100)}%</b> giuste</div>
           <div>Serie {save.streakDays} gg · record turno {save.bestShift}</div>
         </div>
@@ -83,20 +87,29 @@ export function Stats({ focus }: { focus: () => void }) {
         <div className="muted sm">I piatti mai serviti sono sagome: servili per sbloccarli, portali alla fase Oro per la cornice d'oro. Quelli impolverati sono da rinfrescare: basta un ripasso.</div>
       </section>
 
-      <h3 className="h3">Per categoria</h3>
+      <h3 className="h3">Per categoria <span className="muted sm">quanto ne hai visto e quanto sai</span></h3>
       <section className="card">
         {CATEGORIES.map((c) => {
           const list = rows.filter((r) => r.d.category === c.id);
           if (!list.length) return null;
-          const v = list.reduce((a, r) => a + r.m, 0) / list.length;
+          const n = list.length;
+          const never = list.filter((r) => !r.s?.seen).length;
+          const known = list.filter((r) => r.s?.seen && r.s.box >= 3).length;
+          const going = n - never - known;
+          const extra = !!banchi && !banchi.includes(c.id);
           return (
-            <div key={c.id} className="cat-row">
-              <span className="cat-l"><Ing name={CAT_ING[c.id]} /> {c.name}</span>
-              <Bar value={v} color={c.color} />
-              <b>{Math.round(v * 100)}%</b>
+            <div key={c.id} className={`cov-row ${extra ? 'extra' : ''}`}>
+              <span className="cat-l"><Ing name={CAT_ING[c.id]} /> {c.name}{extra && <span className="muted sm"> · facoltativa</span>}</span>
+              <span className="muted sm">{known}/{n} a memoria</span>
+              <span className="cov-bar" aria-label={`${known} a memoria, ${going} in corso, ${never} mai visti`}>
+                <i style={{ width: `${(known / n) * 100}%`, background: '#6f9a6a' }} />
+                <i style={{ width: `${(going / n) * 100}%`, background: '#e3a83a' }} />
+              </span>
+              {never > 0 && <span className="muted sm" style={{ gridColumn: '1 / -1' }}>{never === n ? 'Mai allenata' : `${never} ${never === 1 ? 'piatto mai visto' : 'piatti mai visti'}`}</span>}
             </div>
           );
         })}
+        <div className="muted sm"><span style={{ color: '#6f9a6a' }}>■</span> a memoria · <span style={{ color: '#e3a83a' }}>■</span> in corso · grigio: mai visti</div>
       </section>
 
       <h3 className="h3">Tutti i piatti <span className="muted sm">dal più debole</span></h3>

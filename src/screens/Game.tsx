@@ -70,7 +70,7 @@ const initial = (maxLives: number, howto: boolean): G => ({
   phase: 'intro', customers: [], spawned: 0, nextSpawn: 900, selected: null, score: 0, coins: 0, combo: 0, bestCombo: 0, fever: false,
   lives: maxLives, maxLives, served: 0, overlay: null, paused: false, pops: [], toast: null, pose: 'idle', poseT: 0, shake: 0,
   missedDishes: [], lastIds: [], returns: [], finals: [], twins: [], newCount: 0, ease: 0, recent: [], ring: null, bake: null, card: null, trophies: [],
-  progress: {}, tally: { memory: 0, revenge: 0, guess: 0, vip: 0, tips: 0, order: 0 }, uid: 1, introLeft: 2200, howto,
+  progress: {}, tally: { memory: 0, revenge: 0, guess: 0, vip: 0, tips: 0, order: 0, cats: [] }, uid: 1, introLeft: 2200, howto,
 });
 
 const alive = (c: Cust) => c.state === 'in' || c.state === 'wait';
@@ -205,7 +205,12 @@ function Shift({ pool, title, total = 8, coinMult = 1, onExit, again }: GameProp
       if (!cands.length) cands = free.length ? free : pool;
       const old = cands.filter(seen);
       if (g.newCount >= budget && old.length) cands = old;
-      const [d] = pickWeighted(cands.map((x) => ({ item: x, w: weight(stats[x.id], now) * (x.popular && !seen(x) ? 2 : 1) })), 1);
+      // i piatti nuovi a rotazione fra le categorie: senza, con "tutto il menu" sarebbero quasi tutte pizze (34 su 60)
+      const fresh = cands.filter((x) => !seen(x));
+      const perCat = new Map<string, number>();
+      for (const x of fresh) perCat.set(x.category, (perCat.get(x.category) ?? 0) + 1);
+      const share = (x: Dish) => (seen(x) ? 1 : fresh.length / perCat.size / perCat.get(x.category)!);
+      const [d] = pickWeighted(cands.map((x) => ({ item: x, w: weight(stats[x.id], now) * share(x) * (x.popular && !seen(x) ? 2 : 1) })), 1);
       const b = box(d);
       const r = Math.random();
       if (seen(d) && b >= 2 && !isPortion(d) && availableKinds(d, dishes).includes('which') && r < 0.18) {
@@ -390,6 +395,7 @@ function Shift({ pool, title, total = 8, coinMult = 1, onExit, again }: GameProp
       tally: {
         memory: n.tally.memory + (memory ? 1 : 0), revenge: n.tally.revenge + (c.tag === 'rivincita' ? 1 : 0), guess: n.tally.guess + (c.kind === 'guess' ? 1 : 0),
         vip: n.tally.vip + (c.vip ? 1 : 0), tips: n.tally.tips + tip, order: n.tally.order + (v?.orderOk ? 1 : 0),
+        cats: n.tally.cats.includes(d.category) ? n.tally.cats : [...n.tally.cats, d.category],
       },
     };
     n = addPop(n, `+${pts}`, 'gain', c.slot);

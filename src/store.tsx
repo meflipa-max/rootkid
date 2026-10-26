@@ -144,8 +144,10 @@ export interface RecordOpts {
 
 interface Ctx {
   save: Save;
-  /** i piatti in menu (senza quelli messi fuori menu): è l'elenco da usare per giocare e contare */
+  /** i piatti in menu (senza quelli messi fuori menu): è l'elenco da usare per giocare */
   menu: Dish[];
+  /** i piatti dei miei banchi: è l'elenco da usare per contare (titolo, menu a memoria, missioni) */
+  mine: Dish[];
   setDishOff(id: string, off: boolean): void;
   record(dishId: string, opts: RecordOpts): RecordResult;
   /** forzieri dei livelli raggiunti e non ancora aperti */
@@ -200,10 +202,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [save]);
 
   const menu = useMemo(() => save.dishes.filter((d) => !d.off), [save.dishes]);
+  const banchi = save.settings.banchi;
+  const mine = useMemo(() => (banchi?.length ? menu.filter((d) => banchi.includes(d.category)) : menu), [menu, banchi]);
   const api = useMemo<Ctx>(
     () => ({
       save,
       menu,
+      mine,
       setDishOff(id, off) {
         const s = ref.current;
         commit({ ...s, dishes: s.dishes.map((d) => (d.id === id ? { ...d, off: off || undefined } : d)) });
@@ -457,7 +462,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       },
       exportSave: () => JSON.stringify(ref.current),
     }),
-    [save, menu, commit],
+    [save, menu, mine, commit],
   );
 
   return <AppCtx.Provider value={api}>{children}</AppCtx.Provider>;

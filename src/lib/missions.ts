@@ -1,4 +1,4 @@
-import type { Daily, MKind, Save } from './types';
+import type { Category, Daily, MKind, Save } from './types';
 
 export interface Mission {
   id: string;
@@ -11,6 +11,10 @@ export interface Mission {
   adv?: boolean;
   /** missione sulla memoria: ogni giorno ce n'è almeno una */
   mem?: boolean;
+  /** serve uno di questi banchi (se no la missione sarebbe impossibile) */
+  cats?: Category[];
+  /** serve fare almeno tante categorie */
+  minCats?: number;
 }
 
 export const MISSIONS: Mission[] = [
@@ -29,18 +33,22 @@ export const MISSIONS: Mission[] = [
   { id: 'phase2', kind: 'phaseup', goal: 2, reward: 70, emoji: '⬆️', text: 'Porta 2 piatti alla fase dopo', mem: true },
   { id: 'fresh3', kind: 'fresh', goal: 3, reward: 80, emoji: '✨', text: 'Rinfresca 3 piatti da ripassare', adv: true, mem: true },
   { id: 'redeem1', kind: 'redeem', goal: 1, reward: 70, emoji: '🎯', text: 'Servi giusto un piatto che avevi sbagliato un altro giorno', adv: true, mem: true },
-  { id: 'order3', kind: 'order', goal: 3, reward: 60, emoji: '🍔', text: 'Monta 3 panini come al banco', adv: true },
+  { id: 'order3', kind: 'order', goal: 3, reward: 60, emoji: '🍔', text: 'Monta 3 panini come al banco', adv: true, cats: ['hamburger', 'focacce'] },
+  { id: 'mix3', kind: 'mix', goal: 1, reward: 60, emoji: '🔀', text: 'In un turno servi piatti di 3 categorie diverse', minCats: 3 },
   { id: 'real1', kind: 'real', goal: 1, reward: 40, emoji: '🧑‍🍳', text: 'Segna i piatti che hai fatto al lavoro' },
 ];
 
 export const missionById = (id: string) => MISSIONS.find((m) => m.id === id);
 
 /** 3 missioni al giorno, sempre le stesse per tutta la giornata, di tipo diverso */
-function pickFor(date: string, adv: boolean): string[] {
+const allowed = (m: Mission, banchi: Category[] | undefined) =>
+  (!m.cats || !banchi?.length || m.cats.some((c) => banchi.includes(c))) && (!m.minCats || !banchi?.length || banchi.length >= m.minCats);
+
+function pickFor(date: string, adv: boolean, banchi: Category[] | undefined): string[] {
   let h = 2166136261;
   for (const ch of date) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
   const rnd = () => ((h = Math.imul(h ^ (h >>> 15), 2246822507) ^ Math.imul(h ^ (h >>> 13), 3266489909)) >>> 0) / 4294967296;
-  const pool = MISSIONS.filter((m) => adv || !m.adv);
+  const pool = MISSIONS.filter((m) => (adv || !m.adv) && allowed(m, banchi));
   const out: Mission[] = [];
   const mem = pool.filter((m) => m.mem);
   if (mem.length) {
@@ -60,9 +68,13 @@ export const today = () => new Date().toLocaleDateString('sv');
 /** missioni di oggi: se il salvataggio è di un altro giorno ne genera di nuove */
 export function currentDaily(s: Save): Daily {
   const t = today();
-  if (s.daily && s.daily.date === t && s.daily.ids.every(missionById)) return s.daily;
+  const banchi = s.settings?.banchi;
+  if (s.daily && s.daily.date === t && s.daily.ids.every((id) => missionById(id) && allowed(missionById(id)!, banchi))) return s.daily;
   const adv = Object.values(s.stats).some((x) => x.box >= 2);
-  return { date: t, ids: pickFor(t, adv), prog: {}, claimed: [], chest: false };
+  // se cambiano i banchi a metà giornata, le missioni già ritirate restano ritirate
+  const fresh = pickFor(t, adv, banchi);
+  if (s.daily && s.daily.date === t) return { ...s.daily, ids: fresh, claimed: s.daily.claimed.filter((id) => fresh.includes(id)) };
+  return { date: t, ids: fresh, prog: {}, claimed: [], chest: false };
 }
 
 export const progressOf = (d: Daily, m: Mission) => Math.min(m.goal, d.prog[m.kind] ?? 0);

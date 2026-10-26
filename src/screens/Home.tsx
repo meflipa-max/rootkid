@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useApp } from '../store';
-import { CATEGORIES } from '../lib/data';
-import { dueCount, isDusty, levelBounds, levelOf, mastery } from '../lib/mastery';
+import { CATEGORIES, catOf } from '../lib/data';
+import { dueCount, freshness, isDue, isDusty, levelBounds, levelOf, mastery } from '../lib/mastery';
 import { UNLOCKS, knownCount, titleFor, unlocked } from '../lib/levels';
 import { dayLabel, pendingReal } from '../lib/real';
 import { today } from '../lib/missions';
@@ -55,11 +55,12 @@ function Shop({ onClose }: { onClose: () => void }) {
 
 /** Ricettario: prima si sceglie quali schede ripassare (solo i piatti già incontrati, oppure tutti) e la categoria */
 function Deck({ onPick, onClose }: { onPick: (mode: 'learn' | 'write' | 'imagine', pool: Dish[]) => void; onClose: () => void }) {
-  const { save, menu } = useApp();
-  const known = menu.filter((d) => save.stats[d.id]?.seen);
+  const { save, menu, mine } = useApp();
+  const banchi = save.settings.banchi;
+  const known = mine.filter((d) => save.stats[d.id]?.seen);
   const [onlyKnown, setOnlyKnown] = useState(known.length > 0);
   const [mode, setMode] = useState<'learn' | 'write' | 'imagine'>('learn');
-  const base = onlyKnown ? known : menu;
+  const base = onlyKnown ? known : mine;
   const pick = (list: Dish[]) => {
     if (!list.length) return;
     sfx.tap();
@@ -80,16 +81,17 @@ function Deck({ onPick, onClose }: { onPick: (mode: 'learn' | 'write' | 'imagine
         <div className="setting-h">Quali piatti vuoi ripassare?</div>
         <div className="seg two">
           <button className={onlyKnown ? 'on' : ''} disabled={!known.length} onClick={() => { sfx.tap(); setOnlyKnown(true); }}>Già incontrati<small>{known.length} piatti</small></button>
-          <button className={onlyKnown ? '' : 'on'} onClick={() => { sfx.tap(); setOnlyKnown(false); }}>Tutto il menu<small>{menu.length} piatti</small></button>
+          <button className={onlyKnown ? '' : 'on'} onClick={() => { sfx.tap(); setOnlyKnown(false); }}>Tutto il menu<small>{mine.length} piatti{banchi ? ' dei tuoi banchi' : ''}</small></button>
         </div>
         {!known.length && <div className="muted sm">Non hai ancora servito nessun piatto: gioca un turno e qui troverai quelli che hai incontrato.</div>}
         <div className="setting-h">Scegli la categoria</div>
         <button className="choice" onClick={() => pick(base)}>
           <span className="ch-e"><Icon name="book" size={26} /></span>
-          <span><b>Tutte le categorie</b>{base.length} schede</span>
+          <span><b>{banchi ? 'I miei banchi' : 'Tutte le categorie'}</b>{base.length} schede</span>
         </button>
         {CATEGORIES.map((c) => {
-          const list = base.filter((d) => d.category === c.id);
+          // le categorie fuori dai banchi si possono allenare lo stesso
+          const list = (onlyKnown ? menu.filter((d) => save.stats[d.id]?.seen) : menu).filter((d) => d.category === c.id);
           if (!list.length) return null;
           return (
             <button key={c.id} className="choice" onClick={() => pick(list)}>
@@ -208,19 +210,23 @@ export function Home({ cat, setCat, start }: { cat: Category | 'all'; setCat: (c
   const [chest, setChest] = useState<number | null>(null);
   const [real, setReal] = useState(false);
   const lvl = levelOf(save.xp);
-  const { menu } = app;
-  const known = knownCount(save.stats, menu.map((d) => d.id));
+  const { menu, mine } = app;
+  const banchi = save.settings.banchi;
+  const known = knownCount(save.stats, mine.map((d) => d.id));
   const rank = titleFor(known);
   const nextUnlock = UNLOCKS.find((u) => u.lvl > lvl);
   const yesterday = pendingReal(save);
-  const dusty = menu.filter((d) => isDusty(save.stats[d.id])).length;
+  const dusty = mine.filter((d) => isDusty(save.stats[d.id])).length;
   const sabato = unlocked(lvl, 'sabato');
   const [lo, hi] = levelBounds(lvl);
   const active = save.todayDate === new Date().toLocaleDateString('sv') ? save.todayCount : 0;
   const goal = save.settings.dailyGoal;
-  const pool = menu.filter((d) => cat === 'all' || d.category === cat);
+  const pool = cat === 'all' ? mine : menu.filter((d) => d.category === cat);
+  // piatti dei miei banchi da ripassare che il filtro scelto non fa vedere
+  const now = Date.now();
+  const elsewhere = mine.filter((d) => !pool.includes(d) && save.stats[d.id]?.fs && isDue(save.stats[d.id], now));
   const avg = pool.length ? pool.reduce((a, d) => a + mastery(save.stats[d.id]), 0) / pool.length : 0;
-  const mastered = menu.filter((d) => (save.stats[d.id]?.box ?? 0) >= 5).length;
+  const mastered = mine.filter((d) => (save.stats[d.id]?.box ?? 0) >= 5).length;
   const due = dueCount(save.stats, pool.map((d) => d.id));
   const skin = SKINS.find((s) => s.id === save.skin) ?? SKINS[0];
   const daily = currentDaily(save);
@@ -300,13 +306,20 @@ export function Home({ cat, setCat, start }: { cat: Category | 'all'; setCat: (c
       </section>
 
       <div className="cats">
-        <button className={`cat ${cat === 'all' ? 'on' : ''}`} onClick={() => { sfx.tap(); setCat('all'); }}>Tutto il menu</button>
-        {CATEGORIES.map((c) => (
-          <button key={c.id} className={`cat ${cat === c.id ? 'on' : ''}`} onClick={() => { sfx.tap(); setCat(c.id); }}>
+        <button className={`cat ${cat === 'all' ? 'on' : ''}`} onClick={() => { sfx.tap(); setCat('all'); }}>{banchi ? 'I miei banchi' : 'Tutto il menu'}</button>
+        {/* prima i miei banchi, poi le altre categorie (facoltative) */}
+        {[...CATEGORIES].sort((a, b) => (banchi ? +!banchi.includes(a.id) - +!banchi.includes(b.id) : 0)).map((c) => (
+          <button key={c.id} className={`cat ${cat === c.id ? 'on' : ''} ${banchi && !banchi.includes(c.id) ? 'extra' : ''}`} onClick={() => { sfx.tap(); setCat(c.id); }}>
             <Ing name={CAT_ING[c.id]} /> {c.name}
           </button>
         ))}
       </div>
+      {elsewhere.length > 0 && (
+        <button className="note dust elsewhere" onClick={() => { sfx.tap(); start('focus', [...elsewhere].sort((a, b) => freshness(save.stats[a.id]) - freshness(save.stats[b.id])).slice(0, 6)); }}>
+          <Icon name="sparkle" size={16} />
+          <span>Hai <b>{elsewhere.length} {elsewhere.length === 1 ? 'piatto' : 'piatti'}</b> da ripassare in altre categorie dei tuoi banchi ({[...new Set(elsewhere.map((d) => catOf(d.category).name))].join(', ')}). <u>Ripassali ora</u></span>
+        </button>
+      )}
 
       <button className="btn primary wide big hero-btn" disabled={!pool.length} onClick={() => go('game')}>
         <span><Icon name="play" size={22} /> Inizia il turno</span>
@@ -377,8 +390,8 @@ export function Home({ cat, setCat, start }: { cat: Category | 'all'; setCat: (c
       </div>
 
       <section className="card collection">
-        <div className="row-between"><div className="card-h">Menu a memoria</div><b className="coll-n">{mastered}/{menu.length}</b></div>
-        <Bar value={menu.length ? mastered / menu.length : 0} color="#6f9a6a" h={10} />
+        <div className="row-between"><div className="card-h">Menu a memoria</div><b className="coll-n">{mastered}/{mine.length}</b></div>
+        <Bar value={mine.length ? mastered / mine.length : 0} color="#6f9a6a" h={10} />
         {dusty > 0 && <div className="note dust"><Icon name="sparkle" size={16} /><span>{dusty} {dusty === 1 ? 'piatto a memoria si sta' : 'piatti a memoria si stanno'} impolverando: un ripasso e tornano a brillare</span></div>}
         <div className="muted sm">Un piatto è tuo quando lo servi a memoria in giorni diversi: la ripetizione distanziata lo fissa per sempre. Scriverlo a memoria nel Ricettario vale doppio.</div>
       </section>

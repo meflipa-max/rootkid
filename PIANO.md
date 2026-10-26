@@ -180,14 +180,14 @@ Peso: `ingredients.glb` circa 850 kB (meshopt), si scarica una volta e resta in 
 # Piano 3 (26 ottobre 2026): i miei banchi, poi costruzione e 3D
 
 ### A — Categorie ("I miei banchi")
-- [ ] Impostazioni (e benvenuto): scegli le categorie che fai al lavoro; di partenza tutte.
-- [ ] Il filtro della home parte dai tuoi banchi e si ricorda.
-- [ ] Titolo, "Menu a memoria", piatti impolverati, Statistiche, Prima del turno e Sabato sera contano i tuoi banchi
+- [x] Impostazioni (e benvenuto): scegli le categorie che fai al lavoro; di partenza tutte.
+- [x] Il filtro della home parte dai tuoi banchi e si ricorda.
+- [x] Titolo, "Menu a memoria", piatti impolverati, Statistiche, Prima del turno e Sabato sera contano i tuoi banchi
       (le altre categorie restano allenabili e contano come bonus).
-- [ ] Missioni: niente missioni impossibili (panini a chi non fa panini); missione "3 categorie in un turno" per chi ne fa più d'una.
-- [ ] Allarme dimenticanze: "Hai N piatti da ripassare in altre categorie" anche col filtro su una categoria.
-- [ ] Statistiche: copertura per categoria (mai visti, in corso, a memoria).
-- [ ] Con più categorie, i piatti nuovi arrivano a rotazione fra le categorie.
+- [x] Missioni: niente missioni impossibili (panini a chi non fa panini); missione "3 categorie in un turno" per chi ne fa più d'una.
+- [x] Allarme dimenticanze: "Hai N piatti da ripassare in altre categorie" anche col filtro su una categoria.
+- [x] Statistiche: copertura per categoria (mai visti, in corso, a memoria).
+- [x] Con più categorie, i piatti nuovi arrivano a rotazione fra le categorie.
 
 ### B — Costruzione e 3D
 - [ ] Divise del Guardaroba applicate a Giuseppe (berretto e maglietta; "Classico" = Giuseppe vero).

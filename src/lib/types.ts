@@ -66,11 +66,15 @@ export interface Settings {
   setup?: boolean;
   /** gesti facoltativi: spalmare la salsa con un giro del dito, spolverare il grana */
   gestures?: boolean;
+  /** i miei banchi: le categorie che si fanno al lavoro (manca = tutte). Contano per titolo, conteggi, missioni */
+  banchi?: Category[];
+  /** l'ultimo filtro scelto in home ('all' = i miei banchi) */
+  cat?: Category | 'all';
 }
 
 export type MKind =
   | 'serve' | 'memory' | 'combo' | 'shifts' | 'stars3' | 'revenge' | 'guess' | 'cards' | 'vip'
-  | 'phaseup' | 'fresh' | 'redeem' | 'order' | 'real';
+  | 'phaseup' | 'fresh' | 'redeem' | 'order' | 'real' | 'mix';
 
 export interface Daily {
   date: string;

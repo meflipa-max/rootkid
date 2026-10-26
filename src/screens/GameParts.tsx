@@ -84,7 +84,7 @@ export interface Overlay {
   sure: boolean;
 }
 export interface Trophy { kind: 'mem' | 'gold' | 'recovered'; dish: Dish }
-export interface Tally { memory: number; revenge: number; guess: number; vip: number; tips: number; order: number }
+export interface Tally { memory: number; revenge: number; guess: number; vip: number; tips: number; order: number; cats: string[] }
 export interface Ret { id: string; due: number; tag: 'richiamo' | 'rivincita' | 'gemello'; pair?: string }
 export interface Pop { id: number; text: string; kind: string; x: number; t: number }
 
@@ -256,6 +256,7 @@ export function End({ g, title, total, start, again, onExit }: { g: G; title: st
     a.addXp(Math.round(g.score / 10));
     const ev: Partial<Record<MKind, number>> = {
       serve: g.served, memory: g.tally.memory, combo: g.bestCombo, shifts: 1, stars3: stars === 3 ? 1 : 0, revenge: g.tally.revenge, guess: g.tally.guess, vip: g.tally.vip, order: g.tally.order,
+      mix: g.tally.cats.length >= 3 ? 1 : 0,
     };
     a.track(ev);
     const newly = cur.ids
