@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useApp } from '../store';
 import { CATEGORIES } from '../lib/data';
-import { dueCount, levelBounds, levelOf, mastery, titleOf } from '../lib/mastery';
+import { dueCount, isDusty, levelBounds, levelOf, mastery } from '../lib/mastery';
+import { UNLOCKS, knownCount, titleFor, unlocked } from '../lib/levels';
+import { dayLabel, pendingReal } from '../lib/real';
+import { today } from '../lib/missions';
 import type { Category, Dish } from '../lib/types';
 import { Bar, Ring } from '../components/ui';
 import { burst, centerOf, confetti, flyCoins, sfx } from '../lib/fx';
@@ -12,11 +15,12 @@ import { Awning, Scene } from '../components/Scene';
 import { currentDaily, missionById, progressOf, type Mission } from '../lib/missions';
 import { CAT_ING, Coin, Icon, MISSION_ICON, UPGRADE_ICON } from '../components/Icon';
 import { Ing } from '../components/Ing';
+import { cap } from '../lib/emoji';
 import { hasWebGL } from '../three/thumbs';
 import { ChefPreview, Diorama } from '../three/Diorama';
 import { InstallCard } from '../components/Install';
 
-export type Mode = 'game' | 'focus' | 'learn' | 'write';
+export type Mode = 'game' | 'focus' | 'learn' | 'write' | 'imagine' | 'sabato' | 'warmup' | 'yesterday';
 
 function Shop({ onClose }: { onClose: () => void }) {
   const app = useApp();
@@ -49,11 +53,11 @@ function Shop({ onClose }: { onClose: () => void }) {
 }
 
 /** Ricettario: prima si sceglie quali schede ripassare (solo i piatti già incontrati, oppure tutti) e la categoria */
-function Deck({ onPick, onClose }: { onPick: (mode: 'learn' | 'write', pool: Dish[]) => void; onClose: () => void }) {
+function Deck({ onPick, onClose }: { onPick: (mode: 'learn' | 'write' | 'imagine', pool: Dish[]) => void; onClose: () => void }) {
   const { save } = useApp();
   const known = save.dishes.filter((d) => save.stats[d.id]?.seen);
   const [onlyKnown, setOnlyKnown] = useState(known.length > 0);
-  const [mode, setMode] = useState<'learn' | 'write'>('learn');
+  const [mode, setMode] = useState<'learn' | 'write' | 'imagine'>('learn');
   const base = onlyKnown ? known : save.dishes;
   const pick = (list: Dish[]) => {
     if (!list.length) return;
@@ -65,11 +69,13 @@ function Deck({ onPick, onClose }: { onPick: (mode: 'learn' | 'write', pool: Dis
       <div className="modal-in" onClick={(e) => e.stopPropagation()}>
         <h3>Ricettario</h3>
         <div className="setting-h">Come vuoi ripassare?</div>
-        <div className="seg two">
+        <div className="seg three">
           <button className={mode === 'learn' ? 'on' : ''} onClick={() => { sfx.tap(); setMode('learn'); }}>Schede da girare<small>leggi e ripeti</small></button>
+          <button className={mode === 'imagine' ? 'on' : ''} onClick={() => { sfx.tap(); setMode('imagine'); }}>Immagina di montarlo<small>uno strato alla volta</small></button>
           <button className={mode === 'write' ? 'on' : ''} onClick={() => { sfx.tap(); setMode('write'); }}>Scrivi a memoria<small>vale doppio</small></button>
         </div>
-        {mode === 'write' && <div className="muted sm">Vedi solo il nome del piatto e scrivi tu gli ingredienti. Se li scrivi tutti senza errori il piatto sale di 2 tacche invece di 1.</div>}
+        {mode === 'write' && <div className="muted sm">Vedi solo il nome del piatto e scrivi tu gli ingredienti. Se li scrivi tutti senza errori il piatto sale di 2 fasi invece di 1.</div>}
+        {mode === 'imagine' && <div className="muted sm">Rifai a mente quello che fai al banco: il gioco ti accompagna strato dopo strato, tu pensi cosa viene dopo e poi lo scopri.</div>}
         <div className="setting-h">Quali piatti vuoi ripassare?</div>
         <div className="seg two">
           <button className={onlyKnown ? 'on' : ''} disabled={!known.length} onClick={() => { sfx.tap(); setOnlyKnown(true); }}>Già incontrati<small>{known.length} piatti</small></button>
@@ -143,6 +149,55 @@ function Build({ focus, onClose }: { focus: string | null; onClose: () => void }
   );
 }
 
+/** "Stasera ho fatto…": i piatti preparati al lavoro. Il giorno dopo il gioco te li chiede. */
+function RealLog({ onClose }: { onClose: () => void }) {
+  const app = useApp();
+  const { save } = app;
+  const y = new Date(Date.now() - 864e5).toLocaleDateString('sv');
+  const [date, setDate] = useState(today());
+  const [sel, setSel] = useState<string[]>(save.real?.[today()] ?? []);
+  const [q, setQ] = useState('');
+  const pickDate = (d: string) => {
+    sfx.tap();
+    setDate(d);
+    setSel(save.real?.[d] ?? []);
+  };
+  const toggle = (id: string) => {
+    sfx.tap();
+    setSel((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+  };
+  const f = q.trim().toLowerCase();
+  return (
+    <div className="modal" onClick={onClose}>
+      <div className="modal-in" onClick={(e) => e.stopPropagation()}>
+        <h3>Il turno vero</h3>
+        <div className="muted sm">Segna i piatti che hai preparato al lavoro. Quello che hai fatto con le mani è il ricordo più forte: <b>il giorno dopo il gioco te li chiede</b>, e ripescarli lo fissa ancora di più.</div>
+        <div className="seg two">
+          <button className={date === today() ? 'on' : ''} onClick={() => pickDate(today())}>Stasera<small>oggi</small></button>
+          <button className={date === y ? 'on' : ''} onClick={() => pickDate(y)}>Ieri sera<small>se è già passata mezzanotte</small></button>
+        </div>
+        <label className="pantry-q"><Icon name="search" size={20} /><input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cerca un piatto…" aria-label="Cerca un piatto" /></label>
+        {CATEGORIES.map((c) => {
+          const list = save.dishes.filter((d) => d.category === c.id && (!f || d.name.toLowerCase().includes(f)));
+          if (!list.length) return null;
+          return (
+            <div key={c.id}>
+              <div className="setting-h"><Ing name={CAT_ING[c.id]} /> {c.name}</div>
+              <div className="chips">
+                {list.map((d) => <button key={d.id} className={`chip ${sel.includes(d.id) ? 'sel' : ''}`} onClick={() => toggle(d.id)}>{sel.includes(d.id) && <Icon name="check" size={14} />} {d.name}</button>)}
+              </div>
+            </div>
+          );
+        })}
+        <div className="modal-btns">
+          <button className="btn ghost" onClick={onClose}>Annulla</button>
+          <button className="btn primary" onClick={() => { app.logReal(date, sel); sfx.win(); onClose(); }}>Salva {sel.length ? `(${sel.length})` : ''}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function Home({ cat, setCat, start }: { cat: Category | 'all'; setCat: (c: Category | 'all') => void; start: (m: Mode, pool?: Dish[]) => void }) {
   const app = useApp();
   const { save } = app;
@@ -150,7 +205,14 @@ export function Home({ cat, setCat, start }: { cat: Category | 'all'; setCat: (c
   const [deck, setDeck] = useState(false);
   const [build, setBuild] = useState<string | null | false>(false);
   const [chest, setChest] = useState<number | null>(null);
+  const [real, setReal] = useState(false);
   const lvl = levelOf(save.xp);
+  const known = knownCount(save.stats, save.dishes.map((d) => d.id));
+  const rank = titleFor(known);
+  const nextUnlock = UNLOCKS.find((u) => u.lvl > lvl);
+  const yesterday = pendingReal(save);
+  const dusty = save.dishes.filter((d) => isDusty(save.stats[d.id])).length;
+  const sabato = unlocked(lvl, 'sabato');
   const [lo, hi] = levelBounds(lvl);
   const active = save.todayDate === new Date().toLocaleDateString('sv') ? save.todayCount : 0;
   const goal = save.settings.dailyGoal;
@@ -225,9 +287,10 @@ export function Home({ cat, setCat, start }: { cat: Category | 'all'; setCat: (c
       <section className="card lvl-card">
         <div className="lvl-badge"><span>{lvl}</span></div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="lvl-n">{titleOf(lvl)}</div>
-          <div className="muted sm">{save.xp - lo} / {hi - lo} XP al prossimo livello</div>
+          <div className="lvl-n">{rank.title}</div>
+          <div className="muted sm">{rank.next ? `${known}/${rank.next.need} piatti a memoria per diventare ${rank.next.title}` : `${known} piatti a memoria`}</div>
           <div style={{ marginTop: 8 }}><Bar value={(save.xp - lo) / (hi - lo)} color="#c65a3c" h={10} /></div>
+          <div className="muted sm">{save.xp - lo} / {hi - lo} XP al livello {lvl + 1}{nextUnlock ? ` · al ${nextUnlock.lvl}: ${nextUnlock.name}` : ''}</div>
         </div>
         <Ring value={active / goal} size={60} stroke={7} color={active >= goal ? '#6f9a6a' : '#e3a83a'}>
           <b style={{ fontSize: '1.0625rem' }}>{active >= goal ? <Icon name="check" /> : Math.min(active, goal)}</b>
@@ -247,6 +310,13 @@ export function Home({ cat, setCat, start }: { cat: Category | 'all'; setCat: (c
         <span><Icon name="play" size={22} /> Inizia il turno</span>
         <small>Padronanza {Math.round(avg * 100)}% · record {save.bestShift}</small>
       </button>
+
+      {yesterday && (
+        <button className="card real-banner" onClick={() => { sfx.tap(); start('yesterday', yesterday.dishes); }}>
+          <span className="hub-e"><Icon name="calendar" size={26} /></span>
+          <span><b>{cap(dayLabel(yesterday.date))} al lavoro hai fatto {yesterday.dishes.length} {yesterday.dishes.length === 1 ? 'piatto' : 'piatti'}</b><small>Ricordali adesso: ripescare quello che hai fatto con le mani lo fissa per sempre</small></span>
+        </button>
+      )}
 
       <InstallCard where="home" />
 
@@ -292,16 +362,28 @@ export function Home({ cat, setCat, start }: { cat: Category | 'all'; setCat: (c
         <button className="hub wardrobe" onClick={() => { sfx.tap(); setShop(true); }}>
           <span className="hub-e"><Icon name="shirt" size={26} /></span><b>Guardaroba</b><small>{save.skins.length}/{SKINS.length} divise</small>
         </button>
+        <button className="hub warmup" disabled={!save.dishes.length} onClick={() => go('warmup')}>
+          <span className="hub-e"><Icon name="clock" size={26} /></span><b>Prima del turno</b><small>3 minuti sui più ordinati</small>
+        </button>
+        <button className="hub real" onClick={() => { sfx.tap(); setReal(true); }}>
+          {save.real?.[today()]?.length ? <span className="hub-badge ok">{save.real[today()].length}</span> : null}
+          <span className="hub-e"><Icon name="user" size={26} /></span><b>Il turno vero</b><small>Segna cosa hai fatto al lavoro</small>
+        </button>
+        <button className={`hub sabato ${sabato ? '' : 'locked'}`} disabled={!sabato} onClick={() => go('sabato')}>
+          <span className="hub-e"><Icon name="flame" size={26} /></span><b>Sabato sera</b><small>{sabato ? '12 clienti, tutto il menu, monete ×1.5' : 'Si sblocca al livello 6'}</small>
+        </button>
       </div>
 
       <section className="card collection">
         <div className="row-between"><div className="card-h">Menu a memoria</div><b className="coll-n">{mastered}/{save.dishes.length}</b></div>
         <Bar value={save.dishes.length ? mastered / save.dishes.length : 0} color="#6f9a6a" h={10} />
+        {dusty > 0 && <div className="note dust"><Icon name="sparkle" size={16} /><span>{dusty} {dusty === 1 ? 'piatto a memoria si sta' : 'piatti a memoria si stanno'} impolverando: un ripasso e tornano a brillare</span></div>}
         <div className="muted sm">Un piatto è tuo quando lo servi a memoria in giorni diversi: la ripetizione distanziata lo fissa per sempre. Scriverlo a memoria nel Ricettario vale doppio.</div>
       </section>
       {shop && <Shop onClose={() => setShop(false)} />}
       {deck && <Deck onPick={(m, p) => { setDeck(false); start(m, p); }} onClose={() => setDeck(false)} />}
       {build !== false && <Build focus={build} onClose={() => setBuild(false)} />}
+      {real && <RealLog onClose={() => setReal(false)} />}
     </div>
   );
 }

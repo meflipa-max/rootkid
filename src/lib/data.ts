@@ -20,7 +20,7 @@ const d = (
   verify = false,
 ): Dish => ({ id, name, category, ingredients, ...(verify ? { verify } : {}) });
 
-export const MENU_VERSION = 3;
+export const MENU_VERSION = 4;
 
 /** nomi doppi dello stesso ingrediente -> nome unico (si applica anche ai salvataggi) */
 export const ING_ALIASES: Record<string, string> = {
@@ -34,19 +34,46 @@ export const ING_ALIASES: Record<string, string> = {
 };
 
 /** vecchie ricette di default, per aggiornarle nei salvataggi solo se l'utente non le ha modificate */
-export const OLD_DEFAULTS: Record<string, string[]> = {
-  bueno: ['nutella', 'nutella bianca', 'nocciola'],
-  tronky: ['nutella', 'pistacchio', 'tronky'],
+export const OLD_DEFAULTS: Record<string, string[][]> = {
+  bueno: [['nutella', 'nutella bianca', 'nocciola']],
+  tronky: [['nutella', 'pistacchio', 'tronky']],
 };
 
-export const DEFAULT_DISHES: Dish[] = [
+/**
+ * BOZZA da far controllare: cosa si mette sulla pizza all'uscita dal forno.
+ * Regola usata: crudi, formaggi freschi, erbe, olio e glasse, e i fritti preparati a parte.
+ */
+export const AFTER_OVEN = new Set([
+  'rucola', 'crudo', 'bresaola', 'stracciatella', 'burrata', 'mortadella', 'granella di pistacchio', 'basilico', 'olio',
+  'glassa di aceto balsamico', 'grana padano dop', 'parmigiano reggiano', 'pomodorini freschi', 'valeriana', 'speck',
+  'capocollo di martina franca', 'scaglie di cacioricotta', 'pesto di basilico', 'radicchio julienne', 'funghi porcini panati fritti',
+  'melanzane fritte', 'crocchette', 'chips di zucchine impanate', 'julienne di zucchine fritte', 'panzerotti di patate',
+  'polpette di carne fritte', 'guanciale croccante', 'salmone',
+]);
+
+export const isPizza = (c: Category) => c === 'classiche' || c === 'speciali';
+/** panini dove conta l'ordine: hamburger e focacce farcite (non quelle "condimenti a scelta") */
+const orderedByDefault = (x: Dish) => (x.category === 'hamburger' || x.category === 'focacce') && x.ingredients.length >= 3;
+
+/** aggiunge alla ricetta di default i dati "come al lavoro": ordine e uscita dal forno, segnati come bozza */
+function asAtWork(x: Dish): Dish {
+  if (isPizza(x.category)) {
+    const after = x.ingredients.filter((i) => AFTER_OVEN.has(i.toLowerCase()));
+    const before = x.ingredients.filter((i) => !AFTER_OVEN.has(i.toLowerCase()));
+    return { ...x, ingredients: [...before, ...after], after, draft: true };
+  }
+  if (orderedByDefault(x)) return { ...x, ordered: true, draft: true };
+  return x;
+}
+
+const MENU: Dish[] = [
   // Hamburger (panini buns, serviti con patatine fritte)
-  d('esplosivo', 'Esplosivo', 'hamburger', ['pulled pork', 'stracciatella', 'valeriana', 'pomodori secchi', 'peperoncino']),
-  d('senza-fine', 'Senza Fine', 'hamburger', ['hamburger di fassona', 'cheddar', 'bacon', 'insalata', 'pomodoro', 'maionese']),
-  d('tenero', 'Tenero', 'hamburger', ['bocconcini di pollo', 'insalata', 'scamorza', 'bacon', 'salsa boscaiola']),
-  d('esagerato', 'Esagerato', 'hamburger', ['hamburger di fassona', 'bacon', 'cheddar', 'anelli di cipolla', 'pomodoro', 'valeriana', 'salsa burger']),
-  d('esagerato-pollo', 'Esagerato Pollo', 'hamburger', ['cotoletta di pollo', 'bacon', 'cheddar', 'anelli di cipolla', 'pomodoro', 'valeriana', 'salsa BBQ']),
-  d('buono-cosi', 'Buono Così', 'hamburger', ['veggie burger', 'insalata', 'frigitelli', 'salsa guacamole']),
+  d('esplosivo', 'Esplosivo', 'hamburger', ['valeriana', 'pulled pork', 'stracciatella', 'pomodori secchi', 'peperoncino']),
+  d('senza-fine', 'Senza Fine', 'hamburger', ['insalata', 'pomodoro', 'hamburger di fassona', 'cheddar', 'bacon', 'maionese']),
+  d('tenero', 'Tenero', 'hamburger', ['insalata', 'bocconcini di pollo', 'scamorza', 'bacon', 'salsa boscaiola']),
+  d('esagerato', 'Esagerato', 'hamburger', ['valeriana', 'pomodoro', 'hamburger di fassona', 'cheddar', 'bacon', 'anelli di cipolla', 'salsa burger']),
+  d('esagerato-pollo', 'Esagerato Pollo', 'hamburger', ['valeriana', 'pomodoro', 'cotoletta di pollo', 'cheddar', 'bacon', 'anelli di cipolla', 'salsa BBQ']),
+  d('buono-cosi', 'Buono Così', 'hamburger', ['insalata', 'veggie burger', 'frigitelli', 'salsa guacamole']),
   // Insalatone (servite con pane pizza)
   d('rustica', 'Rustica', 'insalatone', ['insalata', 'pomodorini', 'tonno', 'olive']),
   d('chicken', 'Chicken', 'insalatone', ['insalata', 'valeriana', 'pomodori', 'pollo fritto', 'grana', 'salsa caesar']),
@@ -54,10 +81,10 @@ export const DEFAULT_DISHES: Dish[] = [
   // Focacce (impasto di pizza)
   d('cotoletta-focaccia', 'Cotoletta', 'focacce', ['cotoletta', 'condimenti a scelta']),
   d('kebab', 'Kebab', 'focacce', ['kebab', 'condimenti a scelta']),
-  d('hamburger-classico', 'Hamburger Classico', 'focacce', ['hamburger', 'insalata', 'maionese', 'pomodori', 'cheddar'], true),
-  d('italiana', 'Italiana', 'focacce', ['crudo', 'fior di latte', 'rucola', 'pomodori', 'grana', 'olio']),
-  d('sfiziosa', 'Sfiziosa', 'focacce', ['porchetta di Ariccia', 'pomodori secchi', 'crema di funghi', 'patate saltate', 'valeriana']),
-  d('hot-dog', 'Hot Dog', 'focacce', ['würstel', 'cheddar', 'bacon', 'cipolla croccante', 'insalata', 'salsa hamburger']),
+  d('hamburger-classico', 'Hamburger Classico', 'focacce', ['insalata', 'pomodori', 'hamburger', 'cheddar', 'maionese'], true),
+  d('italiana', 'Italiana', 'focacce', ['fior di latte', 'crudo', 'pomodori', 'rucola', 'grana', 'olio']),
+  d('sfiziosa', 'Sfiziosa', 'focacce', ['crema di funghi', 'porchetta di Ariccia', 'patate saltate', 'pomodori secchi', 'valeriana']),
+  d('hot-dog', 'Hot Dog', 'focacce', ['insalata', 'würstel', 'cheddar', 'bacon', 'cipolla croccante', 'salsa hamburger']),
   // Pizze classiche (dal menu stampato)
   d('pz-margherita', 'Margherita', 'classiche', ['pomodoro', 'fior di latte', 'olive']),
   d('pz-diavola', 'Diavola', 'classiche', ['pomodoro', 'fior di latte', 'salamino piccante', 'olive']),
@@ -108,6 +135,9 @@ export const DEFAULT_DISHES: Dish[] = [
   d('pittule', 'Pittule', 'fritti', ['11 pezzi']),
   d('panzerotti', 'Panzerotti', 'fritti', ['11 pezzi']),
 ];
+
+/** ingredienti in ordine di montaggio: panini dal basso, pizze prima il forno poi l'uscita (bozza da controllare) */
+export const DEFAULT_DISHES: Dish[] = MENU.map(asAtWork);
 
 /** ingredienti delle pizze del menu, tenuti anche nella lista ingredienti col filtro Pizze */
 export const PIZZA_INGREDIENTS: string[] = [

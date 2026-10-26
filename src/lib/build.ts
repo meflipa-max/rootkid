@@ -12,8 +12,9 @@ export const UPGRADES: Upgrade[] = [
   { id: 'cassa', name: 'Cassa nuova', emoji: '💰', max: 5, base: 150, desc: (l) => `Incassi più ricchi: +${l * 15}% monete` },
   { id: 'insegna', name: 'Insegna luminosa', emoji: '🪧', max: 5, base: 180, desc: (l) => `Più clienti attirati: +${l * 5}% punti` },
   { id: 'frigo', name: 'Frigo grande', emoji: '🧊', max: 2, base: 400, desc: (l) => `Più scorte: +${l} ${l === 1 ? 'vita' : 'vite'} per turno` },
-  { id: 'campanello', name: 'Campanello smart', emoji: '🛎️', max: 1, base: 500, desc: () => 'Serve da solo appena il piatto è giusto: niente più tocchi su SERVI (non con i piatti a memoria, per non suggerire)' },
-  { id: 'mise', name: 'Mise en place', emoji: '🥫', max: 3, base: 220, desc: (l) => `Meno confusione: ${l * 2} ingredienti sbagliati in meno sul bancone e in dispensa` },
+  // le migliorie comprano comodità, mai risposte: il campanello suona anche se il piatto è sbagliato
+  { id: 'campanello', name: 'Campanello', emoji: '🛎️', max: 1, base: 500, desc: () => 'Quando sul piatto c\'è il numero giusto di ingredienti lo serve da solo, giusto o sbagliato che sia (hai un attimo per ripensarci). Solo quando il numero si vede' },
+  { id: 'mise', name: 'Mise en place', emoji: '🥫', max: 2, base: 220, desc: (l) => (l <= 1 ? 'Banco in ordine: cerchi gli ingredienti scrivendo su ogni bancone, non solo in dispensa' : 'Banco in ordine: ricerca su ogni bancone ed etichette dei ripiani sempre in vista') },
   { id: 'garzone', name: 'Garzone', emoji: '🧑‍🍳', max: 3, base: 260, desc: (l) => `Distrae i clienti in coda: pazienza -${l * 15}% più lenta a scendere` },
   { id: 'cronometro', name: 'Cronometro', emoji: '⏱️', max: 3, base: 240, desc: (l) => `Ogni servizio perfetto regala +${(l * 1.5).toFixed(1)}s a tutti i clienti in attesa` },
   { id: 'piante', name: 'Piante', emoji: '🪴', max: 3, base: 80, desc: () => 'Decorazione: il locale diventa accogliente' },

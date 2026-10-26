@@ -9,6 +9,8 @@ export interface Mission {
   text: string;
   /** serve conoscere già un po' il menu */
   adv?: boolean;
+  /** missione sulla memoria: ogni giorno ce n'è almeno una */
+  mem?: boolean;
 }
 
 export const MISSIONS: Mission[] = [
@@ -23,6 +25,12 @@ export const MISSIONS: Mission[] = [
   { id: 'guess2', kind: 'guess', goal: 2, reward: 50, emoji: '🤔', text: 'Indovina 2 clienti indecisi', adv: true },
   { id: 'cards6', kind: 'cards', goal: 6, reward: 40, emoji: '📖', text: 'Ripassa 6 schede nel Ricettario' },
   { id: 'vip1', kind: 'vip', goal: 1, reward: 50, emoji: '👑', text: 'Servi un cliente VIP' },
+  // missioni sulla memoria: premiano l'imparare, non solo il servire
+  { id: 'phase2', kind: 'phaseup', goal: 2, reward: 70, emoji: '⬆️', text: 'Porta 2 piatti alla fase dopo', mem: true },
+  { id: 'fresh3', kind: 'fresh', goal: 3, reward: 80, emoji: '✨', text: 'Rinfresca 3 piatti da ripassare', adv: true, mem: true },
+  { id: 'redeem1', kind: 'redeem', goal: 1, reward: 70, emoji: '🎯', text: 'Servi giusto un piatto che avevi sbagliato un altro giorno', adv: true, mem: true },
+  { id: 'order3', kind: 'order', goal: 3, reward: 60, emoji: '🍔', text: 'Monta 3 panini come al banco', adv: true },
+  { id: 'real1', kind: 'real', goal: 1, reward: 40, emoji: '🧑‍🍳', text: 'Segna i piatti che hai fatto al lavoro' },
 ];
 
 export const missionById = (id: string) => MISSIONS.find((m) => m.id === id);
@@ -34,6 +42,12 @@ function pickFor(date: string, adv: boolean): string[] {
   const rnd = () => ((h = Math.imul(h ^ (h >>> 15), 2246822507) ^ Math.imul(h ^ (h >>> 13), 3266489909)) >>> 0) / 4294967296;
   const pool = MISSIONS.filter((m) => adv || !m.adv);
   const out: Mission[] = [];
+  const mem = pool.filter((m) => m.mem);
+  if (mem.length) {
+    const m = mem[Math.floor(rnd() * mem.length)];
+    out.push(m);
+    pool.splice(pool.indexOf(m), 1);
+  }
   while (out.length < 3 && pool.length) {
     const m = pool.splice(Math.floor(rnd() * pool.length), 1)[0];
     if (!out.some((o) => o.kind === m.kind)) out.push(m);

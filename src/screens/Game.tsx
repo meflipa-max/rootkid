@@ -1,121 +1,102 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Dish, DishStat, MKind } from '../lib/types';
-import { useApp } from '../store';
-import { availableKinds, makeQuestion, norm, trayFor, trayLevelFor, whereIs, type TrayLevel } from '../lib/questions';
+import type { Daily, Dish, DishStat } from '../lib/types';
+import { useApp, type Grade } from '../store';
+import { availableKinds, isPortion, makeQuestion, norm, similarDish, trayFor, trayLevelFor, whereIs, type TrayLevel } from '../lib/questions';
 import { fold, SHELVES, shelfOf } from '../lib/pantry';
-import { levelOf, pickWeighted, weight } from '../lib/mastery';
-import { catOf } from '../lib/data';
+import { PHASES, levelOf, pickWeighted, weight } from '../lib/mastery';
+import { recall } from '../lib/fsrs';
+import { unlocked, unlocksAt } from '../lib/levels';
+import { applyVariant, checkFor, gapFor, gapQuestion, variantFor, variantText } from '../lib/orders';
+import { judge, piecesLabel, typeOfLabel, type Verdict } from '../lib/plate';
+import { layoutOf, sortByLayout, stationOf, universeOf } from '../lib/station';
+import { catOf, isPizza } from '../lib/data';
 import { cap } from '../lib/emoji';
 import { DishPic, Ing } from '../components/Ing';
 import { burst, centerOf, confetti, flyCoins, sfx } from '../lib/fx';
 import { SKINS } from '../lib/skins';
 import { lvlOf } from '../lib/build';
-import { CHEF_LOOK, Person, randomLook, type Look, type Mood, type Pose } from '../components/Person';
-import { Chip, Pips, useCountUp } from '../components/ui';
+import { CHEF_LOOK, Person, randomLook, type Mood } from '../components/Person';
 import { Coin, Heart, Icon } from '../components/Icon';
+import { RecipeView } from '../components/Recipe';
 import { Stage3D } from '../three/Stage3D';
 import { stageBus } from '../three/bus';
 import { hasWebGL } from '../three/thumbs';
+import { isSpread } from '../three/ingredients';
 import { Awning, Bunting, Kitchen, Scene } from '../components/Scene';
-import { currentDaily, missionById, progressOf, type Mission } from '../lib/missions';
+import { currentDaily } from '../lib/missions';
+import { End, FailSheet, GesturePad, NewCard, type CKind, type Cust, type G, type Hint, type Overlay, type Ret, type Tag } from './GameParts';
 
-/**
- * Aiuti che si ritirano man mano che il piatto entra in memoria:
- * full = ricetta visibile, flash = la vedi finché non metti il primo ingrediente,
- * icons = solo disegni, count = solo il numero, none = niente.
- */
-type Hint = 'full' | 'flash' | 'icons' | 'count' | 'none';
-const MULT: Record<Hint, number> = { full: 1, flash: 1.25, icons: 1.5, count: 2, none: 3 };
+const MULT: Record<Hint, number> = { full: 1, flash: 1.25, count: 2, none: 3 };
 const GUESS_MULT = 1.5;
-const TOTAL = 8;
 const TICK = 100;
 const FEVER_AT = 5;
+/** il campanello onesto suona dopo un attimo: c'è tempo per ripensarci */
+const RING_MS = 900;
+const BAKE_MS = 1100;
+const BASE_TILE = 'base rossa';
 
-interface Cust {
-  id: number;
-  look: Look;
-  dish: Dish;
-  kind: 'build' | 'guess';
-  options: Dish[];
-  hint: Hint;
-  slot: number;
-  left: number;
-  max: number;
-  plate: string[];
-  tray: string[];
-  /** grandezza del bancone: con i piatti che conosci bene diventa la dispensa intera */
-  level: TrayLevel;
-  peeked: boolean;
-  /** aiuto "flash" già sparito */
-  hidden: boolean;
-  retry: boolean;
-  vip: boolean;
-  state: 'in' | 'wait' | 'happy' | 'angry';
-  t: number; // ms nello stato corrente
-}
-interface Pop { id: number; text: string; kind: string; x: number; t: number }
-interface Overlay { kind: 'wrong' | 'late' | 'guess'; dish: Dish; missing: string[]; extra: string[]; chosen?: Dish; notes: string[]; retry: boolean }
-interface Tally { memory: number; revenge: number; guess: number; vip: number; tips: number }
-interface G {
-  phase: 'intro' | 'play' | 'end';
-  customers: Cust[];
-  spawned: number;
-  nextSpawn: number;
-  selected: number | null;
-  score: number;
-  coins: number;
-  combo: number;
-  bestCombo: number;
-  fever: boolean;
-  lives: number;
-  maxLives: number;
-  served: number;
-  overlay: Overlay | null;
-  paused: boolean;
-  pops: Pop[];
-  toast: { text: string; sub?: string; t: number } | null;
-  pose: Pose;
-  poseT: number;
-  shake: number;
-  missedDishes: Dish[];
-  lastIds: string[];
-  retries: { id: string; due: number }[];
-  progress: Record<string, { name: string; from: number; to: number; held?: boolean }>;
-  tally: Tally;
-  uid: number;
-  introLeft: number;
-  /** istruzioni sul primo turno: il locale apre solo quando le hai lette */
-  howto: boolean;
+/**
+ * Quanto aiuto dare per un ordine: dipende dalla fase del piatto, da quanto è fresco nella memoria (FSRS)
+ * e da come sta andando il turno (difficoltà automatica verso ~85% di risposte giuste).
+ * `forced` = richiamo programmato: niente ricetta, è la prova vera.
+ */
+function planFor(st: DishStat | undefined, ease: number, now: number, forced: boolean): { hint: Hint; phase: number } {
+  const seen = !!st?.seen;
+  const box = seen ? st!.box : 0;
+  if (!forced && !seen) return { hint: 'full', phase: 0 };
+  if (!forced && box === 0) return { hint: 'flash', phase: 0 };
+  let p = Math.max(1, box) + (box === 0 ? Math.min(0, ease) : ease);
+  if (st?.fs && recall(st.fs, now) < 0.7) p -= 1;
+  p = Math.max(1, Math.min(5, p));
+  return { hint: p <= 1 ? 'count' : 'none', phase: p };
 }
 
-const hintFor = (s?: DishStat): Hint => {
-  if (!s || !s.seen) return 'full';
-  return s.box <= 0 ? 'flash' : s.box === 1 ? 'icons' : s.box <= 3 ? 'count' : 'none';
+/** ingredienti che con i gesti accesi si spalmano o si spolverano */
+const gestureOf = (ing: string, cat: string): 'spread' | 'sprinkle' | null => {
+  const n = ing.toLowerCase();
+  if (/grana|parmigiano|granella|scaglie|pepe|origano/.test(n)) return 'sprinkle';
+  if (isSpread(ing) || ((cat === 'classiche' || cat === 'speciali') && /^pomodoro$|^salsa|^crema|^pelato|san marzano|pesto/.test(n))) return 'spread';
+  return null;
 };
 
 const initial = (maxLives: number, howto: boolean): G => ({
   phase: 'intro', customers: [], spawned: 0, nextSpawn: 900, selected: null, score: 0, coins: 0, combo: 0, bestCombo: 0, fever: false,
   lives: maxLives, maxLives, served: 0, overlay: null, paused: false, pops: [], toast: null, pose: 'idle', poseT: 0, shake: 0,
-  missedDishes: [], lastIds: [], retries: [], progress: {}, tally: { memory: 0, revenge: 0, guess: 0, vip: 0, tips: 0 }, uid: 1, introLeft: 2200, howto,
+  missedDishes: [], lastIds: [], returns: [], finals: [], twins: [], newCount: 0, ease: 0, recent: [], ring: null, bake: null, card: null, trophies: [],
+  progress: {}, tally: { memory: 0, revenge: 0, guess: 0, vip: 0, tips: 0, order: 0 }, uid: 1, introLeft: 2200, howto,
 });
 
 const alive = (c: Cust) => c.state === 'in' || c.state === 'wait';
+/** il numero di ingredienti è visibile: solo allora il campanello può suonare da solo */
+const countShown = (c: Cust) => c.kind === 'build' && c.group !== 'asporto' && (c.hint !== 'none' || c.peeked);
+const studyOf = (c: Cust) => c.kind === 'build' && !c.peeked && !c.group && (c.hint === 'full' || c.hint === 'flash');
 
-export function Game({ pool, title, onExit }: { pool: Dish[]; title: string; onExit: () => void }) {
-  const [run, setRun] = useState(0);
-  return <Shift key={run} pool={pool} title={title} onExit={onExit} again={() => setRun((r) => r + 1)} />;
+export interface GameProps {
+  pool: Dish[];
+  title: string;
+  /** clienti nel turno (8 normale, 12 il sabato sera, 6 prima del turno) */
+  total?: number;
+  coinMult?: number;
+  onExit: () => void;
 }
 
-function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; onExit: () => void; again: () => void }) {
+export function Game(props: GameProps) {
+  const [run, setRun] = useState(0);
+  return <Shift key={run} {...props} again={() => setRun((r) => r + 1)} />;
+}
+
+function Shift({ pool, title, total = 8, coinMult = 1, onExit, again }: GameProps & { again: () => void }) {
   const app = useApp();
   const appRef = useRef(app);
   appRef.current = app;
   const gr = useRef<G>(initial(3 + lvlOf(app.save.build, 'frigo'), app.save.shifts < 3));
   const [g, setG] = useState<G>(gr.current);
+  const startDaily = useRef<Daily>(currentDaily(app.save));
   const serveRef = useRef<() => void>(() => {});
   const coinRef = useRef<HTMLDivElement>(null);
   const skin = SKINS.find((s) => s.id === app.save.skin) ?? SKINS[0];
   const L = (id: string) => lvlOf(app.save.build, id);
+  const [gesture, setGesture] = useState<{ ing: string; kind: 'spread' | 'sprinkle' } | null>(null);
 
   const commit = (n: G) => {
     gr.current = n;
@@ -128,46 +109,117 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
   const use3d = hasWebGL();
   const stageRef = useRef<HTMLDivElement>(null);
 
+  const layoutFor = (d: Dish) => {
+    const { station, dishes } = appRef.current.save;
+    const id = stationOf(d.category);
+    return layoutOf(station?.[id], universeOf(id, dishes));
+  };
+
+  /** prepara il cliente per un piatto: aiuto, bancone, tempo */
+  const setup = (g: G, d: Dish, forced: boolean, kind: CKind, extra: Partial<Cust> = {}): Omit<Cust, 'id' | 'look' | 'slot' | 'state' | 't'> => {
+    const { stats, dishes, xp, build, settings } = appRef.current.save;
+    const st = stats[d.id];
+    const now = Date.now();
+    const group = extra.group ?? null;
+    const plan = group === 'asporto' ? { hint: 'none' as Hint, phase: 3 } : planFor(st, g.ease, now, forced);
+    const variant = extra.variant ?? null;
+    const target = applyVariant(d, variant);
+    const level: TrayLevel = kind !== 'build' ? 'base' : group === 'asporto' ? trayLevelFor(d, 3) : trayLevelFor(d, plan.phase);
+    let tray: string[] = [];
+    if (kind === 'build') {
+      const dd = group === 'asporto' ? extra.order ?? [d] : [d];
+      const all = new Set<string>();
+      for (const x of dd) for (const t of trayFor(x, dishes, stats[x.id]?.confused, level, x === d ? target : x.ingredients)) all.add(t);
+      tray = sortByLayout([...all], layoutFor(d));
+    }
+    const study = kind === 'build' && !group && (plan.hint === 'full' || plan.hint === 'flash');
+    // ritmo tranquillo: niente fretta che cresce col livello e clienti quasi il doppio più pazienti
+    const diff = settings.calm ? 1.8 : Math.max(0.55, 1 - (levelOf(xp) - 1) * 0.04);
+    const n = target.length;
+    const baseT = kind === 'guess' || kind === 'gap'
+      ? 15 + n * 1.2
+      : kind === 'check' ? 18 + n * 1.5
+      : (24 + n * 2.5 + (study ? 8 : 0) + (level === 'pantry' ? 12 : level === 'wide' ? 4 : 0) + (isPizza(d.category) ? 4 : 0)) * (group === 'asporto' ? 1.6 * (extra.order?.length ?? 1) * 0.7 : 1);
+    const max = Math.round(baseT * 1000 * diff * (1 + 0.1 * lvlOf(build, 'forno')) * (extra.vip ? 0.85 : 1));
+    return {
+      left: max, max, kind, dish: d, queue: [], group, parts: 1, part: 1, order: [], heard: 0, relisten: false, variant, target,
+      hint: plan.hint, phase: plan.phase, level, tray, plate: [], oven: null, peeked: false, hidden: false, fixes: 0, work: 0, sure: false,
+      tag: null, vip: false, options: [], gap: null, check: null, ...extra,
+    };
+  };
+
   const spawn = (g: G): G => {
     const taken = new Set(g.customers.map((c) => c.slot));
     const slot = [0, 1, 2].find((s) => !taken.has(s));
     if (slot === undefined) return g;
-    const { stats, dishes, xp, build, settings } = appRef.current.save;
+    const { stats, dishes, xp } = appRef.current.save;
     const now = Date.now();
+    const lvl = levelOf(xp);
+    const onScreen = g.customers.filter(alive).flatMap((c) => [c.dish.id, ...c.queue.map((x) => x.id), ...c.order.map((x) => x.id)]);
+    const seen = (d: Dish) => !!stats[d.id]?.seen;
+    const box = (d: Dish) => (seen(d) ? stats[d.id].box : 0);
+    const free = pool.filter((d) => !onScreen.includes(d.id));
+    const ready = (min: number) => free.filter((d) => seen(d) && box(d) >= min && !g.lastIds.slice(-1).includes(d.id));
 
-    // la rivincita: il piatto sbagliato torna dopo un paio di clienti (richiamo a breve distanza)
-    const due = g.retries.find((r) => r.due <= g.spawned && pool.some((d) => d.id === r.id));
-    let dish = due ? pool.find((d) => d.id === due.id) : undefined;
-    const retry = !!dish;
-    if (!dish) {
-      const onScreen = g.customers.filter(alive).map((c) => c.dish.id);
-      let cands = pool.filter((d) => !g.lastIds.slice(-2).includes(d.id) && !onScreen.includes(d.id));
-      if (!cands.length) cands = pool.filter((d) => !onScreen.includes(d.id));
-      if (!cands.length) cands = pool;
-      [dish] = pickWeighted(cands.map((d) => ({ item: d, w: weight(stats[d.id], now) })), 1);
+    let cust: ReturnType<typeof setup> | null = null;
+    let tag: Tag = null;
+    // 1. i ritorni programmati: richiamo di un piatto appena studiato, rivincita, piatto simile da distinguere
+    const due = g.returns.find((r) => r.due <= g.spawned && free.some((d) => d.id === r.id));
+    if (due) {
+      const d = free.find((x) => x.id === due.id)!;
+      tag = due.tag;
+      cust = setup(g, d, true, 'build', { tag, pair: due.pair });
     }
-    const st = stats[dish.id];
-    const box = st?.seen ? st.box : 0;
-    // cliente indeciso: dice gli ingredienti, tu riconosci il piatto (richiamo nel verso opposto)
-    const guess = !retry && box >= 2 && availableKinds(dish, dishes).includes('which') && Math.random() < 0.28;
-    const vip = !retry && !guess && g.spawned >= 1 && Math.random() < 0.12;
-    const hint: Hint = retry ? (box >= 4 ? 'none' : 'count') : hintFor(st);
-    // ritmo tranquillo: niente fretta che cresce col livello e clienti quasi il doppio più pazienti
-    const diff = settings.calm ? 1.8 : Math.max(0.55, 1 - (levelOf(xp) - 1) * 0.04);
-    const level: TrayLevel = guess ? 'base' : trayLevelFor(dish, box);
-    // cercare in una dispensa grande richiede più tempo
-    const baseT = guess ? 15 + dish.ingredients.length * 1.2 : 24 + dish.ingredients.length * 2.5 + (hint === 'full' || hint === 'flash' ? 8 : 0) + (level === 'pantry' ? 12 : level === 'wide' ? 4 : 0);
-    const max = Math.round(baseT * 1000 * diff * (1 + 0.1 * lvlOf(build, 'forno')) * (vip ? 0.85 : 1));
-    const q = guess ? makeQuestion(dish, dishes, 'which') : null;
-    const c: Cust = {
-      id: g.uid, look: randomLook(), dish, kind: guess ? 'guess' : 'build', options: q && q.kind === 'which' ? q.options : [], hint, slot,
-      left: max, max, plate: [], tray: guess ? [] : trayFor(dish, dishes, st?.confused, 2 * lvlOf(build, 'mise'), level), level,
-      peeked: false, hidden: false, retry, vip, state: 'in', t: 0,
-    };
+    // 2. ordini sbloccati coi livelli, solo con piatti già pronti
+    if (!cust && g.spawned >= 1) {
+      const r = Math.random();
+      if (unlocked(lvl, 'asporto') && r < 0.1) {
+        const c = ready(3).filter((d) => !isPortion(d));
+        const a = c[Math.floor(Math.random() * c.length)];
+        const b = a && c.filter((x) => x.id !== a.id && x.category === a.category)[0];
+        if (a && b) cust = setup(g, a, true, 'build', { group: 'asporto', order: [a, b], parts: 2, heard: appRef.current.save.settings.calm ? 6000 : 4000 });
+      } else if (unlocked(lvl, 'tavolo') && r < 0.24) {
+        const c = ready(2);
+        const [a, b] = pickWeighted(c.map((d) => ({ item: d, w: weight(stats[d.id], now) })), 2);
+        if (a && b) cust = setup(g, a, true, 'build', { group: 'tavolo', queue: [b], parts: 2 });
+      } else if (unlocked(lvl, 'controllo') && r < 0.34) {
+        const c = ready(2).filter((d) => !isPortion(d) && d.ingredients.length >= 2);
+        const d = c[Math.floor(Math.random() * c.length)];
+        if (d) cust = setup(g, d, true, 'check', { check: { ...checkFor(d, dishes), fix: false } });
+      }
+    }
+    // 3. un piatto scelto per quanto "serve" ripassarlo; i piatti nuovi al massimo 2 per turno (3 all'inizio)
+    if (!cust) {
+      const budget = pool.filter(seen).length < 4 ? 3 : 2;
+      let cands = free.filter((d) => !g.lastIds.slice(-2).includes(d.id));
+      if (!cands.length) cands = free.length ? free : pool;
+      const old = cands.filter(seen);
+      if (g.newCount >= budget && old.length) cands = old;
+      const [d] = pickWeighted(cands.map((x) => ({ item: x, w: weight(stats[x.id], now) * (x.popular && !seen(x) ? 2 : 1) })), 1);
+      const b = box(d);
+      const r = Math.random();
+      if (seen(d) && b >= 2 && !isPortion(d) && availableKinds(d, dishes).includes('which') && r < 0.18) {
+        const q = makeQuestion(d, dishes, 'which');
+        cust = setup(g, d, true, 'guess', { options: q.kind === 'which' ? q.options : [] });
+      } else if (seen(d) && (b === 2 || b === 3) && r < 0.36 && gapFor(d, dishes)) {
+        cust = setup(g, d, true, 'gap', { gap: gapFor(d, dishes) });
+      } else {
+        const variant = seen(d) && b >= 3 && unlocked(lvl, 'varianti') && r < 0.58 ? variantFor(d, universeOf(stationOf(d.category), dishes)) : null;
+        cust = setup(g, d, false, 'build', { variant });
+        if (!seen(d)) tag = 'nuovo';
+      }
+    }
+    const vip = !due && !cust.group && cust.kind === 'build' && tag !== 'nuovo' && g.spawned >= 1 && Math.random() < 0.12;
+    const c: Cust = { ...cust, tag, vip, id: g.uid, look: randomLook(), slot, state: 'in', t: 0 };
+    if (vip) c.max = c.left = Math.round(c.max * 0.85);
+    const ids = [c.dish.id, ...c.queue.map((x) => x.id), ...c.order.map((x) => x.id)];
     return {
-      ...g, uid: g.uid + 1, customers: [...g.customers, c], spawned: g.spawned + 1, lastIds: [...g.lastIds, dish.id],
-      retries: due ? g.retries.filter((r) => r !== due) : g.retries,
-      nextSpawn: Math.max(3500, 5500 + Math.random() * 3000 - g.spawned * 250) + (settings.calm ? 4000 : 0),
+      ...g, uid: g.uid + 1, customers: [...g.customers, c], spawned: g.spawned + 1, lastIds: [...g.lastIds, ...ids],
+      returns: due ? g.returns.filter((r) => r !== due) : g.returns,
+      newCount: g.newCount + (tag === 'nuovo' ? 1 : 0),
+      card: tag === 'nuovo' ? c.dish : g.card,
+      selected: tag === 'nuovo' ? c.id : g.selected,
+      nextSpawn: Math.max(3500, 5500 + Math.random() * 3000 - g.spawned * 250) + (appRef.current.save.settings.calm ? 4000 : 0) + (total > 8 ? -800 : 0),
     };
   };
 
@@ -175,76 +227,162 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
     ...g, progress: { ...g.progress, [id]: { name, from: g.progress[id]?.from ?? prevBox, to: box, held: held || g.progress[id]?.held } },
   });
 
-  const fail = (g: G, c: Cust, kind: Overlay['kind'], missing: string[], extra: string[], chosen?: Dish): G => {
-    const { dishes } = appRef.current.save;
-    const severity = kind === 'wrong' && missing.length + extra.length > 1 ? 2 : 1;
-    const r = appRef.current.record(c.dish.id, false, missing, 0, { extra, severity });
-    sfx.bad();
-    stageBus.emit({ type: 'fail', slot: c.slot });
-    const notes: string[] = [];
-    for (const x of extra) {
-      const o = whereIs(x, c.dish, dishes);
-      notes.push(o ? `${cap(x)} va nel ${o.name}, non qui` : `${cap(x)} non c'entra`);
-    }
-    const queue = !c.retry && g.spawned < TOTAL && !g.retries.some((x) => x.id === c.dish.id);
-    const retries = queue ? [...g.retries, { id: c.dish.id, due: Math.min(g.spawned + 2, TOTAL - 1) }] : g.retries;
-    let n: G = {
-      ...g,
-      lives: g.lives - 1, combo: 0, fever: false, shake: 450, pose: 'sad', poseT: 1200, retries,
-      overlay: { kind, dish: c.dish, missing, extra, chosen, notes, retry: queue || g.retries.some((x) => x.id === c.dish.id) },
-      missedDishes: g.missedDishes.some((d) => d.id === c.dish.id) ? g.missedDishes : [...g.missedDishes, c.dish],
-      customers: g.customers.map((x) => (x.id === c.id ? { ...x, state: 'angry', t: 0 } : x)),
-    };
-    n = track(n, c.dish.id, c.dish.name, r.prevBox, r.box);
-    return addPop(n, kind === 'late' ? 'Troppo tardi!' : 'Sbagliato!', 'bad', c.slot);
+  const pending = (g: G, id: string) => g.returns.some((r) => r.id === id);
+  const schedule = (g: G, r: Ret): G => (g.spawned >= total || pending(g, r.id) ? g : { ...g, returns: [...g.returns, { ...r, due: Math.min(r.due, total - 1) }] });
+
+  /** difficoltà automatica: tutto liscio → un aiuto in meno; troppi errori → un aiuto in più */
+  const adapt = (g: G, v: number): G => {
+    const recent = [...g.recent, v];
+    const last = recent.slice(-5);
+    if (last.length >= 5 && last.every((x) => x === 1) && g.ease < 1)
+      return { ...g, recent: [], ease: g.ease + 1, toast: { text: 'Stai andando forte!', sub: 'Tolgo un aiuto: da ora un po\' più difficile', t: 1900 } };
+    if (recent.slice(-4).filter((x) => x === 0).length >= 2 && g.ease > -1)
+      return { ...g, recent: [], ease: g.ease - 1, toast: { text: 'Ti do una mano', sub: 'Un aiuto in più per i prossimi clienti', t: 1900 } };
+    return { ...g, recent };
   };
 
-  const success = (g0: G, c: Cust, mult: number, recCap?: number) => {
+  const fail = (g: G, c: Cust, kind: Overlay['kind'], v: Verdict | null, notes0: string[] = [], d = c.dish, chosen?: Dish): G => {
+    const { dishes } = appRef.current.save;
+    const severity = kind === 'wrong' && v && v.missing.length + v.extra.length > 1 ? 2 : 1;
+    const r = appRef.current.record(d.id, { grade: 1, missed: v?.missing ?? [], extra: v?.extra ?? [], severity, sure: c.sure });
+    sfx.bad();
+    stageBus.emit({ type: 'fail', slot: c.slot });
+    const notes = [...notes0];
+    if (c.variant && v) {
+      if (c.variant.type === 'senza' && v.extra.some((x) => norm(x) === norm(c.variant!.ing))) notes.push(`Il cliente l'aveva chiesta senza ${c.variant.ing}`);
+      if (c.variant.type === 'con' && v.missing.some((x) => norm(x) === norm(c.variant!.ing))) notes.push(`Il cliente aveva chiesto in più ${c.variant.ing}`);
+    }
+    for (const x of v?.extra ?? []) {
+      if (c.variant && norm(x) === norm(c.variant.ing)) continue;
+      const o = whereIs(x, d, dishes);
+      notes.push(o ? `${cap(x)} va nel ${o.name}, non qui` : `${cap(x)} non c'entra`);
+    }
+    // la rivincita: il piatto sbagliato torna dopo un paio di clienti (una volta sola)
+    let n: G = c.tag === 'rivincita' ? g : schedule(g, { id: d.id, due: g.spawned + 2, tag: 'rivincita' });
+    const retry = pending(n, d.id);
+    n = {
+      ...n,
+      lives: n.lives - 1, combo: 0, fever: false, shake: 450, pose: 'sad', poseT: 1200, score: c.sure ? Math.max(0, n.score - 100) : n.score,
+      overlay: { kind, dish: d, target: d === c.dish ? c.target : d.ingredients, verdict: v, chosen, notes, retry, sure: c.sure },
+      missedDishes: n.missedDishes.some((x) => x.id === d.id) ? n.missedDishes : [...n.missedDishes, d],
+      customers: n.customers.map((x) => (x.id === c.id ? { ...x, state: 'angry', t: 0 } : x)),
+      ring: null,
+    };
+    n = track(n, d.id, d.name, r.prevBox, r.box);
+    n = adapt(n, 0);
+    return addPop(n, kind === 'late' ? 'Troppo tardi!' : c.sure ? 'Sicuro? No!' : 'Sbagliato!', 'bad', c.slot);
+  };
+
+  const success = (g0: G, c: Cust, v: Verdict | null, d = c.dish) => {
+    const { stats, dishes } = appRef.current.save;
+    const st = stats[d.id];
+    const study = studyOf(c);
+    const target = d === c.dish ? c.target : d.ingredients;
+    // il voto della risposta: cosa dice davvero questo piatto servito sulla memoria
+    let grade: Grade;
+    let cap3: number | undefined;
+    let weak = false;
+    if (c.kind === 'guess' || c.kind === 'gap') [cap3, weak] = [3, true];
+    if (c.kind === 'check') [cap3, weak] = [4, true];
+    const expected = (st?.pace ?? 3500) * Math.max(1, target.length);
+    const slow = c.work > expected * 1.8;
+    if (c.peeked) grade = 1;
+    else if (study) grade = 0;
+    else {
+      grade = c.fixes || slow ? 2 : 3;
+      if (grade === 3 && c.work < expected * 0.75 && (c.level === 'pantry' || c.sure)) grade = 4;
+      if (v?.orderOk === false) grade = Math.min(grade, 3) as Grade;
+      if (v?.ovenWrong.length) grade = Math.min(grade, 2) as Grade;
+    }
+    const mult = c.peeked ? 1 : c.kind === 'guess' ? GUESS_MULT : c.kind === 'gap' ? 1.5 : c.kind === 'check' ? 2 : MULT[c.hint];
+    const r = appRef.current.record(d.id, {
+      grade, severity: 1, cap: cap3, weak, xp: Math.round(6 * mult),
+      pace: grade >= 3 && !c.fixes && c.kind === 'build' ? Math.round(c.work / Math.max(1, target.length)) : undefined,
+      blind: c.kind === 'build' && c.hint === 'none' && !c.peeked, sure: c.sure && grade >= 1,
+    });
     const combo = g0.combo + 1;
     const fever = g0.fever || combo >= FEVER_AT;
     const frac = Math.max(0, c.left / c.max);
     const b = appRef.current.save.build;
-    const pts = Math.round(
-      (100 * mult * (1 + Math.min(combo - 1, 10) * 0.1) + frac * 60) * (1 + 0.05 * lvlOf(b, 'insegna')) * (fever ? 1.5 : 1) * (c.retry ? 1.5 : 1),
-    );
-    const coins = Math.max(1, Math.round((pts / 20) * (1 + 0.15 * lvlOf(b, 'cassa')))) * (c.vip ? 3 : 1);
+    const bonus = (c.variant ? 1.3 : 1) * (c.group === 'asporto' && !c.relisten ? 1.5 : 1) * (c.tag === 'gemello' ? 1.3 : 1) * (c.sure ? 2 : 1) * (c.tag === 'rivincita' ? 1.5 : 1);
+    const pts = Math.round((100 * mult * (1 + Math.min(combo - 1, 10) * 0.1) + frac * 60) * (1 + 0.05 * lvlOf(b, 'insegna')) * (fever ? 1.5 : 1) * bonus) + (v?.orderOk ? 30 : 0);
+    let coins = Math.max(1, Math.round((pts / 20) * (1 + 0.15 * lvlOf(b, 'cassa')))) * (c.vip ? 3 : 1);
+    coins = Math.round(coins * coinMult * (c.group === 'tavolo' ? 1.3 : 1));
     // mancia: ricompensa variabile per chi è veloce
     const tip = frac > 0.55 && Math.random() < 0.5 ? 1 + Math.floor(Math.random() * 5) : 0;
-    let n: G = { ...g0 };
-    if (c.peeked) appRef.current.addXp(3);
-    else {
-      const r = appRef.current.record(c.dish.id, true, [], Math.round(6 * mult), { cap: recCap });
-      n = track(n, c.dish.id, c.dish.name, r.prevBox, r.box, r.held);
-      if (r.leveledUp) {
-        n = { ...n, toast: { text: `Livello ${r.level}!`, sub: 'Clienti più esigenti, mance più ricche', t: 1900 } };
-        setTimeout(() => { sfx.level(); confetti(1.2); }, 350);
-      }
+    let n: G = { ...g0, ring: null };
+    n = track(n, d.id, d.name, r.prevBox, r.box, r.held);
+    // la fase che sale si vede subito
+    if (r.box > r.prevBox) n = addPop(n, `${d.name} → ${PHASES[r.box]}`, 'phase', c.slot);
+    // momenti-trofeo: rari, e valgono monete
+    let trophyCoins = 0;
+    if (r.gold) {
+      n = { ...n, trophies: [...n.trophies, { kind: 'gold', dish: d }], toast: { text: 'Piatto d\'oro!', sub: `${d.name}: lo sai davvero. +50 monete`, t: 2200 } };
+      trophyCoins += 50;
+      setTimeout(() => { sfx.level(); confetti(1.6); }, 300);
+    } else if (r.recovered) {
+      n = { ...n, trophies: [...n.trophies, { kind: 'recovered', dish: d }], toast: { text: 'Recuperato!', sub: `${d.name} era sfuggito, ora è tornato. +30 monete`, t: 2000 } };
+      trophyCoins += 30;
+      setTimeout(() => sfx.level(), 300);
+    } else if (r.firstMem) {
+      n = { ...n, trophies: [...n.trophies, { kind: 'mem', dish: d }], toast: { text: 'Primo a memoria!', sub: `${d.name} senza nessun aiuto. +20 monete`, t: 2000 } };
+      trophyCoins += 20;
+      setTimeout(() => { sfx.level(); confetti(0.9); }, 300);
     }
+    if (r.leveledUp) {
+      const u = unlocksAt(r.level);
+      n = { ...n, toast: { text: `Livello ${r.level}!`, sub: u.length ? u.map((x) => `Sbloccato: ${x.name}`).join(' · ') : 'A fine turno si apre il forziere del livello', t: 2200 } };
+      setTimeout(() => { sfx.level(); confetti(1.2); }, 350);
+    }
+    // ritorni: dopo lo studio (o l'Aiuto) il piatto torna fra due clienti senza ricetta; il primo richiamo riuscito ne prenota un altro a fine turno
+    if (study || c.peeked) n = schedule(n, { id: d.id, due: n.spawned + 2, tag: 'richiamo' });
+    else if (c.tag === 'richiamo' && grade >= 2 && r.box <= 2 && !n.finals.includes(d.id)) n = { ...schedule(n, { id: d.id, due: total - 1, tag: 'richiamo' }), finals: [...n.finals, d.id] };
+    // a memoria: arriva il piatto con cui si confonde, per allenare la differenza
+    if (!study && r.box >= 3 && c.tag !== 'gemello' && !n.twins.includes(d.id)) {
+      const sim = similarDish(d, dishes);
+      const other = sim && pool.find((x) => x.id === sim.other.id);
+      if (other && stats[other.id]?.seen && !n.customers.some((x) => alive(x) && x.dish.id === other.id))
+        n = { ...schedule(n, { id: other.id, due: n.spawned, tag: 'gemello', pair: d.name }), twins: [...n.twins, d.id, other.id] };
+    }
+    if (grade >= 1) n = adapt(n, grade >= 3 ? 1 : grade === 2 ? 0.5 : 0);
     const memory = !c.peeked && c.kind === 'build' && (c.hint === 'count' || c.hint === 'none');
     sfx.ok(combo);
     const el = custEl(c);
     const at = centerOf(el);
     if (at && !use3d) burst(at.x, at.y, c.vip || fever ? 1.6 : 1, c.vip ? ['#ffd24a', '#fff3b0', '#ffb300'] : undefined);
-    stageBus.emit({ type: 'serve', slot: c.slot, items: c.kind === 'build' ? c.plate : c.dish.ingredients, cat: c.dish.category, coins: coins + tip, vip: c.vip });
+    const items = c.kind === 'build' ? (isPortion(d) ? piecesLabel(c.plate) : c.plate) : d.ingredients;
+    stageBus.emit({ type: 'serve', slot: c.slot, items, cat: d.category, coins: coins + tip, vip: c.vip });
     setTimeout(() => flyCoins(at, coinRef.current, coins + tip), 120);
     if (fever && !g0.fever) {
       sfx.fever();
-      n = { ...n, toast: { text: 'FEVER!', sub: 'Punti ×1.5 finché non sbagli', t: 1600 } };
+      n = { ...n, toast: n.toast ?? { text: 'FEVER!', sub: 'Punti ×1.5 finché non sbagli', t: 1600 } };
     }
     if (combo % 4 === 0) confetti(0.7);
+    // tavolo da due e asporto: il cliente resta finché non ha tutti i piatti
+    const nextDish = c.group === 'tavolo' ? c.queue[0] : c.group === 'asporto' ? c.order.find((x) => x.id !== d.id) : undefined;
+    const customers = n.customers.map((x) => {
+      if (x.id === c.id) {
+        if (nextDish) {
+          const next = setup(n, nextDish, true, 'build', { group: c.group, parts: c.parts, part: c.part + 1, order: c.order.filter((o) => o.id !== d.id), heard: 0, relisten: c.relisten });
+          return { ...x, ...next, queue: c.queue.slice(1), left: Math.min(c.max, c.left + next.max * 0.4), max: c.max, vip: c.vip, tag: c.tag };
+        }
+        return { ...x, state: 'happy' as const, t: 0 };
+      }
+      return alive(x) ? { ...x, left: Math.min(x.max, x.left + 1500 * lvlOf(b, 'cronometro')) } : x;
+    });
     n = {
-      ...n, score: n.score + pts, coins: n.coins + coins + tip, combo, fever, bestCombo: Math.max(n.bestCombo, combo), served: n.served + 1,
-      pose: 'cheer', poseT: 900,
+      ...n, score: n.score + pts, coins: n.coins + coins + tip + trophyCoins, combo, fever, bestCombo: Math.max(n.bestCombo, combo), served: n.served + (nextDish ? 0 : 1),
+      pose: 'cheer', poseT: 900, customers,
       tally: {
-        memory: n.tally.memory + (memory ? 1 : 0), revenge: n.tally.revenge + (c.retry ? 1 : 0), guess: n.tally.guess + (c.kind === 'guess' ? 1 : 0),
-        vip: n.tally.vip + (c.vip ? 1 : 0), tips: n.tally.tips + tip,
+        memory: n.tally.memory + (memory ? 1 : 0), revenge: n.tally.revenge + (c.tag === 'rivincita' ? 1 : 0), guess: n.tally.guess + (c.kind === 'guess' ? 1 : 0),
+        vip: n.tally.vip + (c.vip ? 1 : 0), tips: n.tally.tips + tip, order: n.tally.order + (v?.orderOk ? 1 : 0),
       },
-      customers: n.customers.map((x) => (x.id === c.id ? { ...x, state: 'happy', t: 0 } : alive(x) ? { ...x, left: Math.min(x.max, x.left + 1500 * lvlOf(b, 'cronometro')) } : x)),
     };
     n = addPop(n, `+${pts}`, 'gain', c.slot);
-    const hype = c.vip ? `VIP +${coins}` : c.retry ? 'Riscatto!' : c.kind === 'guess' ? 'Indovinato!' : memory && c.hint === 'none' ? 'A memoria!' : frac > 0.6 ? 'Veloce!' : 'Perfetto!';
+    const hype = v?.orderOk ? 'Montato come al banco!' : c.sure ? 'Sicuro, e giusto!' : c.vip ? `VIP +${coins}` : c.tag === 'rivincita' ? 'Riscatto!' : c.tag === 'gemello' ? 'Li distingui!' : c.kind === 'check' ? 'Occhio da capo!' : c.kind === 'guess' ? 'Indovinato!' : nextDish ? `${c.part}/${c.parts} servito!` : memory && c.hint === 'none' ? 'A memoria!' : frac > 0.6 ? 'Veloce!' : 'Perfetto!';
     n = addPop(n, hype, c.vip ? 'vip' : 'hype', c.slot);
-    if (tip) n = addPop(n, `+${tip} mancia`, 'tip', c.slot);
+    if (v?.ovenWrong.length) n = addPop(n, `${cap(v.ovenWrong[0].ing)}: ${v.ovenWrong[0].after ? 'va all\'uscita' : 'va in forno'}`, 'bad', c.slot);
+    else if (tip) n = addPop(n, `+${tip} mancia`, 'tip', c.slot);
     else if (combo >= 3) n = addPop(n, `Combo ×${combo}`, 'combo', c.slot);
     commit(n);
   };
@@ -264,8 +402,9 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
       if (g.introLeft <= 0) g = { ...g, phase: 'play' };
       return commit(g);
     }
-    if (g.paused || g.overlay) return commit(g);
+    if (g.paused || g.overlay || g.card) return commit(g);
 
+    if (g.bake) g = { ...g, bake: g.bake.t > dt ? { ...g.bake, t: g.bake.t - dt } : null };
     g = { ...g, nextSpawn: g.nextSpawn - dt };
     let timedOut: Cust | null = null;
     const customers: Cust[] = [];
@@ -273,26 +412,37 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
     for (const c of g.customers) {
       const n = { ...c, t: c.t + dt };
       const slow = c.id === g.selected ? 1 : 1 - 0.15 * garz;
+      if (n.heard > 0) n.heard = Math.max(0, n.heard - dt);
       if (n.state === 'in') {
         n.left -= dt * slow;
         if (n.t >= 750) { n.state = 'wait'; n.t = 0; }
       } else if (n.state === 'wait') {
         n.left -= dt * slow;
+        if (c.id === g.selected) n.work += dt;
         if (n.left <= 0 && !timedOut) timedOut = n;
       } else if (n.t >= 950) continue;
       customers.push(n);
     }
     g = { ...g, customers };
     const active = customers.filter(alive);
-    if (g.spawned < TOTAL && g.nextSpawn <= 0 && customers.length < 3) g = spawn(g);
-    else if (g.spawned < TOTAL && !active.length && g.nextSpawn > 700) g = { ...g, nextSpawn: 700 };
-    if (timedOut) g = fail(g, timedOut, 'late', [], []);
+    if (g.spawned < total && g.nextSpawn <= 0 && customers.length < 3) g = spawn(g);
+    else if (g.spawned < total && !active.length && g.nextSpawn > 700) g = { ...g, nextSpawn: 700 };
+    if (timedOut) g = fail(g, timedOut, 'late', null);
     const sel = g.customers.find((c) => c.id === g.selected && alive(c));
     if (!sel) {
       const a = g.customers.filter(alive).sort((x, y) => x.left - y.left)[0];
       g = { ...g, selected: a ? a.id : null };
     }
-    if (!g.overlay && (g.lives <= 0 || (g.spawned >= TOTAL && g.customers.length === 0))) g = { ...g, phase: 'end' };
+    if (!g.overlay && (g.lives <= 0 || (g.spawned >= total && g.customers.length === 0))) g = { ...g, phase: 'end' };
+    // il campanello onesto: suona quando il numero torna, giusto o sbagliato che sia
+    if (g.ring && !g.overlay) {
+      const left = g.ring.t - dt;
+      if (left <= 0) {
+        commit({ ...g, ring: null });
+        return serveRef.current();
+      }
+      g = { ...g, ring: { ...g.ring, t: left } };
+    }
     commit(g);
   };
 
@@ -303,51 +453,133 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
 
   const selected = g.customers.find((c) => c.id === g.selected && alive(c));
 
-  const toggle = (ing: string) => {
+  const updateSel = (f: (c: Cust) => Partial<Cust>, extra: Partial<G> = {}) => {
+    const g0 = gr.current;
+    commit({ ...g0, ...extra, customers: g0.customers.map((x) => (x.id === g0.selected ? { ...x, ...f(x) } : x)) });
+  };
+
+  /** dopo ogni ingrediente: se il campanello c'è e il numero torna, sta per suonare */
+  const armBell = () => {
     const g0 = gr.current;
     const c = g0.customers.find((x) => x.id === g0.selected);
-    if (!c || c.kind !== 'build' || g0.overlay || g0.paused || g0.phase !== 'play' || !alive(c)) return;
-    const has = c.plate.includes(ing);
-    const plate = has ? c.plate.filter((x) => x !== ing) : [...c.plate, ing];
-    if (has) sfx.tap();
-    else sfx.place(plate.length);
-    commit({ ...g0, pose: 'work', poseT: 350, customers: g0.customers.map((x) => (x.id === c.id ? { ...x, plate, hidden: x.hidden || plate.length > 0 } : x)) });
-    // il campanello non suona quando il numero di ingredienti è nascosto: suggerirebbe quando hai finito
-    if (lvlOf(appRef.current.save.build, 'campanello') > 0 && (c.hint !== 'none' || c.peeked) && plate.length === c.dish.ingredients.length && c.dish.ingredients.every((i) => plate.map(norm).includes(norm(i)))) {
-      setTimeout(() => serveRef.current(), 220);
+    if (!c) return;
+    const on = lvlOf(appRef.current.save.build, 'campanello') > 0 && countShown(c) && !isPortion(c.dish) && c.plate.length === c.target.length;
+    commit({ ...g0, ring: on ? { id: c.id, t: RING_MS } : null });
+  };
+
+  /** mette o toglie un ingrediente (o un pezzo, in friggitoria) */
+  const place = (ing: string) => {
+    const g0 = gr.current;
+    const c = g0.customers.find((x) => x.id === g0.selected);
+    if (!c || c.kind !== 'build' || g0.overlay || g0.paused || g0.card || g0.phase !== 'play' || !alive(c) || g0.bake?.id === c.id) return;
+    let plate: string[];
+    let removed = false;
+    if (isPortion(c.dish)) {
+      plate = [...c.plate, ing];
+    } else if (ing === BASE_TILE) {
+      const has = ['pomodoro', 'fior di latte'].every((b) => c.plate.some((p) => norm(p) === b));
+      if (has && c.oven?.some((p) => ['pomodoro', 'fior di latte'].includes(norm(p)))) return;
+      removed = has;
+      plate = has ? c.plate.filter((p) => !['pomodoro', 'fior di latte'].includes(norm(p))) : [...c.plate, ...['pomodoro', 'fior di latte'].filter((b) => !c.plate.some((p) => norm(p) === b))];
+    } else {
+      const has = c.plate.includes(ing);
+      // quello che è già in forno non si toglie più
+      if (has && c.oven?.includes(ing)) return;
+      removed = has;
+      plate = has ? c.plate.filter((x) => x !== ing) : [...c.plate, ing];
     }
+    if (removed) sfx.tap();
+    else sfx.place(plate.length);
+    commit({ ...g0, pose: 'work', poseT: 350, customers: g0.customers.map((x) => (x.id === c.id ? { ...x, plate, hidden: x.hidden || plate.length > 0, fixes: x.fixes + (removed ? 1 : 0) } : x)) });
+    armBell();
+  };
+
+  /** tocco su una tessera: con i gesti accesi alcune cose si spalmano o si spolverano */
+  const tap = (ing: string) => {
+    const g0 = gr.current;
+    const c = g0.customers.find((x) => x.id === g0.selected);
+    const kind = appRef.current.save.settings.gestures && c && !c.plate.includes(ing) && ing !== BASE_TILE ? gestureOf(ing, c.dish.category) : null;
+    if (kind) {
+      sfx.tap();
+      setGesture({ ing, kind });
+    } else place(ing);
+  };
+
+  /** toglie dal piatto: in friggitoria un pezzo alla volta */
+  const remove = (label: string) => {
+    const g0 = gr.current;
+    const c = g0.customers.find((x) => x.id === g0.selected);
+    if (!c) return;
+    if (!isPortion(c.dish)) return place(label);
+    const t = typeOfLabel(label);
+    const i = c.plate.lastIndexOf(t);
+    if (i < 0) return;
+    sfx.tap();
+    updateSel((x) => ({ plate: x.plate.filter((_, k) => k !== i), fixes: x.fixes + 1 }), { ring: null });
   };
 
   const clearPlate = () => {
     const g0 = gr.current;
-    if (!g0.selected) return;
+    const c = g0.customers.find((x) => x.id === g0.selected);
+    if (!c || !c.plate.length) return;
     sfx.tap();
-    commit({ ...g0, customers: g0.customers.map((x) => (x.id === g0.selected ? { ...x, plate: [] } : x)) });
+    updateSel((x) => ({ plate: x.oven ? [...x.oven] : [], fixes: x.fixes + 1 }), { ring: null });
   };
 
   const peek = () => {
-    const g0 = gr.current;
     sfx.tap();
-    commit({ ...g0, customers: g0.customers.map((x) => (x.id === g0.selected ? { ...x, peeked: true } : x)) });
+    updateSel(() => ({ peeked: true, sure: false }));
+  };
+  const relisten = () => {
+    sfx.tap();
+    updateSel(() => ({ heard: 3000, relisten: true }));
+  };
+  const toggleSure = () => {
+    sfx.tap();
+    updateSel((x) => ({ sure: !x.sure }));
   };
 
   const select = (id: number) => {
     const g0 = gr.current;
-    if (g0.overlay || g0.paused) return;
+    if (g0.overlay || g0.paused || g0.card) return;
     sfx.tap();
-    commit({ ...g0, selected: id });
+    commit({ ...g0, selected: id, ring: g0.ring?.id === id ? g0.ring : null });
+  };
+
+  const bake = () => {
+    const g0 = gr.current;
+    const c = g0.customers.find((x) => x.id === g0.selected);
+    if (!c || !isPizza(c.dish.category) || c.oven) return;
+    sfx.fever();
+    let n: G = { ...g0, bake: { id: c.id, t: BAKE_MS }, pose: 'work', poseT: 800, customers: g0.customers.map((x) => (x.id === c.id ? { ...x, oven: [...x.plate] } : x)) };
+    n = addPop(n, 'In forno!', 'hype', c.slot);
+    // col campanello: appena cotta, se il numero torna, va servita da sola
+    if (g0.ring?.id === c.id) n = { ...n, ring: { id: c.id, t: BAKE_MS + 250 } };
+    commit(n);
   };
 
   const serve = () => {
     const g0 = gr.current;
     const c = g0.customers.find((x) => x.id === g0.selected);
-    if (!c || c.kind !== 'build' || c.state !== 'wait' || !c.plate.length || g0.overlay || g0.paused) return;
-    const want = c.dish.ingredients.map(norm);
-    const got = c.plate.map(norm);
-    const missing = c.dish.ingredients.filter((i) => !got.includes(norm(i)));
-    const extra = c.plate.filter((i) => !want.includes(norm(i)));
-    if (missing.length || extra.length) return commit(fail(g0, c, 'wrong', missing, extra));
-    success(g0, c, c.peeked ? 1 : MULT[c.hint]);
+    if (!c || c.kind !== 'build' || c.state !== 'wait' || !c.plate.length || g0.overlay || g0.paused || g0.card) return;
+    if (g0.bake?.id === c.id) return;
+    if (isPizza(c.dish.category) && !c.oven) return bake();
+    const opts = (d: Dish) => ({
+      counted: isPortion(d), ordered: !!d.ordered && !c.variant, after: d.after, oven: c.oven,
+      free: c.variant?.type === 'con' ? [c.variant.ing] : [],
+    });
+    if (c.group === 'asporto') {
+      // asporto: il piatto preparato può essere uno qualsiasi della comanda
+      const tries = c.order.map((d) => ({ d, v: judge(d.ingredients, c.plate, opts(d)) }));
+      const hit = tries.find((x) => x.v.ok);
+      if (hit) return success(g0, c, hit.v, hit.d);
+      const best = tries.sort((a, b) => b.v.right - b.v.extra.length - (a.v.right - a.v.extra.length))[0];
+      return commit(fail(g0, c, 'wrong', best.v, [`Al telefono avevano chiesto: ${c.order.map((x) => x.name).join(' e ')}`], best.d));
+    }
+    const o = opts(c.dish);
+    const v = judge(c.target, c.plate, o);
+    if (!v.ok) return commit(fail(g0, c, 'wrong', v));
+    success(g0, c, v);
   };
   serveRef.current = serve;
 
@@ -355,14 +587,45 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
     const g0 = gr.current;
     const c = g0.customers.find((x) => x.id === g0.selected);
     if (!c || c.kind !== 'guess' || c.state !== 'wait' || g0.overlay || g0.paused) return;
-    if (opt.id !== c.dish.id) return commit(fail(g0, c, 'guess', [], [], opt));
-    // riconoscere è più facile che ricordare: non porta il piatto oltre la scatola 3
-    success(g0, c, GUESS_MULT, 3);
+    if (opt.id !== c.dish.id) return commit(fail(g0, c, 'guess', null, [], c.dish, opt));
+    // riconoscere è più facile che ricordare: non porta il piatto oltre "A memoria"
+    success(g0, c, null);
+  };
+
+  const answerGap = (opt: string) => {
+    const g0 = gr.current;
+    const c = g0.customers.find((x) => x.id === g0.selected);
+    if (!c || c.kind !== 'gap' || !c.gap || c.state !== 'wait' || g0.overlay || g0.paused) return;
+    const hidden = c.dish.ingredients[c.gap.idx];
+    if (norm(opt) === norm(hidden)) return success(g0, c, null);
+    commit(fail(g0, c, 'wrong', { ok: false, missing: [hidden], extra: [opt], right: c.dish.ingredients.length - 1, total: c.dish.ingredients.length, orderOk: null, ovenWrong: [] }));
+  };
+
+  /** controllo qualità: tocchi l'ingrediente sbagliato (o "va bene così"), poi scegli cosa ci voleva */
+  const answerCheck = (pick: string | 'ok', fix = false) => {
+    const g0 = gr.current;
+    const c = g0.customers.find((x) => x.id === g0.selected);
+    const k = c?.check;
+    if (!c || !k || c.kind !== 'check' || c.state !== 'wait' || g0.overlay || g0.paused) return;
+    const why = k.kind === 'ok' ? 'Il piatto di Giuseppe era giusto: andava servito' : k.kind === 'oven' ? `${cap(k.wrong!)} va messo all'uscita, Giuseppe l'aveva messo in forno` : `Giuseppe aveva messo ${k.wrong} al posto di ${k.right}`;
+    if (fix) {
+      if (norm(pick) === norm(k.right!)) return success(g0, c, null);
+      return commit(fail(g0, c, 'check', null, [why]));
+    }
+    if (pick === 'ok') return k.kind === 'ok' ? success(g0, c, null) : commit(fail(g0, c, 'check', null, [why]));
+    if (k.kind === 'ok' || norm(pick) !== norm(k.wrong!)) return commit(fail(g0, c, 'check', null, [`${cap(pick)} era giusto`, why]));
+    if (k.kind === 'oven') return success(g0, c, null);
+    sfx.place(2);
+    updateSel((x) => ({ check: x.check ? { ...x.check, fix: true } : null }));
   };
 
   const closeOverlay = () => {
     sfx.tap();
     commit({ ...gr.current, overlay: null });
+  };
+  const closeCard = () => {
+    sfx.tap();
+    commit({ ...gr.current, card: null });
   };
   const setPaused = (p: boolean) => commit({ ...gr.current, paused: p });
   const startShift = () => {
@@ -370,12 +633,16 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
     commit({ ...gr.current, howto: false });
   };
 
+  const tagText = (c: Cust) =>
+    c.vip ? 'VIP ×3' : c.group === 'tavolo' ? `Tavolo ${c.part}/${c.parts}` : c.group === 'asporto' ? 'Asporto' : c.kind === 'check' ? 'Controllo' : c.tag === 'nuovo' ? 'Nuovo' : c.tag === 'rivincita' ? 'Rivincita' : c.tag === 'richiamo' ? 'Ricordi?' : c.tag === 'gemello' ? 'Simile!' : c.kind === 'guess' ? 'Indeciso' : c.kind === 'gap' ? 'Cosa manca?' : c.variant ? 'Variante' : '';
+
   const bubbleOf = (c: Cust) => {
     const f = c.left / c.max;
+    const t = tagText(c);
     return (
-      <button data-cust={c.id} className={`bubble ${selected?.id === c.id ? 'sel' : ''} ${c.vip ? 'vip' : ''} ${c.retry ? 'retry' : ''} ${f < 0.22 && alive(c) ? 'urgent' : ''}`} onClick={() => select(c.id)}>
-        {(c.vip || c.retry || c.kind === 'guess') && <span className="b-tag">{c.vip ? 'VIP ×3' : c.retry ? 'Rivincita' : 'Indeciso'}</span>}
-        <span className="b-n">{c.kind === 'guess' ? '«Quello con…»' : <>{catOf(c.dish.category).emoji} {c.dish.name}</>}</span>
+      <button data-cust={c.id} className={`bubble ${selected?.id === c.id ? 'sel' : ''} ${c.vip ? 'vip' : ''} ${c.tag === 'rivincita' || c.tag === 'richiamo' ? 'retry' : ''} ${f < 0.22 && alive(c) ? 'urgent' : ''}`} onClick={() => select(c.id)}>
+        {t && <span className="b-tag">{t}</span>}
+        <span className="b-n">{c.kind === 'guess' ? '«Quello con…»' : c.group === 'asporto' ? <><Icon name="phone" size={14} /> {c.heard > 0 ? c.order.map((x) => x.name).join(' + ') : `${c.order.length} piatti`}</> : <>{catOf(c.dish.category).emoji} {c.dish.name}</>}</span>
         <span className="pbar"><i style={{ width: `${Math.max(0, f * 100)}%`, background: f > 0.5 ? '#6f9a6a' : f > 0.22 ? '#e3a83a' : '#c8463b' }} /></span>
       </button>
     );
@@ -399,40 +666,173 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
     drag.current = null;
     setGhost(null);
     if (!d) return;
-    if (!d.moved) return toggle(d.ing);
+    if (!d.moved) return tap(d.ing);
     const r = stageRef.current?.getBoundingClientRect();
     const c = gr.current.customers.find((x) => x.id === gr.current.selected);
-    if (r && e.clientY < r.bottom && c && !c.plate.includes(d.ing)) toggle(d.ing);
+    if (r && e.clientY < r.bottom && c && (isPortion(c.dish) || !c.plate.includes(d.ing))) tap(d.ing);
   };
 
-  // dispensa: si può cercare scrivendo; dopo ogni ingrediente messo la ricerca si svuota
+  // ricerca scrivendo: in dispensa sempre, sugli altri banconi con la Mise en place; si svuota a ogni ingrediente
   const [q, setQ] = useState('');
   useEffect(() => setQ(''), [selected?.id, selected?.plate.length]);
 
   const moodOf = (c: Cust): Mood => (c.state === 'happy' ? 'happy' : c.state === 'angry' ? 'angry' : c.left / c.max > 0.5 ? 'idle' : c.left / c.max > 0.22 ? 'worried' : 'angry');
 
-  if (g.phase === 'end') return <End g={g} title={title} again={again} onExit={onExit} />;
-
-  const tile = (t: string) => (
-    <button
-      key={t}
-      className={`itile ${selected?.plate.includes(t) ? 'used' : ''} ${ghost?.ing === t ? 'dragging' : ''}`}
-      onPointerDown={(e) => dragStart(e, t)}
-      onPointerMove={dragMove}
-      onPointerUp={dragEnd}
-      onPointerCancel={() => { drag.current = null; setGhost(null); }}
-      onClick={(e) => { if (e.detail === 0) toggle(t); }}
-    >
-      <span className="t-e"><Ing name={t} /></span>
-      <span className="t-l">{cap(t)}</span>
-    </button>
-  );
+  if (g.phase === 'end') return <End g={g} title={title} total={total} start={startDaily.current} again={again} onExit={onExit} />;
 
   const ticket = selected;
+  const counted = !!ticket && isPortion(ticket.dish);
+  const plateItems = ticket?.kind === 'build' ? (counted ? piecesLabel(ticket.plate) : ticket.plate) : [];
+  const tile = (t: string) => {
+    const used = !counted && (t === BASE_TILE ? ['pomodoro', 'fior di latte'].every((b) => ticket?.plate.some((p) => norm(p) === b)) : ticket?.plate.includes(t));
+    const n = counted ? ticket!.plate.filter((p) => p === t).length : 0;
+    return (
+      <button
+        key={t}
+        className={`itile ${used ? 'used' : ''} ${t === BASE_TILE ? 'base' : ''} ${ghost?.ing === t ? 'dragging' : ''} ${ticket?.oven?.includes(t) ? 'baked' : ''}`}
+        onPointerDown={(e) => dragStart(e, t)}
+        onPointerMove={dragMove}
+        onPointerUp={dragEnd}
+        onPointerCancel={() => { drag.current = null; setGhost(null); }}
+        onClick={(e) => { if (e.detail === 0) tap(t); }}
+      >
+        <span className="t-e">{t === BASE_TILE ? <><Ing name="pomodoro" /><Ing name="fior di latte" /></> : <Ing name={t} />}</span>
+        <span className="t-l">{t === BASE_TILE ? 'Base rossa' : cap(t)}</span>
+        {n > 0 && <span className="t-n">×{n}</span>}
+      </button>
+    );
+  };
+
   const showFull = ticket && ticket.kind === 'build' && (ticket.hint === 'full' || ticket.peeked || (ticket.hint === 'flash' && !ticket.hidden));
-  const showCount = ticket && ticket.kind === 'build' && (ticket.hint !== 'none' || ticket.peeked);
-  const night = Math.min(0.9, (Math.max(0, g.spawned - 1) / (TOTAL - 1)) * 0.9);
+  const showCount = ticket && countShown(ticket);
+  const night = Math.min(0.9, (Math.max(0, g.spawned - 1) / (total - 1)) * 0.9);
   const comboFill = g.fever ? FEVER_AT : Math.min(g.combo, FEVER_AT);
+  const pizza = !!ticket && isPizza(ticket.dish.category);
+  const panino = !!ticket && (ticket.dish.category === 'hamburger' || ticket.dish.category === 'focacce');
+  const stationId = ticket ? stationOf(ticket.dish.category) : null;
+  const custom = !!(stationId && app.save.station?.[stationId]);
+  const search = ticket?.level === 'pantry' || L('mise') >= 1;
+  const shelves = !custom && (ticket?.level === 'pantry' || L('mise') >= 2);
+  const shownTray = ticket ? ticket.tray.filter((t) => !q || fold(t).includes(fold(q))) : [];
+  const ringing = !!ticket && g.ring?.id === ticket.id;
+  const baking = !!ticket && g.bake?.id === ticket.id;
+  const canBet = ticket?.kind === 'build' && !studyOf(ticket) && !ticket.peeked;
+
+  const ticketBody = () => {
+    if (!ticket) return <span className="muted">Aspetta il prossimo cliente…</span>;
+    if (ticket.kind === 'guess') return (
+      <>
+        <div className="t-top"><b>«Vorrei quello con…»</b><span className="mem">×{GUESS_MULT}</span></div>
+        <div className="t-chips">{ticket.dish.ingredients.map((i) => <span key={i} className="mini"><Ing name={i} /> {cap(i)}</span>)}</div>
+      </>
+    );
+    if (ticket.kind === 'gap' && ticket.gap) return (
+      <>
+        <div className="t-top"><b>{catOf(ticket.dish.category).emoji} {ticket.dish.name}</b><span className="mem">×1.5</span></div>
+        <div className="sm"><b>{gapQuestion(ticket.dish, ticket.gap)}</b></div>
+        <div className="t-chips">{ticket.dish.ingredients.map((i, k) => (k === ticket.gap!.idx ? <span key={k} className="mini gapq">?</span> : <span key={k} className="mini">{ticket.dish.ordered && <b className="num">{k + 1}</b>}<Ing name={i} /> {cap(i)}</span>))}</div>
+      </>
+    );
+    if (ticket.kind === 'check' && ticket.check) return (
+      <>
+        <div className="t-top"><b><Icon name="eye" size={16} /> Il piatto di Giuseppe: {ticket.dish.name}</b><span className="mem">×2</span></div>
+        <div className="muted sm">{ticket.check.fix ? `Cosa ci voleva al posto di ${ticket.check.wrong}?` : 'Prima che esca: c\'è un errore? Toccalo, oppure dai il via.'}</div>
+      </>
+    );
+    const head = ticket.group === 'asporto'
+      ? <b><Icon name="phone" size={16} /> Asporto · {ticket.parts - ticket.order.length + 1}/{ticket.parts}</b>
+      : <b>{catOf(ticket.dish.category).emoji} {catOf(ticket.dish.category).short} {ticket.dish.name}{ticket.variant && <span className="variant"> · {variantText(ticket.variant)}</span>}</b>;
+    return (
+      <>
+        <div className="t-top">
+          {head}
+          {ticket.tag === 'rivincita' && <span className="mem alt">Riscatto ×1.5</span>}
+          {!ticket.peeked && ticket.hint !== 'full' && ticket.hint !== 'flash' && <span className="mem">×{MULT[ticket.hint]}</span>}
+          {ticket.group === 'asporto' ? (ticket.heard <= 0 && <button className="peek" onClick={relisten}><Icon name="phone" size={14} /> Riascolta</button>) : !showFull && <button className="peek" onClick={peek}><Icon name="book" size={14} /> Aiuto</button>}
+        </div>
+        {ticket.group === 'tavolo' && ticket.queue.length > 0 && <div className="muted sm">Poi: <b>{ticket.queue.map((x) => x.name).join(', ')}</b></div>}
+        {ticket.tag === 'gemello' && ticket.pair && <div className="muted sm"><Icon name="scale" size={14} /> Attento: è simile a <b>{ticket.pair}</b></div>}
+        {ticket.group === 'asporto' ? (
+          ticket.heard > 0
+            ? <div className="flash-tip"><Icon name="phone" size={14} /> Memorizza la comanda: <b>{ticket.order.map((x) => x.name).join(' e ')}</b></div>
+            : <div className="muted sm">Al telefono hanno chiesto {ticket.order.length} {ticket.order.length === 1 ? 'piatto' : 'piatti'}: ricordi quali? Preparane uno alla volta.</div>
+        ) : showFull ? (
+          <>
+            {ticket.hint === 'flash' && !ticket.peeked && <div className="flash-tip"><Icon name="eye" size={14} /> Memorizza: sparisce al primo ingrediente</div>}
+            <RecipeView dish={{ ...ticket.dish, ingredients: ticket.target }} mini />
+          </>
+        ) : ticket.hint === 'none' ? (
+          <div className="muted sm">{ticket.level === 'pantry' ? 'Dispensa completa e nessun aiuto: sai cosa ci va?' : 'Nessun aiuto: ti fidi della tua memoria?'}</div>
+        ) : (
+          <div className="muted sm">{ticket.target.length} {counted ? (ticket.target.length === 1 ? 'tipo di pezzo' : 'tipi di pezzo') : ticket.target.length === 1 ? 'ingrediente' : 'ingredienti'} — ricordi quali?</div>
+        )}
+        {pizza && <div className="stage-tip">{ticket.oven ? <><Icon name="sparkle" size={14} /> All'uscita: aggiungi quello che va dopo il forno, poi servi</> : <><Icon name="flame" size={14} /> Prepara la pizza e infornala: quello che va all'uscita si mette dopo</>}</div>}
+        {panino && ticket.dish.ordered && !ticket.variant && !showFull && <div className="stage-tip"><Icon name="layers" size={14} /> Montalo dal basso, come al banco</div>}
+        {counted && <div className="stage-tip"><Icon name="plus" size={14} /> Metti i pezzi nel cestino uno alla volta</div>}
+      </>
+    );
+  };
+
+  const trayArea = () => {
+    if (!ticket) return <div className="tray" />;
+    if (ticket.kind === 'guess') return (
+      <div className="gopts">
+        {ticket.options.map((o) => <button key={o.id} className="gopt" onClick={() => answer(o)} disabled={ticket.state !== 'wait'}><DishPic dish={o} />{o.name}</button>)}
+      </div>
+    );
+    if (ticket.kind === 'gap' && ticket.gap) return (
+      <div className="gopts">
+        {ticket.gap.options.map((o) => <button key={o} className="gopt" onClick={() => answerGap(o)} disabled={ticket.state !== 'wait'}><Ing name={o} />{cap(o)}</button>)}
+      </div>
+    );
+    if (ticket.kind === 'check' && ticket.check) {
+      const k = ticket.check;
+      if (k.fix) return (
+        <div className="gopts">
+          {k.options.map((o) => <button key={o} className="gopt" onClick={() => answerCheck(o, true)} disabled={ticket.state !== 'wait'}><Ing name={o} />{cap(o)}</button>)}
+        </div>
+      );
+      const group = (title: string | null, list: string[]) => (
+        <div key={title ?? 'all'} className="check-g">
+          {title && <div className="shelf-h">{title}</div>}
+          <div className="check-row">
+            {list.map((i, n) => <button key={i + n} className="itile" onClick={() => answerCheck(i)} disabled={ticket.state !== 'wait'}>{ticket.dish.ordered && <b className="num">{n + 1}</b>}<span className="t-e"><Ing name={i} /></span><span className="t-l">{cap(i)}</span></button>)}
+          </div>
+        </div>
+      );
+      return (
+        <div className="tray check">
+          {k.oven ? [group('In forno', k.oven), group('All\'uscita', k.shown.filter((i) => !k.oven!.includes(i)))] : group(ticket.dish.ordered ? 'Dal basso' : null, k.shown)}
+          <button className="btn good wide" onClick={() => answerCheck('ok')} disabled={ticket.state !== 'wait'}><Icon name="check" /> Va bene così, servilo</button>
+        </div>
+      );
+    }
+    const list = pizza && !counted ? [BASE_TILE, ...shownTray] : shownTray;
+    return (
+      <div className={`tray ${ticket.level === 'pantry' ? 'pantry' : ''} ${search ? 'searchable' : ''}`}>
+        {search && (
+          <label className="pantry-q">
+            <Icon name="search" size={20} />
+            <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={ticket.level === 'pantry' ? 'Cerca in dispensa…' : 'Cerca sul banco…'} autoComplete="off" autoCorrect="off" spellCheck={false} enterKeyHint="search" aria-label="Cerca un ingrediente" />
+            {q && <button type="button" className="pantry-x" onClick={() => setQ('')} aria-label="Cancella la ricerca"><Icon name="x" size={18} /></button>}
+          </label>
+        )}
+        {shelves ? (
+          <>
+            {pizza && !q && tile(BASE_TILE)}
+            {SHELVES.map((sh) => {
+              const l = shownTray.filter((t) => shelfOf(t) === sh);
+              if (!l.length) return null;
+              return [<div key={sh} className="shelf-h">{sh}</div>, ...l.map(tile)];
+            })}
+          </>
+        ) : list.map(tile)}
+        {q && !shownTray.length && <div className="shelf-h muted">Nessun ingrediente con «{q}»</div>}
+      </div>
+    );
+  };
+
+  const serveLabel = pizza && !ticket?.oven ? 'INFORNA' : panino ? 'CHIUDI IL PANINO' : 'SERVI';
 
   return (
     <div className={`game ${g.shake > 0 ? 'shake' : ''} ${g.fever ? 'is-fever' : ''}`}>
@@ -443,7 +843,7 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
         <div className="coins" ref={coinRef}><Coin /> {g.coins}</div>
       </div>
       <div className="hud2">
-        <span>{title} · {Math.min(g.spawned, TOTAL)}/{TOTAL}</span>
+        <span>{title} · {Math.min(g.spawned, total)}/{total}</span>
         <div className={`cmeter ${g.fever ? 'fever' : ''}`} aria-label={`Combo ${g.combo}`}>
           {g.fever ? <b><Icon name="flame" size={14} /> FEVER ×1.5</b> : <span className="cm-l">Combo</span>}
           {!g.fever && Array.from({ length: FEVER_AT }, (_, i) => <i key={i} className={i < comboFill ? 'on' : ''} />)}
@@ -457,9 +857,9 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
               id: c.id, look: c.look, slot: c.slot, state: c.state, vip: c.vip, mood: moodOf(c), impatient: c.state === 'wait' && c.left / c.max < 0.22, bubble: bubbleOf(c),
             }))}
             onSelect={select}
-            plate={selected?.kind === 'build' ? selected.plate : []}
+            plate={plateItems}
             cat={selected?.kind === 'build' ? selected.dish.category : null}
-            onRemove={toggle}
+            onRemove={remove}
             build={app.save.build}
             night={night}
             skin={skin}
@@ -495,24 +895,25 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
               <div className="chef"><Person look={CHEF_LOOK} chef={skin} pose={g.pose} mood={g.pose === 'cheer' ? 'happy' : g.pose === 'sad' ? 'worried' : 'idle'} /></div>
               <div className="plate-wrap">
                 <div className="plate">
-                  {selected?.kind === 'build' && selected.plate.map((p) => (
-                    <button key={p} className="pitem" onClick={() => toggle(p)}><Ing name={p} /></button>
+                  {plateItems.map((p, i) => (
+                    <button key={p + i} className="pitem" onClick={() => remove(p)}><Ing name={p} /></button>
                   ))}
                 </div>
               </div>
             </div>
           </>
         )}
+        {baking && <div className="bake"><Icon name="flame" size={44} /><span>In forno…</span></div>}
         <div className="plate-ui">
-          {ticket?.kind === 'guess' ? <span className="plate-q">Quale piatto è?</span> : (
+          {ticket?.kind === 'guess' ? <span className="plate-q">Quale piatto è?</span> : ticket?.kind === 'gap' ? <span className="plate-q">Scegli qui sotto</span> : ticket?.kind === 'check' ? <span className="plate-q">Controlla qui sotto</span> : (
             <>
-              {showCount && ticket && (
+              {showCount && ticket && !counted && (
                 <span className="plate-pips">
-                  {ticket.dish.ingredients.map((_, i) => <i key={i} className={i < ticket.plate.length ? (ticket.plate.length > ticket.dish.ingredients.length ? 'over' : 'on') : ''} />)}
+                  {ticket.target.map((_, i) => <i key={i} className={i < ticket.plate.length ? (ticket.plate.length > ticket.target.length ? 'over' : 'on') : ''} />)}
                 </span>
               )}
               {!!ticket && !ticket.plate.length && <span className="plate-q">Tocca gli ingredienti</span>}
-              {!!selected?.plate.length && <button className="trash" onClick={clearPlate} aria-label="Svuota il piatto"><Icon name="trash" /> Svuota</button>}
+              {!!selected?.plate.length && selected.plate.length > (selected.oven?.length ?? 0) && <button className="trash" onClick={clearPlate} aria-label="Svuota il piatto"><Icon name="trash" /> Svuota</button>}
             </>
           )}
         </div>
@@ -521,82 +922,35 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
         </div>
       </div>
 
-      <div className={`ticket ${ticket?.vip ? 'vip' : ''}`}>
-        {!ticket ? (
-          <span className="muted">Aspetta il prossimo cliente…</span>
-        ) : ticket.kind === 'guess' ? (
-          <>
-            <div className="t-top"><b>«Vorrei quello con…»</b><span className="mem">×{GUESS_MULT}</span></div>
-            <div className="t-chips">{ticket.dish.ingredients.map((i) => <span key={i} className="mini"><Ing name={i} /> {cap(i)}</span>)}</div>
-          </>
-        ) : (
-          <>
-            <div className="t-top">
-              <b>{catOf(ticket.dish.category).emoji} {catOf(ticket.dish.category).short} {ticket.dish.name}</b>
-              {ticket.retry && <span className="mem alt">Riscatto ×1.5</span>}
-              {!ticket.peeked && ticket.hint !== 'full' && <span className="mem">×{MULT[ticket.hint]}</span>}
-              {!showFull && <button className="peek" onClick={peek}><Icon name="book" size={14} /> Aiuto</button>}
-            </div>
-            {showFull ? (
-              <>
-                {ticket.hint === 'flash' && !ticket.peeked && <div className="flash-tip"><Icon name="eye" size={14} /> Memorizza: sparisce al primo ingrediente</div>}
-                <div className="t-chips">{ticket.dish.ingredients.map((i) => <span key={i} className="mini"><Ing name={i} /> {cap(i)}</span>)}</div>
-              </>
-            ) : ticket.hint === 'icons' ? (
-              <div className="t-chips">{ticket.dish.ingredients.map((i, k) => <span key={k} className="mini"><Ing name={i} /></span>)}<span className="muted sm">({ticket.dish.ingredients.length})</span></div>
-            ) : ticket.hint === 'none' ? (
-              <div className="muted sm">{ticket.level === 'pantry' ? 'Dispensa completa e nessun aiuto: sai cosa ci va?' : 'Nessun aiuto: ti fidi della tua memoria?'}</div>
-            ) : (
-              <div className="muted sm">{ticket.dish.ingredients.length} {ticket.dish.ingredients.length === 1 ? 'ingrediente' : 'ingredienti'} — ricordi quali?</div>
-            )}
-          </>
-        )}
-      </div>
+      <div className={`ticket ${ticket?.vip ? 'vip' : ''} ${ticket?.tag === 'nuovo' ? 'new' : ''}`}>{ticketBody()}</div>
 
-      {ticket?.kind === 'guess' ? (
-        <div className="gopts">
-          {ticket.options.map((o) => (
-            <button key={o.id} className="gopt" onClick={() => answer(o)} disabled={ticket.state !== 'wait'}>
-              <DishPic dish={o} />{o.name}
+      {trayArea()}
+      {ticket?.kind === 'build' && (
+        <div className="serve-row">
+          {canBet && (
+            <button className={`sure ${ticket.sure ? 'on' : ''}`} onClick={toggleSure} aria-pressed={ticket.sure} title="Punti ×2 se è giusto, -100 se è sbagliato">
+              <Icon name="target" size={18} /> Sicuro! <small>×2</small>
             </button>
-          ))}
+          )}
+          <button className={`serve ${showCount && ticket.plate.length === ticket.target.length ? 'ready' : ''} ${ringing ? 'ringing' : ''}`} disabled={!selected || selected.state !== 'wait' || !selected.plate.length || baking} onClick={serve}>
+            <Icon name={pizza && !ticket.oven ? 'flame' : 'bell'} size={22} /> {ringing ? 'Sta per suonare…' : serveLabel}
+          </button>
         </div>
-      ) : (
-        <div className={`tray ${selected?.level === 'pantry' ? 'pantry' : ''}`}>
-          {selected?.level === 'pantry' ? (
-            <>
-              <label className="pantry-q">
-                <Icon name="search" size={20} />
-                <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cerca in dispensa…" autoComplete="off" autoCorrect="off" spellCheck={false} enterKeyHint="search" aria-label="Cerca un ingrediente" />
-                {q && <button type="button" className="pantry-x" onClick={() => setQ('')} aria-label="Cancella la ricerca"><Icon name="x" size={18} /></button>}
-              </label>
-              {SHELVES.map((sh) => {
-                const list = selected.tray.filter((t) => shelfOf(t) === sh && (!q || fold(t).includes(fold(q)))).sort((a, b) => a.localeCompare(b, 'it'));
-                if (!list.length) return null;
-                return [<div key={sh} className="shelf-h">{sh}</div>, ...list.map(tile)];
-              })}
-              {q && !selected.tray.some((t) => fold(t).includes(fold(q))) && <div className="shelf-h muted">Nessun ingrediente con «{q}»</div>}
-            </>
-          ) : (selected?.tray ?? []).map(tile)}
-        </div>
-      )}
-      {ticket?.kind !== 'guess' && (
-        <button className={`serve ${showCount && ticket && ticket.plate.length === ticket.dish.ingredients.length ? 'ready' : ''}`} disabled={!selected || selected.state !== 'wait' || !selected.plate.length} onClick={serve}><Icon name="bell" size={22} /> SERVI</button>
       )}
 
       {g.toast && <div className="toast" key={g.toast.text}><b>{g.toast.text}</b>{g.toast.sub && <span>{g.toast.sub}</span>}</div>}
-      {ghost && <div className="drag-ghost" style={{ transform: `translate(${ghost.x}px, ${ghost.y}px)` }}><Ing name={ghost.ing} /></div>}
+      {ghost && <div className="drag-ghost" style={{ transform: `translate(${ghost.x}px, ${ghost.y}px)` }}>{ghost.ing === BASE_TILE ? <Ing name="pomodoro" /> : <Ing name={ghost.ing} />}</div>}
       {g.phase === 'intro' && g.howto && (
         <div className="intro">
           <div className="howto">
             <h3>Come si gioca</h3>
             <ol>
               <li><span>Arriva un cliente e chiede un piatto: lo vedi nel fumetto e nel foglietto</span></li>
-              <li><span><b>Tocca gli ingredienti</b> giusti qui sotto per metterli sul piatto</span></li>
-              <li><span>Hai sbagliato? Toccalo di nuovo per toglierlo, o premi <b>Svuota</b></span></li>
-              <li><span>Quando il piatto è pronto premi <b>SERVI</b></span></li>
+              <li><span><b>Tocca gli ingredienti</b> giusti qui sotto per metterli sul piatto. I panini si montano <b>dal basso</b></span></li>
+              <li><span>Le pizze prima si <b>infornano</b>, poi aggiungi quello che va all'uscita</span></li>
+              <li><span>Quando il piatto è pronto premi <b>SERVI</b> (o <b>Chiudi il panino</b>)</span></li>
             </ol>
-            <div className="muted">Non ricordi la ricetta? Premi <b>Aiuto</b>. Con <b>Pausa</b> ti fermi quando vuoi.</div>
+            <div className="muted">Un piatto nuovo lo prepari guardando la ricetta: <b>poco dopo torna</b> e dovrai ricordarlo. Non ricordi? Premi <b>Aiuto</b>, e il piatto tornerà ancora.</div>
             <button className="btn primary wide big" onClick={startShift}><Icon name="play" size={22} /> Ho capito, apri il locale!</button>
             <button className="btn ghost wide" onClick={onExit}>Torna indietro</button>
           </div>
@@ -617,121 +971,9 @@ function Shift({ pool, title, onExit, again }: { pool: Dish[]; title: string; on
           </div>
         </div>
       )}
+      {g.card && !g.overlay && <NewCard dish={g.card} onClose={closeCard} />}
       {g.overlay && <FailSheet o={g.overlay} lives={g.lives} onClose={closeOverlay} />}
-    </div>
-  );
-}
-
-function FailSheet({ o, lives, onClose }: { o: Overlay; lives: number; onClose: () => void }) {
-  const title = o.kind === 'late' ? 'Il cliente se n\'è andato' : o.kind === 'guess' ? 'Non era quello!' : 'Piatto sbagliato';
-  return (
-    <div className="modal">
-      <div className="modal-in fail">
-        <div className="fail-h"><DishPic dish={o.dish} /><h3>{title}</h3></div>
-        {o.chosen && (
-          <div className="cmp">
-            <div className="muted sm">Hai scelto <b>{o.chosen.name}</b>:</div>
-            <div className="chips">{o.chosen.ingredients.map((i) => <Chip key={i} text={i} state={o.dish.ingredients.map(norm).includes(norm(i)) ? '' : 'bad'} />)}</div>
-          </div>
-        )}
-        <div className="muted">{o.chosen ? 'Era' : 'La ricetta di'} <b>{o.dish.name}</b>:</div>
-        <div className="chips">
-          {o.dish.ingredients.map((i) => <Chip key={i} text={i} state={o.missing.includes(i) ? 'miss' : 'ok'} />)}
-        </div>
-        {o.missing.length > 0 && <div className="sm">Ti mancava: <b>{o.missing.map(cap).join(', ')}</b></div>}
-        {o.extra.length > 0 && <div className="sm">Di troppo: <b>{o.extra.map(cap).join(', ')}</b></div>}
-        {o.notes.map((n) => <div key={n} className="note"><Icon name="bulb" size={16} /><span>{n}</span></div>)}
-        {o.retry && <div className="note retry"><Icon name="refresh" size={16} /><span>Tra poco questo piatto torna: è la tua <b>rivincita</b> (punti ×1.5)</span></div>}
-        <div className="sm muted">Ti rimangono {Math.max(0, lives)} vite</div>
-        <button className="btn primary wide" onClick={onClose}>Ho capito</button>
-      </div>
-    </div>
-  );
-}
-
-function End({ g, title, again, onExit }: { g: G; title: string; again: () => void; onExit: () => void }) {
-  const app = useApp();
-  const failed = g.lives <= 0;
-  const stars = g.served >= TOTAL && g.lives === g.maxLives ? 3 : g.served >= TOTAL * 0.75 ? 2 : g.served >= TOTAL * 0.4 ? 1 : 0;
-  const bonusCoins = stars * 25;
-  const [best, setBest] = useState(false);
-  const [done, setDone] = useState<Mission[]>([]);
-  const startLvl = useRef(levelOf(app.save.xp));
-  const reported = useRef(false);
-  const score = useCountUp(g.score, 1100, 250 + stars * 280);
-  const coins = useCountUp(g.coins + bonusCoins, 900, 600 + stars * 280);
-
-  useEffect(() => {
-    if (reported.current) return;
-    reported.current = true;
-    const a = app;
-    const before = currentDaily(a.save);
-    setBest(a.reportShift(g.score, g.coins + bonusCoins, g.bestCombo) && g.score > 0);
-    a.addXp(Math.round(g.score / 10));
-    const ev: Partial<Record<MKind, number>> = {
-      serve: g.served, memory: g.tally.memory, combo: g.bestCombo, shifts: 1, stars3: stars === 3 ? 1 : 0, revenge: g.tally.revenge, guess: g.tally.guess, vip: g.tally.vip,
-    };
-    a.track(ev);
-    const newly = before.ids
-      .map(missionById)
-      .filter((m): m is Mission => !!m && progressOf(before, m) < m.goal && Math.min(m.goal, (m.kind === 'combo' ? Math.max(before.prog.combo ?? 0, ev.combo ?? 0) : (before.prog[m.kind] ?? 0) + (ev[m.kind] ?? 0))) >= m.goal);
-    setDone(newly);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    const timers = Array.from({ length: stars }, (_, i) => setTimeout(() => sfx.star(i), 250 + i * 280));
-    if (!failed && stars >= 2) timers.push(setTimeout(() => { confetti(stars === 3 ? 1.6 : 1); sfx.win(); }, 300 + stars * 280));
-    else if (failed) timers.push(setTimeout(() => sfx.bad(), 200));
-    return () => timers.forEach(clearTimeout);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const dishOf = (id: string) => app.save.dishes.find((d) => d.id === id);
-  const prog = Object.entries(g.progress).sort((a, b) => b[1].to - b[1].from - (a[1].to - a[1].from));
-  const lvl = levelOf(app.save.xp);
-  return (
-    <div className="screen over">
-      <div className={`over-icon ${failed ? 'bad' : ''}`}><Icon name={failed ? 'sad' : stars === 3 ? 'trophy' : 'smile'} size={56} /></div>
-      <h1>{failed ? 'Il locale è nel caos!' : 'Turno finito!'}</h1>
-      {(failed || title !== 'Turno') && <div className="muted sm">{failed ? 'Niente panico: ogni errore di oggi è un ricordo più forte domani.' : title}</div>}
-      <div className="stars">{[0, 1, 2].map((i) => <span key={i} className={i < stars ? 'on' : ''} style={{ animationDelay: `${250 + i * 280}ms` }}>★</span>)}</div>
-      <div className="bigscore">{score}</div>
-      {best && <div className="levelup">Nuovo record!</div>}
-      {lvl > startLvl.current && <div className="levelup">Livello {lvl}!</div>}
-      <div className="stat-row">
-        <div className="stat"><b>{g.served}/{TOTAL}</b><span>Serviti</span></div>
-        <div className="stat"><b>x{g.bestCombo}</b><span>Combo</span></div>
-        <div className="stat"><b><Coin size={20} /> {coins}</b><span>{stars ? `+${bonusCoins} stelle` : 'Monete'}{g.tally.tips ? ` · ${g.tally.tips} mance` : ''}</span></div>
-      </div>
-      {done.map((m) => (
-        <div key={m.id} className="mission-done"><Icon name="gift" /> <span>Missione completata: <b>{m.text}</b>. Ritira {m.reward} monete in home!</span></div>
-      ))}
-      {prog.length > 0 && (
-        <div className="card">
-          <div className="card-h">La tua memoria</div>
-          {prog.some(([, p]) => p.held && p.to === p.from) && <div className="muted sm">⏳ = già fissato per oggi: torna domani e salirà ancora (il cervello consolida dormendo)</div>}
-          {prog.map(([id, p]) => (
-            <div key={id} className="mem-row">
-              <span className="mem-n">{dishOf(id) && <DishPic dish={dishOf(id)!} />}{p.name}</span>
-              <Pips box={p.to} from={p.from} />
-              <b className={p.to > p.from ? 'up' : p.to < p.from ? 'down' : ''}>{p.to > p.from ? `+${p.to - p.from}` : p.to < p.from ? `${p.to - p.from}` : p.held ? '⏳' : '='}</b>
-            </div>
-          ))}
-        </div>
-      )}
-      {g.missedDishes.length > 0 && (
-        <div className="card">
-          <div className="card-h">Da ripassare</div>
-          {g.missedDishes.map((d) => (
-            <div key={d.id} className="miss-row">
-              <b>{d.name}</b>
-              <div className="chips">{d.ingredients.map((i) => <Chip key={i} text={i} />)}</div>
-            </div>
-          ))}
-        </div>
-      )}
-      <div className="spacer" />
-      <button className="btn primary wide big" onClick={again}>▶ Altro turno</button>
-      <button className="btn ghost wide" onClick={onExit}>Torna alla home</button>
+      {gesture && <GesturePad ing={gesture.ing} kind={gesture.kind} onCancel={() => setGesture(null)} onDone={() => { const i = gesture.ing; setGesture(null); place(i); }} />}
     </div>
   );
 }

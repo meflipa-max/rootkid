@@ -48,6 +48,11 @@ const P: Record<string, string> = {
   menu: 'M12 5h.01M12 12h.01M12 19h.01',
   text: 'M3 18l5-12 5 12M4.7 14h6.6M15 18l3-7.5 3 7.5M16 15.5h4',
   turtle: 'M4 15c0-4 3.5-7 8-7s8 3 8 7zM7 15l-1 3M17 15l1 3M20 13h1.5a1.5 1.5 0 0 0 0-3H20M9 8.5l1.5 6.5M15 8.5l-1.5 6.5',
+  camera: 'M4 8h3l2-2.5h6L17 8h3v11H4zM12 13.5m-3.5 0a3.5 3.5 0 1 0 7 0 3.5 3.5 0 1 0-7 0',
+  up: 'M12 19V5M6 11l6-6 6 6',
+  down: 'M12 5v14M6 13l6 6 6-6',
+  layers: 'M12 4l9 4.5-9 4.5-9-4.5zM3 13l9 4.5 9-4.5M3 17l9 4.5 9-4.5',
+  calendar: 'M4 6h16v14H4zM4 10h16M8 3.5v4M16 3.5v4',
   sparkle: 'M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z',
 };
 
@@ -88,6 +93,7 @@ export const UPGRADE_ICON: Record<string, string> = {
 };
 export const MISSION_ICON: Record<string, string> = {
   serve: 'store', memory: 'brain', combo: 'flame', shifts: 'clock', stars3: 'star', revenge: 'refresh', guess: 'help', cards: 'book', vip: 'crown',
+  phaseup: 'bolt', fresh: 'sparkle', redeem: 'target', order: 'layers', real: 'user',
 };
 /** icona 3D di ogni categoria: il render di un ingrediente simbolo */
 export const CAT_ING: Record<string, string> = { hamburger: 'bun', insalatone: 'insalata', focacce: 'focaccia', classiche: 'pomodoro', speciali: 'funghi porcini', dolci: 'nutella', fritti: 'patatine' };

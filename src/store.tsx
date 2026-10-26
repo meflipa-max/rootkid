@@ -1,19 +1,24 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Dish, DishStat, MKind, Save, Settings } from './lib/types';
+import { review, fromBox, type FsGrade } from './lib/fsrs';
+import { levelChest } from './lib/levels';
+import { norm } from './lib/questions';
 import { DEFAULT_DISHES, ING_ALIASES, MENU_VERSION, OLD_DEFAULTS } from './lib/data';
-import { emptyStat, isDue, levelOf } from './lib/mastery';
+import { emptyStat, isDue, levelOf, ripe } from './lib/mastery';
 import { setFx } from './lib/fx';
 import { UPGRADES, lvlOf, upgradeCost } from './lib/build';
 import { currentDaily, missionById, progressOf } from './lib/missions';
 
 const KEY = 'pizzamaster-v1';
+/** versione del modello di memoria (2 = voti della risposta + FSRS) */
+const MEM_VERSION = 2;
 
 const today = () => new Date().toLocaleDateString('sv');
 const yesterday = () => new Date(Date.now() - 864e5).toLocaleDateString('sv');
 
 const fresh = (): Save => ({
   v: 1,
-  dishes: DEFAULT_DISHES.map((d) => ({ ...d, ingredients: [...d.ingredients] })),
+  dishes: DEFAULT_DISHES.map(clone),
   stats: {},
   xp: 0,
   totalAnswered: 0,
@@ -31,18 +36,27 @@ const fresh = (): Save => ({
   skin: 'classic',
   build: {},
   menuV: MENU_VERSION,
+  memV: MEM_VERSION,
   settings: { sound: true, haptics: true, dailyGoal: 20, text: 2, calm: true },
 });
+
+const clone = (d: Dish): Dish => ({ ...d, ingredients: [...d.ingredients], ...(d.after ? { after: [...d.after] } : {}) });
+const setKey = (a: string[]) => a.map(norm).sort().join('|');
 
 /** aggiorna le ricette al menu stampato, rispettando quelle modificate a mano dall'utente */
 function migrateMenu(saved: Dish[]): Dish[] {
   const out = [...saved];
-  const same = (a: string[], b: string[]) => a.length === b.length && a.every((x, i) => x === b[i]);
   for (const def of DEFAULT_DISHES) {
     const i = out.findIndex((d) => d.id === def.id);
-    if (i < 0) out.push({ ...def, ingredients: [...def.ingredients] });
-    else if (out[i].verify || (OLD_DEFAULTS[def.id] && same(out[i].ingredients, OLD_DEFAULTS[def.id])))
-      out[i] = { ...def, ingredients: [...def.ingredients] };
+    if (i < 0) {
+      out.push(clone(def));
+      continue;
+    }
+    const cur = out[i];
+    if (cur.verify || OLD_DEFAULTS[def.id]?.some((o) => setKey(o) === setKey(cur.ingredients))) out[i] = clone(def);
+    // stessi ingredienti della ricetta di default: prende l'ordine "come al lavoro" (bozza) e i dati nuovi
+    else if (setKey(cur.ingredients) === setKey(def.ingredients) && cur.after === undefined && cur.ordered === undefined)
+      out[i] = { ...cur, ingredients: [...def.ingredients], after: def.after && [...def.after], ordered: def.ordered, draft: def.draft };
   }
   return out;
 }
@@ -57,6 +71,15 @@ function load(): Save {
         s.dishes = s.dishes.map((d) => ({ ...d, ingredients: [...new Set(d.ingredients.map((i) => ING_ALIASES[i.trim().toLowerCase()] ?? i))] }));
         if ((s.menuV ?? 1) < MENU_VERSION) s.dishes = migrateMenu(s.dishes);
         s.menuV = MENU_VERSION;
+        // salvataggi con le sole scatole di Leitner: la memoria FSRS parte dalla scatola
+        for (const st of Object.values(s.stats ?? {})) if (st.seen && !st.fs) st.fs = fromBox(st.box, st.last);
+        // la Mise en place ora ha 2 livelli (banco in ordine): il terzo si rimborsa
+        if ((s.build?.mise ?? 0) > 2) {
+          s.coins = (s.coins ?? 0) + Math.round(220 * (1 + 2 * 0.9));
+          s.build = { ...s.build, mise: 2 };
+        }
+        // chi non aveva mai giocato non ha bisogno del messaggio "memoria più precisa"
+        if (!s.memV && !Object.keys(s.stats ?? {}).length) s.memV = MEM_VERSION;
         return { ...fresh(), ...s, settings: { ...fresh().settings, ...s.settings } };
       }
     }
@@ -66,6 +89,12 @@ function load(): Save {
   return fresh();
 }
 
+/**
+ * Voto della risposta: 0 = studio (la ricetta era sotto gli occhi), 1 = non lo sapevi,
+ * 2 = difficile (giusto ma con correzioni o lento), 3 = bene, 4 = facile.
+ */
+export type Grade = 0 | 1 | 2 | 3 | 4;
+
 export interface RecordResult {
   leveledUp: boolean;
   level: number;
@@ -74,22 +103,43 @@ export interface RecordResult {
   box: number;
   /** giusto, ma non ancora il momento di salire: torna più avanti */
   held: boolean;
+  /** momenti-trofeo */
+  firstMem: boolean;
+  gold: boolean;
+  recovered: boolean;
 }
 
 export interface RecordOpts {
+  grade: Grade;
+  missed?: string[];
   /** ingredienti messi per errore */
   extra?: string[];
-  /** 1 = errore lieve (un solo ingrediente, o tempo scaduto): la scatola scende di 1 invece che di 2 */
+  /** con voto 1: 1 = errore lieve (un solo ingrediente, Aiuto, tempo scaduto) la fase scende di 1, altrimenti di 2 */
   severity?: 1 | 2;
-  /** risposte "facili" (autovalutazione, riconoscimento) non portano la scatola oltre questo livello */
+  /** prove "facili" (riconoscere, autovalutazione) non portano la fase oltre questo livello */
   cap?: number;
-  /** tacche guadagnate con una risposta giusta (la sfida scritta ne vale 2) */
+  /** fasi guadagnate con una risposta giusta (la sfida scritta perfetta ne vale 2) */
   step?: number;
+  xp?: number;
+  /** prova debole (riconoscere, autovalutazione): per FSRS vale al massimo "difficile" */
+  weak?: boolean;
+  /** risposta pulita: millisecondi per ingrediente, per misurare la scioltezza */
+  pace?: number;
+  /** fatto senza niente sullo schermo: conta per il "primo a memoria" */
+  blind?: boolean;
+  /** puntata "Sicuro!" */
+  sure?: boolean;
 }
 
 interface Ctx {
   save: Save;
-  record(dishId: string, correct: boolean, missed: string[], xp: number, opts?: RecordOpts): RecordResult;
+  record(dishId: string, opts: RecordOpts): RecordResult;
+  /** forzieri dei livelli raggiunti e non ancora aperti */
+  claimLevels(): { coins: number; levels: number[] };
+  logReal(date: string, ids: string[]): void;
+  setRealDone(date: string): void;
+  setStation(id: string, list: string[] | null): void;
+  ackMemory(): void;
   /** avanza le missioni del giorno; combo usa il massimo, il resto si somma */
   track(ev: Partial<Record<MKind, number>>): void;
   claim(id: string): number;
@@ -134,46 +184,68 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const api = useMemo<Ctx>(
     () => ({
       save,
-      record(dishId, correct, missed, xp, opts = {}) {
+      record(dishId, opts) {
         const s = ref.current;
         const t = today();
+        const now = Date.now();
+        const g = opts.grade;
         const prev = s.stats[dishId];
         const st: DishStat = { ...emptyStat(), ...prev, missed: { ...prev?.missed }, confused: { ...prev?.confused } };
-        const prevBox = st.box;
-        // Leitner vero: oltre la scatola 2 si sale solo quando il ripasso è "maturo",
-        // così la padronanza misura la memoria a lungo termine e non la ripetizione nella stessa sessione
-        const ready = !prev?.seen || st.box < 2 || isDue(prev, Date.now());
+        const prevBox = prev?.seen ? st.box : 0;
+        const wasDue = !!prev?.fs && isDue(prev, now);
+        const ready = ripe(prev?.seen ? prev : undefined, now);
         st.seen++;
-        st.last = Date.now();
-        if (correct) {
+        if (g >= 1) {
+          st.fs = review(st.fs, (opts.weak ? Math.min(g, 2) : g) as FsGrade, now);
+          st.last = now;
+        }
+        if (g >= 2) {
           st.correct++;
           st.streak++;
-          if (ready) st.box = Math.max(st.box, Math.min(5, st.box + (opts.step ?? 1), opts.cap ?? 5));
           st.recentWrong = Math.max(0, st.recentWrong - 1);
-        } else {
+          if (g >= 3 && ready) st.box = Math.max(st.box, Math.min(5, st.box + (opts.step ?? 1), opts.cap ?? 5));
+          if (opts.pace && g >= 3) st.pace = st.pace ? Math.round(st.pace * 0.7 + opts.pace * 0.3) : opts.pace;
+        } else if (g === 1) {
           st.streak = 0;
           st.box = Math.max(0, st.box - (opts.severity ?? 2));
           st.recentWrong++;
+          st.wrongDay = t;
+          if (prevBox >= 3 && st.box <= 1) st.lapsed = true;
         }
-        for (const m of missed) st.missed[m] = (st.missed[m] || 0) + 1;
+        for (const m of opts.missed ?? []) st.missed[m] = (st.missed[m] || 0) + 1;
         for (const x of opts.extra ?? []) st.confused![x] = (st.confused![x] || 0) + 1;
+        const firstMem = g >= 3 && !!opts.blind && !st.mem1;
+        if (firstMem) st.mem1 = true;
+        const gold = st.box >= 5 && !st.gold;
+        if (gold) st.gold = true;
+        const recovered = !!st.lapsed && st.box >= 3;
+        if (recovered) st.lapsed = false;
 
         let streakDays = s.streakDays;
         let todayCount = s.todayDate === t ? s.todayCount : 0;
         if (s.lastDay !== t) streakDays = s.lastDay === yesterday() ? s.streakDays + 1 : 1;
         const before = todayCount;
         todayCount++;
-        const xpNew = s.xp + xp;
+        const xpNew = s.xp + (opts.xp ?? 0);
+        // missioni sulla memoria: avanzano da sole, qualunque sia la modalità
+        const d = currentDaily(s);
+        const prog = { ...d.prog };
+        if (st.box > prevBox) prog.phaseup = (prog.phaseup ?? 0) + 1;
+        if (g >= 3 && wasDue) prog.fresh = (prog.fresh ?? 0) + 1;
+        if (g >= 3 && prev?.wrongDay && prev.wrongDay < t) prog.redeem = (prog.redeem ?? 0) + 1;
+        const sure = opts.sure ? { n: (s.sure?.n ?? 0) + 1, ok: (s.sure?.ok ?? 0) + (g >= 2 ? 1 : 0) } : s.sure;
         commit({
           ...s,
           stats: { ...s.stats, [dishId]: st },
           xp: xpNew,
-          totalAnswered: s.totalAnswered + 1,
-          totalCorrect: s.totalCorrect + (correct ? 1 : 0),
+          totalAnswered: s.totalAnswered + (g >= 1 ? 1 : 0),
+          totalCorrect: s.totalCorrect + (g >= 2 ? 1 : 0),
           streakDays,
           lastDay: t,
           todayDate: t,
           todayCount,
+          daily: { ...d, prog },
+          sure,
         });
         return {
           leveledUp: levelOf(xpNew) > levelOf(s.xp),
@@ -181,8 +253,45 @@ export function AppProvider({ children }: { children: ReactNode }) {
           goalReached: before < s.settings.dailyGoal && todayCount >= s.settings.dailyGoal,
           prevBox,
           box: st.box,
-          held: correct && !ready && st.box < 5,
+          held: g >= 3 && !ready && st.box < 5,
+          firstMem,
+          gold,
+          recovered,
         };
+      },
+      claimLevels() {
+        const s = ref.current;
+        const lvl = levelOf(s.xp);
+        const from = s.lvlPaid ?? 1;
+        if (lvl <= from) return { coins: 0, levels: [] };
+        const levels = Array.from({ length: lvl - from }, (_, i) => from + 1 + i);
+        const coins = levels.reduce((a, l) => a + levelChest(l), 0);
+        commit({ ...s, coins: s.coins + coins, lvlPaid: lvl });
+        return { coins, levels };
+      },
+      logReal(date, ids) {
+        const s = ref.current;
+        const real = { ...s.real };
+        if (ids.length) real[date] = ids;
+        else delete real[date];
+        // tieni solo gli ultimi 60 giorni
+        for (const k of Object.keys(real).sort().slice(0, -60)) delete real[k];
+        const d = currentDaily(s);
+        const prog = { ...d.prog, real: ids.length ? 1 : d.prog.real ?? 0 };
+        commit({ ...s, real, daily: { ...d, prog } });
+      },
+      setRealDone(date) {
+        commit({ ...ref.current, realDone: date });
+      },
+      setStation(id, list) {
+        const s = ref.current;
+        const station = { ...s.station };
+        if (list) station[id] = list;
+        else delete station[id];
+        commit({ ...s, station });
+      },
+      ackMemory() {
+        commit({ ...ref.current, memV: MEM_VERSION });
       },
       track(ev) {
         const s = ref.current;
@@ -256,7 +365,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       },
       resetStats() {
         const f = fresh();
-        commit({ ...ref.current, daily: undefined, stats: {}, xp: 0, totalAnswered: 0, totalCorrect: 0, streakDays: 0, lastDay: '', todayCount: 0, bestShift: 0, bestCombo: 0, coins: 0, shifts: 0, build: {}, skins: ['classic'], skin: 'classic', todayDate: f.todayDate });
+        commit({ ...ref.current, daily: undefined, stats: {}, sure: undefined, lvlPaid: undefined, xp: 0, totalAnswered: 0, totalCorrect: 0, streakDays: 0, lastDay: '', todayCount: 0, bestShift: 0, bestCombo: 0, coins: 0, shifts: 0, build: {}, skins: ['classic'], skin: 'classic', todayDate: f.todayDate });
       },
       setSettings(p) {
         commit({ ...ref.current, settings: { ...ref.current.settings, ...p } });

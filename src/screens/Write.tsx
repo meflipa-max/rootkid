@@ -9,6 +9,7 @@ import { catOf } from '../lib/data';
 import { cap } from '../lib/emoji';
 import { matchIngredient } from '../lib/pantry';
 import { Bar, Chip, DishBadge, Pips, TopBar } from '../components/ui';
+import { partsOf } from '../components/Recipe';
 
 type Note = { text: string; kind: 'ok' | 'bad' | 'unknown' | 'dup' };
 
@@ -27,7 +28,7 @@ export function Write({ pool, onExit }: { pool: Dish[]; onExit: () => void }) {
   const [wrong, setWrong] = useState<string[]>([]);
   const [note, setNote] = useState<Note | null>(null);
   const [text, setText] = useState('');
-  const [done, setDone] = useState<null | { correct: boolean; from: number; to: number; held: boolean }>(null);
+  const [done, setDone] = useState<null | { correct: boolean; from: number; to: number; held: boolean; inOrder: boolean }>(null);
   const [score, setScore] = useState({ perfect: 0, dishes: 0 });
   const tracked = useRef(false);
   const input = useRef<HTMLInputElement>(null);
@@ -62,6 +63,7 @@ export function Write({ pool, onExit }: { pool: Dish[]; onExit: () => void }) {
   const dish = queue[i];
   const cat = catOf(dish.category);
   const left = dish.ingredients.filter((x) => !found.includes(x));
+  const parts = partsOf(dish);
 
   const add = () => {
     const t = text.trim();
@@ -94,13 +96,15 @@ export function Write({ pool, onExit }: { pool: Dish[]; onExit: () => void }) {
   const finish = (f: string[], w: string[]) => {
     const missed = dish.ingredients.filter((x) => !f.includes(x));
     const correct = missed.length === 0 && w.length === 0;
-    const r = app.record(dish.id, correct, missed, correct ? 10 : 0, { extra: w, severity: missed.length + w.length > 1 ? 2 : 1, step: 2 });
+    const r = app.record(dish.id, { grade: correct ? 4 : 1, missed, xp: correct ? 10 : 0, extra: w, severity: missed.length + w.length > 1 ? 2 : 1, step: 2 });
+    // panini: scritti nell'ordine di montaggio, dal basso?
+    const inOrder = correct && !!dish.ordered && f.every((x, k) => dish.ingredients.indexOf(x) === k);
     if (correct) {
       sfx.ok(2);
       confetti(0.6);
     } else sfx.bad();
     setScore((s) => ({ perfect: s.perfect + (correct ? 1 : 0), dishes: s.dishes + 1 }));
-    setDone({ correct, from: r.prevBox, to: r.box, held: r.held });
+    setDone({ correct, from: r.prevBox, to: r.box, held: r.held, inOrder });
   };
 
   const next = () => {
@@ -128,11 +132,19 @@ export function Write({ pool, onExit }: { pool: Dish[]; onExit: () => void }) {
         <div className="write-count">
           {done ? (done.correct ? 'Tutto giusto!' : 'Ecco la ricetta completa') : `${found.length} di ${dish.ingredients.length} ingredienti`}
         </div>
-        <div className="chips">
-          {dish.ingredients.map((x, k) =>
-            found.includes(x) ? <Chip key={x + k} text={x} state="ok" /> : done ? <Chip key={x + k} text={x} state="miss" /> : <span key={x + k} className="slot-empty" aria-label="ingrediente da trovare">?</span>,
-          )}
-        </div>
+        {dish.ordered && <div className="muted sm"><Icon name="layers" size={14} /> Scrivili dal basso verso l'alto, come lo monti</div>}
+        {parts.map((p) => (
+          <div key={p.title ?? 'all'} className="rv-part">
+            {p.title && parts.length > 1 && <div className="rv-h">{p.title}</div>}
+            <div className={`chips ${dish.ordered ? 'stack' : ''}`}>
+              {p.items.map((x) => {
+                const k = dish.ingredients.indexOf(x);
+                const num = dish.ordered ? <b className="num">{k + 1}</b> : null;
+                return found.includes(x) ? <span key={x} className="chip-wrap">{num}<Chip text={x} state="ok" /></span> : done ? <span key={x} className="chip-wrap">{num}<Chip text={x} state="miss" /></span> : <span key={x} className="chip-wrap">{num}<span className="slot-empty" aria-label="ingrediente da trovare">?</span></span>;
+              })}
+            </div>
+          </div>
+        ))}
         {wrong.length > 0 && (
           <div className="chips">{wrong.map((x) => <Chip key={x} text={x} state="bad" />)}</div>
         )}
@@ -144,7 +156,7 @@ export function Write({ pool, onExit }: { pool: Dish[]; onExit: () => void }) {
             <Pips box={done.to} from={done.from} />
             <span>
               {done.correct
-                ? done.held ? 'Già fissato per oggi: torna domani per salire ancora.' : `Perfetto: +${done.to - done.from} tacche di memoria.`
+                ? `${done.held ? 'Già fissato per oggi: torna domani per salire ancora.' : `Perfetto: +${done.to - done.from} ${done.to - done.from === 1 ? 'fase' : 'fasi'} di memoria.`}${done.inOrder ? ' E nell\'ordine di montaggio!' : ''}`
                 : left.length ? `Ti mancava: ${left.map(cap).join(', ')}.` : 'Avevi messo anche ingredienti che non c\'entrano.'}
             </span>
           </div>

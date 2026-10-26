@@ -10,7 +10,8 @@ import { sfx, confetti } from '../lib/fx';
 import { catOf } from '../lib/data';
 import { cap } from '../lib/emoji';
 import { norm, similarDish } from '../lib/questions';
-import { Bar, Chip, DishBadge, Pips, TopBar } from '../components/ui';
+import { Bar, DishBadge, Pips, TopBar } from '../components/ui';
+import { Photo, RecipeView, Why } from '../components/Recipe';
 
 export function Learn({ pool, onExit }: { pool: Dish[]; onExit: () => void }) {
   const app = useApp();
@@ -64,8 +65,8 @@ export function Learn({ pool, onExit }: { pool: Dish[]; onExit: () => void }) {
   const sim = similarDish(dish, app.save.dishes);
   const rate = (knew: boolean) => {
     sfx[knew ? 'ok' : 'bad']();
-    // l'autovalutazione è meno affidabile di un ordine vero: non porta oltre la scatola 2
-    app.record(dish.id, knew, [], knew ? 3 : 0, { cap: 2, severity: 1 });
+    // l'autovalutazione è meno affidabile di un ordine vero: non porta oltre la fase 2 e per FSRS vale poco
+    app.record(dish.id, { grade: knew ? 3 : 1, cap: 2, severity: 1, weak: true, xp: knew ? 3 : 0 });
     setCards((c) => c + 1);
     if (knew) setKnown((k) => k + 1);
     else if (!retried.includes(dish.id)) {
@@ -97,10 +98,10 @@ export function Learn({ pool, onExit }: { pool: Dish[]; onExit: () => void }) {
           <div className="face back" style={{ borderColor: cat.color }}>
             <div className="face-name sm">{dish.name}</div>
             {flip && hasWebGL() && <DishViewer key={dish.id + i} items={dish.ingredients} cat={dish.category} />}
-            <div className="chips center">
-              {dish.ingredients.map((x, k) => <Chip key={x + k} text={x} state={weak.has(norm(x)) ? 'miss' : ''} delay={k * 60} />)}
-            </div>
+            <Photo id={dish.id} className="sm" />
+            <RecipeView dish={dish} state={(x) => (weak.has(norm(x)) ? 'miss' : '')} />
             {dish.ingredients.some((x) => weak.has(norm(x))) && <div className="muted sm">Tratteggiati: quelli che dimentichi più spesso</div>}
+            <Why dish={dish} />
             {sim && (
               <div className="sim">
                 <div className="sm"><Icon name="scale" size={15} /> Non confonderlo con <b>{sim.other.name}</b></div>

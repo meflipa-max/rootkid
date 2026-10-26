@@ -3,8 +3,10 @@ import { CAT_ING } from '../components/Icon';
 import { DishPic, Ing } from '../components/Ing';
 import { useApp } from '../store';
 import { CATEGORIES, catOf } from '../lib/data';
-import { accuracy, mastery, masteryColor, masteryLabel } from '../lib/mastery';
-import { Bar, Chip, Pips, RecipeChips, Ring } from '../components/ui';
+import { accuracy, freshness, isDusty, mastery, masteryColor, masteryLabel } from '../lib/mastery';
+import { realCount } from '../lib/real';
+import { RecipeView } from '../components/Recipe';
+import { Bar, Chip, Pips, Ring } from '../components/ui';
 
 export function Stats({ focus }: { focus: () => void }) {
   const { save } = useApp();
@@ -32,6 +34,14 @@ export function Stats({ focus }: { focus: () => void }) {
         </div>
       </section>
 
+      {(save.sure?.n ?? 0) >= 3 && (
+        <section className="card">
+          <div className="card-h">Quanto ti conosci</div>
+          <div className="sm">Quando dici <b>Sicuro!</b> hai ragione <b>{Math.round((save.sure!.ok / save.sure!.n) * 10)} volte su 10</b> ({save.sure!.ok}/{save.sure!.n}).</div>
+          <div className="muted sm">{save.sure!.ok / save.sure!.n >= 0.85 ? 'Ti conosci bene: quando sei sicuro, puoi fidarti.' : 'A volte sei sicuro e sbagli: sono gli errori che si ricordano meglio, ma vale la pena fermarsi un attimo in più.'}</div>
+        </section>
+      )}
+
       {weakest.length > 0 && (
         <section className="card warn">
           <div className="card-h">Dove sei più carente</div>
@@ -57,7 +67,7 @@ export function Stats({ focus }: { focus: () => void }) {
                   const st = save.stats[d.id];
                   const box = st?.seen ? st.box : -1;
                   return (
-                    <button key={d.id} className={`vt ${box < 0 ? 'locked' : box >= 5 ? 'gold' : box >= 3 ? 'warm' : 'cold'}`} onClick={() => { setOpen(d.id); setTimeout(() => document.querySelector(`[data-dish="${d.id}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50); }}>
+                    <button key={d.id} className={`vt ${box < 0 ? 'locked' : box >= 5 ? 'gold' : box >= 3 ? 'warm' : 'cold'} ${isDusty(st) ? 'dusty' : ''}`} onClick={() => { setOpen(d.id); setTimeout(() => document.querySelector(`[data-dish="${d.id}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50); }}>
                       <DishPic dish={d} />
                       <span className="vt-n">{box < 0 ? '???' : d.name}</span>
                       {box >= 0 && <Pips box={box} size={6} />}
@@ -69,7 +79,7 @@ export function Stats({ focus }: { focus: () => void }) {
             </div>
           );
         })}
-        <div className="muted sm">I piatti mai serviti sono sagome: servili per sbloccarli, portali a 5 tacche per la cornice d'oro.</div>
+        <div className="muted sm">I piatti mai serviti sono sagome: servili per sbloccarli, portali alla fase Oro per la cornice d'oro. Quelli impolverati sono da rinfrescare: basta un ripasso.</div>
       </section>
 
       <h3 className="h3">Per categoria</h3>
@@ -103,7 +113,9 @@ export function Stats({ focus }: { focus: () => void }) {
               {open === d.id && (
                 <div className="dr-more">
                   <div className="muted sm">{s?.seen ? `${s.correct}/${s.seen} risposte giuste · serie attuale ${s.streak}` : 'Non ancora provato'}</div>
-                  <RecipeChips dish={d} />
+                  {s?.fs && <div className="muted sm">Freschezza: <b>{Math.round(freshness(s) * 100)}%</b> di probabilità di ricordarlo adesso{isDusty(s) ? ' · da rinfrescare' : ''}</div>}
+                  {realCount(save, d.id) > 0 && <div className="muted sm">Fatto al lavoro in <b>{realCount(save, d.id)}</b> {realCount(save, d.id) === 1 ? 'giorno' : 'giorni'}</div>}
+                  <RecipeView dish={d} />
                   {Object.keys(s?.confused ?? {}).length > 0 && (
                     <div className="muted sm">Lo confondi con: <b>{Object.entries(s!.confused!).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k]) => k).join(', ')}</b></div>
                   )}
