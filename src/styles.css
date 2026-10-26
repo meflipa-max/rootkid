@@ -627,3 +627,11 @@ html[data-text="3"] .station-grid { grid-template-columns: repeat(3, 1fr); }
 .vt.dusty::after { content: ''; position: absolute; inset: 0; border-radius: inherit; background: radial-gradient(circle at 30% 30%, #ffffff55 0 2px, transparent 3px) 0 0 / 11px 13px, radial-gradient(circle at 70% 60%, #ffffff44 0 1.5px, transparent 2.5px) 0 0 / 9px 10px; pointer-events: none; }
 .face.back .recipe-view { align-items: center; width: 100%; }
 .face.back .recipe-view .chips { justify-content: center; }
+
+/* condividi il gioco */
+.share { display: flex; flex-direction: column; gap: 10px; }
+.share-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.share-btns .btn { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; }
+.btn.wa { background: #25d366; color: #fff; }
+.link-btn { background: none; border: none; color: var(--ink2); text-decoration: underline; font-size: 0.9375rem; min-height: 44px; }
+html[data-text="3"] .share-btns { grid-template-columns: 1fr; }

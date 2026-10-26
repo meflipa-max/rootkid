@@ -10,6 +10,7 @@ import { cap } from '../lib/emoji';
 import { Ing } from '../components/Ing';
 import { TextSize } from '../components/Welcome';
 import { InstallCard } from '../components/Install';
+import { ShareCard } from '../components/Share';
 import { useHoldUpdate } from '../lib/pwa';
 
 const slug = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'piatto';
@@ -232,6 +233,7 @@ export function Settings() {
       </section>
 
       <InstallCard where="settings" />
+      <ShareCard />
 
       <section className="card">
         <label className="toggle"><span><Icon name="sound" /> Suoni</span><input type="checkbox" checked={settings.sound} onChange={(e) => app.setSettings({ sound: e.target.checked })} /></label>

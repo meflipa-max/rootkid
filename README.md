@@ -8,6 +8,9 @@ Gioco mobile-first per memorizzare le ricette della pizzeria (hamburger, insalat
 - **Ritmo tranquillo**: clienti pazienti quasi il doppio, arrivi più distanziati, niente fretta che cresce col livello.
 - **Come si gioca**: nei primi 3 turni il locale apre solo dopo aver letto le istruzioni in 4 passi.
 
+## Condividi
+- **Fai giocare i colleghi** (in home e nelle Impostazioni, `components/Share.tsx`): WhatsApp con un messaggio già pronto, il menu di condivisione del telefono (se c'è) e "Copia il link".
+
 ## App installabile (PWA)
 - `vite-plugin-pwa` genera manifest e service worker: il gioco funziona anche offline (modelli e font in cache).
 - **Installazione** (`src/lib/pwa.ts`, `src/components/Install.tsx`): su Chrome/Android il pulsante "Installa il gioco" usa `beforeinstallprompt`; su iPhone/iPad mostra i passi da Safari. L'invito sta in home (con "Non ora" che lo rimanda di 3 giorni) e sempre nelle Impostazioni.

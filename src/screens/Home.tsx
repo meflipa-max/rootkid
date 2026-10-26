@@ -19,6 +19,7 @@ import { cap } from '../lib/emoji';
 import { hasWebGL } from '../three/thumbs';
 import { ChefPreview, Diorama } from '../three/Diorama';
 import { InstallCard } from '../components/Install';
+import { ShareCard } from '../components/Share';
 
 export type Mode = 'game' | 'focus' | 'learn' | 'write' | 'imagine' | 'sabato' | 'warmup' | 'yesterday';
 
@@ -380,6 +381,7 @@ export function Home({ cat, setCat, start }: { cat: Category | 'all'; setCat: (c
         {dusty > 0 && <div className="note dust"><Icon name="sparkle" size={16} /><span>{dusty} {dusty === 1 ? 'piatto a memoria si sta' : 'piatti a memoria si stanno'} impolverando: un ripasso e tornano a brillare</span></div>}
         <div className="muted sm">Un piatto è tuo quando lo servi a memoria in giorni diversi: la ripetizione distanziata lo fissa per sempre. Scriverlo a memoria nel Ricettario vale doppio.</div>
       </section>
+      <ShareCard compact />
       {shop && <Shop onClose={() => setShop(false)} />}
       {deck && <Deck onPick={(m, p) => { setDeck(false); start(m, p); }} onClose={() => setDeck(false)} />}
       {build !== false && <Build focus={build} onClose={() => setBuild(false)} />}
