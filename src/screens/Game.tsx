@@ -59,6 +59,13 @@ const gestureOf = (ing: string, cat: string): 'spread' | 'sprinkle' | null => {
   return null;
 };
 
+/** panino giusto ma montato in un altro ordine: dove va il primo strato fuori posto */
+function orderNote(target: string[], plate: string[]) {
+  const i = target.findIndex((x, k) => norm(plate[k] ?? '') !== norm(x));
+  if (i < 0) return '';
+  return i === 0 ? `Al banco si parte da ${target[0]}, sul pane di sotto` : `Al banco ${target[i]} va sopra ${target[i - 1]}`;
+}
+
 const initial = (maxLives: number, howto: boolean): G => ({
   phase: 'intro', customers: [], spawned: 0, nextSpawn: 900, selected: null, score: 0, coins: 0, combo: 0, bestCombo: 0, fever: false,
   lives: maxLives, maxLives, served: 0, overlay: null, paused: false, pops: [], toast: null, pose: 'idle', poseT: 0, shake: 0,
@@ -313,7 +320,10 @@ function Shift({ pool, title, total = 8, coinMult = 1, onExit, again }: GameProp
     let n: G = { ...g0, ring: null };
     n = track(n, d.id, d.name, r.prevBox, r.box, r.held);
     // la fase che sale si vede subito
-    if (r.box > r.prevBox) n = addPop(n, `${d.name} → ${PHASES[r.box]}`, 'phase', c.slot);
+    if (r.box > r.prevBox) {
+      n = addPop(n, `${d.name} → ${PHASES[r.box]}`, 'phase', c.slot);
+      if (!r.gold && !r.recovered && !r.firstMem && !r.leveledUp) setTimeout(() => sfx.phase(), 380);
+    }
     // momenti-trofeo: rari, e valgono monete
     let trophyCoins = 0;
     if (r.gold) {
@@ -382,6 +392,7 @@ function Shift({ pool, title, total = 8, coinMult = 1, onExit, again }: GameProp
     const hype = v?.orderOk ? 'Montato come al banco!' : c.sure ? 'Sicuro, e giusto!' : c.vip ? `VIP +${coins}` : c.tag === 'rivincita' ? 'Riscatto!' : c.tag === 'gemello' ? 'Li distingui!' : c.kind === 'check' ? 'Occhio da capo!' : c.kind === 'guess' ? 'Indovinato!' : nextDish ? `${c.part}/${c.parts} servito!` : memory && c.hint === 'none' ? 'A memoria!' : frac > 0.6 ? 'Veloce!' : 'Perfetto!';
     n = addPop(n, hype, c.vip ? 'vip' : 'hype', c.slot);
     if (v?.ovenWrong.length) n = addPop(n, `${cap(v.ovenWrong[0].ing)}: ${v.ovenWrong[0].after ? 'va all\'uscita' : 'va in forno'}`, 'bad', c.slot);
+    else if (v?.orderOk === false) n = { ...n, toast: n.toast ?? { text: 'Giusto, ma…', sub: orderNote(target, c.plate), t: 2200 } };
     else if (tip) n = addPop(n, `+${tip} mancia`, 'tip', c.slot);
     else if (combo >= 3) n = addPop(n, `Combo ×${combo}`, 'combo', c.slot);
     commit(n);

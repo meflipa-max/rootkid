@@ -103,6 +103,10 @@ Fasi (tacche): 0 Nuovo · 1 Riconosci · 2 Ricorda · 3 A memoria · 4 Distingui
 Tutti i passi sono fatti e provati nel browser (2D e 3D, con un bot che gioca turni interi giusti e sbagliati,
 un salvataggio "avanzato" per gli sblocchi, e controlli diretti su giudizio del piatto e FSRS).
 
+Controllo finale contro tutta la conversazione: mancavano il suono della fase che sale e la nota "al banco va così"
+per i panini giusti ma montati in un altro ordine; aggiunti. In più: pulsante per condividere il gioco
+(WhatsApp, menu del telefono, copia link) in home e nelle Impostazioni.
+
 Da fare con l'utente, non nel codice:
 - **Controllare le bozze** (Impostazioni → Ricette, piatti con l'icona a strati): ordine dei panini e uscita dal forno.
 - Sistemare **la propria postazione** (Impostazioni → La tua postazione).
@@ -119,6 +123,6 @@ Idee rimaste fuori (possibili passi futuri): classifica fra colleghi (serve un s
 - Ricetta "come al lavoro" (base rossa, forno/uscita, strati): `components/Recipe.tsx`.
 
 ## Note per chi riprende
-- Branch di lavoro della sessione cloud: `ccr-cc268492-2dm3k4` (CLAUDE.md dice `main`: unire a fine lavoro).
+- Lavoro fatto sul branch `ccr-cc268492-2dm3k4` della sessione cloud e unito in `main` il 26 ottobre 2026.
 - Il salvataggio resta `v: 1`; i campi nuovi sono facoltativi e la migrazione è in `store.tsx`
   (`MENU_VERSION` per le ricette).

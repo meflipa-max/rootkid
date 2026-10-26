@@ -80,6 +80,11 @@ export const sfx = {
     if (flags.sound) [523, 659, 784, 1047, 1319, 1568].forEach((f, i) => tone(f, i * 0.05, 0.18, 'square', 0.05));
     vib([20, 20, 20, 20, 60]);
   },
+  /** il piatto sale di fase: tre note che salgono, più leggere del livello */
+  phase() {
+    if (flags.sound) [659, 880, 1175].forEach((f, i) => tone(f, i * 0.07, 0.2, 'sine', 0.12));
+    vib([15, 30, 25]);
+  },
   level() {
     if (flags.sound) [392, 523, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.09, 0.35, 'triangle', 0.14));
     vib([40, 30, 40, 30, 120]);
