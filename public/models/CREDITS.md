@@ -44,10 +44,12 @@ Se aggiungi un pacchetto, mettilo nella tabella qui sopra.
 ## Giuseppe (il cuoco)
 
 `characters/giuseppe.glb` è fatto in Blender a partire da `character-male-a.glb` (stesso scheletro,
-quindi usa le stesse animazioni): berretto girato, occhiali, faccia dipinta con barba e baffi,
-maglietta bianca e pantaloni a quadretti. Per rigenerarlo:
+quindi usa le stesse animazioni): berretto girato all'indietro (calotta aderente, cuciture, visiera dietro,
+fascetta a bottoncini sulla fronte), occhiali, barba e baffi in 3D, maglietta bianca e pantaloni a quadretti.
+Per rigenerarlo:
 
-    blender -b --python tools/giuseppe.py -- public/models/characters/character-male-a.glb public/models/characters/giuseppe.glb [anteprima.png]
+    blender -b --python tools/giuseppe.py -- public/models/characters/character-male-a.glb giuseppe.raw.glb
+    node tools/pack-ingredients.mjs giuseppe.raw.glb public/models/characters/giuseppe.glb --solo-quantize
 
 
 ## Ingredienti (Blender)
