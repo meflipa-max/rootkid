@@ -190,12 +190,13 @@ Peso: `ingredients.glb` circa 850 kB (meshopt), si scarica una volta e resta in 
 - [x] Con più categorie, i piatti nuovi arrivano a rotazione fra le categorie.
 
 ### B — Costruzione e 3D
-- [ ] Divise del Guardaroba applicate a Giuseppe (berretto e maglietta; "Classico" = Giuseppe vero).
-- [ ] Momento dell'acquisto: la camera vola sull'oggetto, coriandoli, applauso, cosa cambia.
-- [ ] Obiettivo sempre in vista: "Prossimo: … mancano N monete" con la barra; a fine turno le monete ci volano dentro.
+- [x] Divise del Guardaroba applicate a Giuseppe (berretto e maglietta; "Classico" = Giuseppe vero).
+- [x] Momento dell'acquisto: la camera vola sull'oggetto, coriandoli, applauso, cosa cambia. (`Fly` in `Diorama.tsx`, `bought` in Home)
+- [x] Obiettivo sempre in vista: "Prossimo: … mancano N monete" con la barra; a fine turno le monete ci volano dentro.
+  (`goalOf` in `build.ts`, `GoalCard` in Home, `EndGoal` in GameParts; "Punta" nel foglio Costruisci = `save.goal`)
 - [ ] Il locale cresce con la memoria: angoli dei banchi che si accendono coi piatti a memoria, parete dei piatti d'oro
       (si impolverano se da ripassare).
 - [ ] Migliorie che si vedono nel turno (tavolini = clienti seduti e mance, insegna = più VIP, forno = pizza perfetta, atmosfera).
 - [ ] Stelle del locale (1–5) con sblocchi; il critico gastronomico.
-- [ ] Sorprese: il fornitore con pezzi rari, offerta del giorno, set da completare.
+- [ ] Sorprese: il fornitore con pezzi rari, set da completare. (Offerta del giorno fatta: `dealOf`/`priceOf`, una al giorno, −30%, `save.dealUsed`.)
 - [ ] Arredi di stagione e rinnovo del locale.

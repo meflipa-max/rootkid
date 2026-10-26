@@ -122,4 +122,8 @@ export interface Save {
   aliases?: Record<string, string>;
   /** puntate "Sicuro!": quante e quante giuste */
   sure?: { n: number; ok: number };
+  /** la miglioria a cui punti (scelta da te nel foglio Costruisci) */
+  goal?: string;
+  /** giorno in cui hai già usato l'offerta del giorno */
+  dealUsed?: string;
 }

@@ -29,3 +29,38 @@ export const lvlOf = (b: Record<string, number> | undefined, id: string) => b?.[
 
 export const totalBuilt = (b: Record<string, number>) => UPGRADES.reduce((a, u) => a + lvlOf(b, u.id), 0);
 export const totalMax = UPGRADES.reduce((a, u) => a + u.max, 0);
+
+/** sconto dell'offerta del giorno */
+export const DEAL_OFF = 0.3;
+
+/**
+ * Offerta del giorno: una miglioria a -30%, la stessa per tutto il giorno (dipende solo dalla data).
+ * Una sola volta al giorno e senza conto alla rovescia: domani ce n'è un'altra, nessuna fretta.
+ */
+export function dealOf(date: string, build: Record<string, number>, used?: string): string | null {
+  if (used === date) return null;
+  let h = 0;
+  for (let i = 0; i < date.length; i++) h = (h * 31 + date.charCodeAt(i)) | 0;
+  const start = Math.abs(h) % UPGRADES.length;
+  for (let k = 0; k < UPGRADES.length; k++) {
+    const u = UPGRADES[(start + k) % UPGRADES.length];
+    if (lvlOf(build, u.id) < u.max) return u.id;
+  }
+  return null;
+}
+
+/** quanto costa davvero adesso, offerta compresa */
+export const priceOf = (u: Upgrade, lvl: number, deal: string | null) => (deal === u.id ? Math.round(upgradeCost(u, lvl) * (1 - DEAL_OFF)) : upgradeCost(u, lvl));
+
+/** il prossimo obiettivo: quello che hai scelto tu, se no la miglioria più vicina */
+export function goalOf(build: Record<string, number>, pinned: string | undefined, deal: string | null): { u: Upgrade; cost: number; pinned: boolean } | null {
+  const open = UPGRADES.filter((u) => lvlOf(build, u.id) < u.max);
+  const p = open.find((u) => u.id === pinned);
+  if (p) return { u: p, cost: priceOf(p, lvlOf(build, p.id), deal), pinned: true };
+  let best: { u: Upgrade; cost: number; pinned: boolean } | null = null;
+  for (const u of open) {
+    const cost = priceOf(u, lvlOf(build, u.id), deal);
+    if (!best || cost < best.cost) best = { u, cost, pinned: false };
+  }
+  return best;
+}

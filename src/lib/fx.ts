@@ -144,7 +144,7 @@ export function confetti(power = 1) {
   requestAnimationFrame(tick);
 }
 
-const reduced = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+export const reduced = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
 /** scintille che esplodono da un punto dello schermo */
 export function burst(x: number, y: number, power = 1, colors = COLORS) {

@@ -10,7 +10,7 @@ import { Bar, Ring } from '../components/ui';
 import { burst, centerOf, confetti, flyCoins, sfx } from '../lib/fx';
 import { CHEF_LOOK, Person } from '../components/Person';
 import { SKINS } from '../lib/skins';
-import { UPGRADES, lvlOf, totalBuilt, totalMax, upgradeCost } from '../lib/build';
+import { DEAL_OFF, UPGRADES, dealOf, goalOf, lvlOf, priceOf, totalBuilt, totalMax, upgradeCost, type Upgrade } from '../lib/build';
 import { Awning, Scene } from '../components/Scene';
 import { currentDaily, missionById, progressOf, type Mission } from '../lib/missions';
 import { CAT_ING, Coin, Icon, MISSION_ICON, UPGRADE_ICON } from '../components/Icon';
@@ -107,26 +107,41 @@ function Deck({ onPick, onClose }: { onPick: (mode: 'learn' | 'write' | 'imagine
 }
 
 /** foglio basso: il diorama resta visibile sopra, così vedi comparire l'oggetto che compri */
-function Build({ focus, onClose }: { focus: string | null; onClose: () => void }) {
+function Build({ focus, onClose, onBought }: { focus: string | null; onClose: () => void; onBought: (u: Upgrade, lvl: number) => void }) {
   const app = useApp();
   const { coins, build } = app.save;
+  const deal = dealOf(today(), build, app.save.dealUsed);
+  const goal = goalOf(build, app.save.goal, deal);
   const list = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (focus) list.current?.querySelector(`[data-up="${focus}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
   }, [focus]);
+  const buy = (u: Upgrade) => {
+    const lvl = lvlOf(build, u.id);
+    if (app.upgrade(u.id)) onBought(u, lvl + 1);
+  };
+  const pin = (u: Upgrade) => {
+    sfx.tap();
+    app.setGoal(app.save.goal === u.id ? undefined : u.id);
+  };
+  // l'offerta in cima, poi l'ordine di sempre
+  const rows = [...UPGRADES].sort((a, b) => +(b.id === deal) - +(a.id === deal));
   return (
     <div className="modal half" onClick={onClose}>
       <div className="modal-in" onClick={(e) => e.stopPropagation()} ref={list}>
         <div className="row-between"><h3>Il tuo locale</h3><span className="coins-big"><Coin /> {coins}</span></div>
         <Bar value={totalBuilt(build) / totalMax} color="#c65a3c" h={10} />
-        {UPGRADES.map((u) => {
+        {rows.map((u) => {
           const lvl = lvlOf(build, u.id);
           const maxed = lvl >= u.max;
-          const cost = upgradeCost(u, lvl);
+          const cost = priceOf(u, lvl, deal);
+          const isDeal = deal === u.id && !maxed;
+          const isGoal = goal?.u.id === u.id && goal.pinned;
           return (
-            <div key={u.id} data-up={u.id} className={`skin-row ${focus === u.id ? 'on' : ''}`}>
+            <div key={u.id} data-up={u.id} className={`skin-row ${focus === u.id ? 'on' : ''} ${isDeal ? 'deal' : ''}`}>
               <div className="up-e"><Icon name={UPGRADE_ICON[u.id]} size={22} /></div>
               <div style={{ flex: 1 }}>
+                {isDeal && <div className="deal-tag">Offerta di oggi −{Math.round(DEAL_OFF * 100)}%</div>}
                 <div className="nm">{u.name} <span className="muted sm">Lv {lvl}/{u.max}</span></div>
                 {/* le decorazioni dicono la stessa cosa a ogni livello: niente confronto */}
                 {maxed || u.desc(1) === u.desc(2) ? (
@@ -141,7 +156,16 @@ function Build({ focus, onClose }: { focus: string | null; onClose: () => void }
                 )}
               </div>
               {maxed ? <span className="badge max">MAX</span> : (
-                <button className="btn primary sm" disabled={coins < cost} onClick={() => { if (app.upgrade(u.id)) sfx.win(); }}><Coin size={15} /> {cost}</button>
+                <div className="up-act">
+                  <button className="btn primary sm" disabled={coins < cost} onClick={() => buy(u)}>
+                    <Coin size={15} /> {isDeal && <s>{upgradeCost(u, lvl)}</s>} {cost}
+                  </button>
+                  {coins < cost && (
+                    <button className={`pin ${isGoal ? 'on' : ''}`} onClick={() => pin(u)} aria-pressed={isGoal}>
+                      <Icon name="target" size={14} /> {isGoal ? 'Obiettivo' : 'Punta'}
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           );
@@ -149,6 +173,31 @@ function Build({ focus, onClose }: { focus: string | null; onClose: () => void }
         <button className="btn ghost wide" onClick={onClose}>Chiudi</button>
       </div>
     </div>
+  );
+}
+
+/** il prossimo acquisto sempre in vista: quante monete mancano, e quando ci sei il pulsante che chiama */
+export function GoalCard({ onOpen }: { onOpen: (id: string) => void }) {
+  const { save } = useApp();
+  const deal = dealOf(today(), save.build, save.dealUsed);
+  const goal = goalOf(save.build, save.goal, deal);
+  if (!goal) return null;
+  const { u, cost } = goal;
+  const lvl = lvlOf(save.build, u.id);
+  const ready = save.coins >= cost;
+  return (
+    <button className={`card goal-card ${ready ? 'ready' : ''}`} onClick={() => onOpen(u.id)}>
+      <span className="up-e"><Icon name={UPGRADE_ICON[u.id]} size={22} /></span>
+      <span className="goal-b">
+        <span className="goal-t">
+          {goal.pinned ? <Icon name="target" size={14} /> : null} <b>{u.name}</b> {lvl > 0 && <small className="muted">Lv {lvl + 1}</small>}
+          {deal === u.id && <span className="deal-tag sm">−{Math.round(DEAL_OFF * 100)}% oggi</span>}
+        </span>
+        <Bar value={Math.min(1, save.coins / cost)} color={ready ? '#6f9a6a' : '#e3a83a'} h={8} />
+        <small className="muted">{ready ? 'Ce l\'hai fatta: costruiscilo!' : `Mancano ${cost - save.coins} monete`}</small>
+      </span>
+      {ready ? <span className="btn primary sm goal-go">Costruisci!</span> : <span className="goal-n"><Coin size={15} /> {cost}</span>}
+    </button>
   );
 }
 
@@ -207,6 +256,8 @@ export function Home({ cat, setCat, start }: { cat: Category | 'all'; setCat: (c
   const [shop, setShop] = useState(false);
   const [deck, setDeck] = useState(false);
   const [build, setBuild] = useState<string | null | false>(false);
+  const [show, setShow] = useState<{ id: string; n: number }>();
+  const [news, setNews] = useState<{ title: string; text: string; n: number } | null>(null);
   const [chest, setChest] = useState<number | null>(null);
   const [real, setReal] = useState(false);
   const lvl = levelOf(save.xp);
@@ -241,6 +292,19 @@ export function Home({ cat, setCat, start }: { cat: Category | 'all'; setCat: (c
     window.scrollTo({ top: 0, behavior: 'smooth' });
     setBuild(id);
   };
+  // la cerimonia: festa nel locale, la camera va sull'oggetto, e due parole su cosa cambia
+  const bought = (u: Upgrade, lvl: number) => {
+    sfx.win();
+    confetti(lvl >= u.max ? 1.3 : 0.8);
+    const n = Date.now();
+    setShow({ id: u.id, n });
+    setNews({ title: lvl >= u.max ? `${u.name} al massimo!` : lvl === 1 ? `${u.name}!` : `${u.name} · livello ${lvl}`, text: u.desc(lvl), n });
+  };
+  useEffect(() => {
+    if (!news) return;
+    const t = setTimeout(() => setNews(null), 3400);
+    return () => clearTimeout(t);
+  }, [news]);
   const claim = (m: Mission, el: HTMLElement) => {
     const got = app.claim(m.id);
     if (!got) return;
@@ -278,7 +342,8 @@ export function Home({ cat, setCat, start }: { cat: Category | 'all'; setCat: (c
                 build={save.build}
                 skin={skin}
                 onPick={(id) => openBuild(id)}
-                ghosts={UPGRADES.filter((u) => lvlOf(save.build, u.id) === 0).map((u) => ({ id: u.id, can: save.coins >= upgradeCost(u, 0) }))}
+                ghosts={UPGRADES.filter((u) => lvlOf(save.build, u.id) === 0).map((u) => ({ id: u.id, can: save.coins >= priceOf(u, 0, dealOf(today(), save.build, save.dealUsed)) }))}
+                show={show}
               />
               <span className="diorama-hint">Trascina per girare · tocca un oggetto per migliorarlo</span>
             </>
@@ -289,8 +354,11 @@ export function Home({ cat, setCat, start }: { cat: Category | 'all'; setCat: (c
               <div className="hero-chef"><Person look={CHEF_LOOK} chef={skin} mood="happy" pose="idle" /></div>
             </div>
           )}
+          {news && <div className="build-news" key={news.n}><b>{news.title}</b><span>{news.text}</span></div>}
         </div>
       </header>
+
+      <GoalCard onOpen={openBuild} />
 
       <section className="card lvl-card">
         <div className="lvl-badge"><span>{lvl}</span></div>
@@ -398,7 +466,7 @@ export function Home({ cat, setCat, start }: { cat: Category | 'all'; setCat: (c
       <ShareCard compact />
       {shop && <Shop onClose={() => setShop(false)} />}
       {deck && <Deck onPick={(m, p) => { setDeck(false); start(m, p); }} onClose={() => setDeck(false)} />}
-      {build !== false && <Build focus={build} onClose={() => setBuild(false)} />}
+      {build !== false && <Build focus={build} onClose={() => setBuild(false)} onBought={bought} />}
       {real && <RealLog onClose={() => setReal(false)} />}
     </div>
   );

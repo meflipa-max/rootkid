@@ -10,12 +10,15 @@ import { unlocksAt } from '../lib/levels';
 import { catOf } from '../lib/data';
 import { cap } from '../lib/emoji';
 import { DishPic, Ing } from '../components/Ing';
-import { Chip, Pips, useCountUp } from '../components/ui';
+import { Bar, Chip, Pips, useCountUp } from '../components/ui';
 import { Coin, Icon } from '../components/Icon';
 import { Photo, RecipeView, Why } from '../components/Recipe';
 import { DishViewer } from '../three/DishViewer';
 import { hasWebGL } from '../three/thumbs';
-import { confetti, sfx } from '../lib/fx';
+import { centerOf, confetti, flyCoins, sfx } from '../lib/fx';
+import { dealOf, goalOf, lvlOf } from '../lib/build';
+import { today } from '../lib/missions';
+import { UPGRADE_ICON } from '../components/Icon';
 import { currentDaily, missionById, progressOf, type Mission } from '../lib/missions';
 import type { Look } from '../components/Person';
 
@@ -233,6 +236,35 @@ export function GesturePad({ ing, kind, onDone, onCancel }: { ing: string; kind:
   );
 }
 
+/** a fine turno le monete guadagnate volano nella barra del prossimo acquisto: vedi a cosa servono */
+function EndGoal({ before, delay }: { before: number; delay: number }) {
+  const { save } = useApp();
+  const goal = goalOf(save.build, save.goal, dealOf(today(), save.build, save.dealUsed));
+  const [filled, setFilled] = useState(false);
+  const bar = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const t = setTimeout(() => {
+      flyCoins(centerOf(document.querySelector('.end-coins')), bar.current, 8);
+      setTimeout(() => setFilled(true), 500);
+    }, delay);
+    return () => clearTimeout(t);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!goal || save.coins <= before) return null;
+  const { u, cost } = goal;
+  const now = filled ? save.coins : before;
+  const ready = filled && save.coins >= cost;
+  return (
+    <div className={`card goal-card end-goal ${ready ? 'ready' : ''}`}>
+      <span className="up-e"><Icon name={UPGRADE_ICON[u.id]} size={22} /></span>
+      <span className="goal-b">
+        <span className="goal-t"><b>{u.name}</b> {lvlOf(save.build, u.id) > 0 && <small className="muted">Lv {lvlOf(save.build, u.id) + 1}</small>}</span>
+        <div ref={bar}><Bar value={Math.min(1, now / cost)} color={ready ? '#6f9a6a' : '#e3a83a'} h={8} /></div>
+        <small className="muted">{ready ? 'Puoi costruirlo: lo trovi in home!' : `Mancano ${Math.max(0, cost - now)} monete`}</small>
+      </span>
+    </div>
+  );
+}
+
 export function End({ g, title, total, start, again, onExit }: { g: G; title: string; total: number; start: Daily; again: () => void; onExit: () => void }) {
   const app = useApp();
   const failed = g.lives <= 0;
@@ -242,6 +274,7 @@ export function End({ g, title, total, start, again, onExit }: { g: G; title: st
   const [done, setDone] = useState<Mission[]>([]);
   const [chest, setChest] = useState<{ coins: number; levels: number[] } | null>(null);
   const startLvl = useRef(levelOf(app.save.xp));
+  const coinsBefore = useRef(app.save.coins);
   const reported = useRef(false);
   const score = useCountUp(g.score, 1100, 250 + stars * 280);
   const coins = useCountUp(g.coins + bonusCoins, 900, 600 + stars * 280);
@@ -298,8 +331,9 @@ export function End({ g, title, total, start, again, onExit }: { g: G; title: st
       <div className="stat-row">
         <div className="stat"><b>{g.served}/{total}</b><span>Serviti</span></div>
         <div className="stat"><b>x{g.bestCombo}</b><span>Combo</span></div>
-        <div className="stat"><b><Coin size={20} /> {coins}</b><span>{stars ? `+${bonusCoins} stelle` : 'Monete'}{g.tally.tips ? ` · ${g.tally.tips} mance` : ''}</span></div>
+        <div className="stat end-coins"><b><Coin size={20} /> {coins}</b><span>{stars ? `+${bonusCoins} stelle` : 'Monete'}{g.tally.tips ? ` · ${g.tally.tips} mance` : ''}</span></div>
       </div>
+      <EndGoal before={coinsBefore.current} delay={1700 + stars * 280} />
       {chest && (
         <div className="card chest-card">
           <div className="card-h"><Icon name="gift" /> Forziere {chest.levels.length > 1 ? 'dei livelli' : `del livello ${chest.levels[0]}`}: +{chest.coins} <Coin size={16} /></div>

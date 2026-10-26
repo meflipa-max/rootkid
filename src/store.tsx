@@ -7,7 +7,7 @@ import { aliasList, aliasName, setUserAliases } from './lib/aliases';
 import { DEFAULT_DISHES, ING_ALIASES, MENU_VERSION, OLD_DEFAULTS } from './lib/data';
 import { emptyStat, isDue, levelOf, ripe } from './lib/mastery';
 import { setFx } from './lib/fx';
-import { UPGRADES, lvlOf, upgradeCost } from './lib/build';
+import { UPGRADES, dealOf, lvlOf, priceOf } from './lib/build';
 import { currentDaily, missionById, progressOf } from './lib/missions';
 
 const KEY = 'pizzamaster-v1';
@@ -169,6 +169,7 @@ interface Ctx {
   buySkin(id: string, cost: number): boolean;
   selectSkin(id: string): void;
   upgrade(id: string): boolean;
+  setGoal(id: string | undefined): void;
   saveDish(d: Dish): void;
   deleteDish(id: string): void;
   resetRecipes(): void;
@@ -419,10 +420,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const u = UPGRADES.find((x) => x.id === id);
         if (!u) return false;
         const lvl = lvlOf(s.build, id);
-        const cost = upgradeCost(u, lvl);
+        const day = new Date().toLocaleDateString('sv');
+        const deal = dealOf(day, s.build, s.dealUsed);
+        const cost = priceOf(u, lvl, deal);
         if (lvl >= u.max || s.coins < cost) return false;
-        commit({ ...s, coins: s.coins - cost, build: { ...s.build, [id]: lvl + 1 } });
+        // l'obiettivo raggiunto al massimo si libera: il prossimo lo sceglie il gioco (o tu)
+        const goal = s.goal === id && lvl + 1 >= u.max ? undefined : s.goal;
+        commit({ ...s, coins: s.coins - cost, build: { ...s.build, [id]: lvl + 1 }, goal, dealUsed: deal === id ? day : s.dealUsed });
         return true;
+      },
+      setGoal(id) {
+        commit({ ...ref.current, goal: id });
       },
       selectSkin(id) {
         if (ref.current.skins.includes(id)) commit({ ...ref.current, skin: id });
