@@ -120,6 +120,8 @@ Piano e stato in **`PIANO.md`**. In breve:
   `Diorama show={{id, n}}` fa volare la camera (`Fly`, punti in `SPOTS`/`GROWTH_SPOTS`) e fa esultare cuoco e cliente.
 - **Il locale cresce solo con la memoria** (`lib/growth.ts` → `three/Growth.tsx`): angoli dei banchi con grado 0–4 dai piatti
   in fase ≥ 3, parete dei piatti d'oro (fase 5). Non si comprano. `save.seenGrowth` = ultimo stato visto, per la festa.
+- **Stelle del locale** (`lib/stars.ts`): servono migliorie *e* piatti a memoria dei miei banchi. Effetti nel turno
+  (`tipChance`, `tipExtra`, `vipChance`, `criticReward`): solo monete e comodità. Il critico (`Cust.critic`) da 3★.
 - Le divise colorano i materiali di Giuseppe per nome (`berretto`, `maglietta`, `logo`, `cuciture`; Blender aggiunge `.001`).
 - Nel browser di prova senza scheda video i fotogrammi sono lentissimi: per vedere la camera della festa allungare per
   un momento `HOLD` in `Diorama.tsx`.

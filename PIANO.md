@@ -198,7 +198,10 @@ Peso: `ingredients.glb` circa 850 kB (meshopt), si scarica una volta e resta in 
   loro ingredienti che si riempiono coi piatti a memoria (d'oro quando sono tutti), posto segnato a terra per i miei banchi
   ancora vuoti, parete dei piatti d'oro (impolverati quando sono da ripassare), festa con la camera quando cambia qualcosa
   (`lib/growth.ts`, `three/Growth.tsx`, `save.seenGrowth`), legenda toccabile sotto il diorama.
-- [ ] Migliorie che si vedono nel turno (tavolini = clienti seduti e mance, insegna = più VIP, forno = pizza perfetta, atmosfera).
-- [ ] Stelle del locale (1–5) con sblocchi; il critico gastronomico.
+- [x] Migliorie che si vedono nel turno (tavolini = mance più ricche, insegna = più VIP, forno = "cotta giusta" +monete,
+  piante/quadri/luci = mance più frequenti). Funzioni in `lib/stars.ts`, descrizioni in `build.ts`.
+- [x] Stelle del locale (1–5) con sblocchi; il critico gastronomico. Le stelle vogliono migliorie **e** piatti a memoria
+  (`STARS` in `lib/stars.ts`); si vedono in Home, nel foglio Costruisci e sull'insegna; festa quando salgono. Il critico
+  (da 3★, una volta per turno, solo piatti già a memoria) paga bene se il piatto è fatto bene senza correzioni.
 - [ ] Sorprese: il fornitore con pezzi rari, set da completare. (Offerta del giorno fatta: `dealOf`/`priceOf`, una al giorno, −30%, `save.dealUsed`.)
 - [ ] Arredi di stagione e rinnovo del locale.

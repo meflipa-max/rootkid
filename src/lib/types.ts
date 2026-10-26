@@ -127,5 +127,5 @@ export interface Save {
   /** giorno in cui hai già usato l'offerta del giorno */
   dealUsed?: string;
   /** il locale com'era l'ultima volta che l'hai visto (gradi dei banchi e piatti d'oro), per far festa ai cambi */
-  seenGrowth?: { tiers: Record<string, number>; gold: string[] };
+  seenGrowth?: { tiers: Record<string, number>; gold: string[]; stars?: number };
 }

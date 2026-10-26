@@ -22,6 +22,7 @@ import { InstallCard } from '../components/Install';
 import { ShareCard } from '../components/Share';
 import { growthNews, growthOf, seenOf, type Growth } from '../lib/growth';
 import { BANCO_COLOR } from '../three/Growth';
+import { STARS, starsFor } from '../lib/stars';
 
 export type Mode = 'game' | 'focus' | 'learn' | 'write' | 'imagine' | 'sabato' | 'warmup' | 'yesterday';
 
@@ -111,6 +112,7 @@ function Deck({ onPick, onClose }: { onPick: (mode: 'learn' | 'write' | 'imagine
 /** foglio basso: il diorama resta visibile sopra, così vedi comparire l'oggetto che compri */
 function Build({ focus, onClose, onBought }: { focus: string | null; onClose: () => void; onBought: (u: Upgrade, lvl: number) => void }) {
   const app = useApp();
+  const star = starsFor(app.save, app.mine);
   const { coins, build } = app.save;
   const deal = dealOf(today(), build, app.save.dealUsed);
   const goal = goalOf(build, app.save.goal, deal);
@@ -133,7 +135,19 @@ function Build({ focus, onClose, onBought }: { focus: string | null; onClose: ()
       <div className="modal-in" onClick={(e) => e.stopPropagation()} ref={list}>
         <div className="row-between"><h3>Il tuo locale</h3><span className="coins-big"><Coin /> {coins}</span></div>
         <Bar value={totalBuilt(build) / totalMax} color="#c65a3c" h={10} />
-        <div className="muted sm">Gli angoli dei banchi e la parete dei piatti d'oro non si comprano: crescono quando impari.</div>
+        <div className="star-box">
+          <div className="row-between">
+            <b className="stars-big">{'★'.repeat(star.stars)}<i>{'★'.repeat(5 - star.stars)}</i></b>
+            <span className="muted sm">{star.built} migliorie · {star.known}/{star.total} a memoria</span>
+          </div>
+          {star.next ? (
+            <div className="sm">
+              Per la {star.stars + 1}ª stella: {[star.next.built ? `${star.next.built} ${star.next.built === 1 ? 'miglioria' : 'migliorie'}` : '', star.next.known ? `${star.next.known} ${star.next.known === 1 ? 'piatto' : 'piatti'} a memoria` : ''].filter(Boolean).join(' e ')}
+              {' '}→ <b>{STARS[star.stars].perk}</b>
+            </div>
+          ) : <div className="sm"><b>Locale a 5 stelle!</b> {STARS[4].perk}.</div>}
+          <div className="muted sm">Le stelle vogliono sia il locale sia la memoria. Gli angoli dei banchi e la parete dei piatti d'oro non si comprano: crescono quando impari.</div>
+        </div>
         {rows.map((u) => {
           const lvl = lvlOf(build, u.id);
           const maxed = lvl >= u.max;
@@ -323,7 +337,8 @@ export function Home({ cat, setCat, start }: { cat: Category | 'all'; setCat: (c
     setNews({ title: lvl >= u.max ? `${u.name} al massimo!` : lvl === 1 ? `${u.name}!` : `${u.name} · livello ${lvl}`, text: u.desc(lvl), n });
   };
   // il locale cresce con la memoria: quando un banco sale o arriva un piatto d'oro, si fa festa (una volta)
-  const growth = useMemo(() => growthOf(menu, mine, save.stats), [menu, mine, save.stats]);
+  const star = starsFor(save, mine);
+  const growth = useMemo(() => ({ ...growthOf(menu, mine, save.stats), stars: star.stars }), [menu, mine, save.stats, star.stars]);
   const gkey = JSON.stringify(seenOf(growth));
   useEffect(() => {
     const seen = save.seenGrowth;
@@ -335,8 +350,11 @@ export function Home({ cat, setCat, start }: { cat: Category | 'all'; setCat: (c
     setTimeout(() => {
       const n = Date.now();
       sfx.phase();
-      confetti(g.kind === 'oro' || g.b.tier >= 4 ? 1.3 : 0.8);
-      if (g.kind === 'oro') {
+      confetti(g.kind !== 'banco' || g.b.tier >= 4 ? 1.3 : 0.8);
+      if (g.kind === 'stelle') {
+        setShow({ id: 'insegna', n });
+        setNews({ title: `Il locale sale a ${g.stars} stelle!`, text: STARS[g.stars - 1].perk, n });
+      } else if (g.kind === 'oro') {
         setShow({ id: 'oro', n });
         setNews({ title: `In parete: ${g.d.name}`, text: 'Piatto d\'oro: ora è incorniciato nel locale', n });
       } else {
@@ -377,7 +395,7 @@ export function Home({ cat, setCat, start }: { cat: Category | 'all'; setCat: (c
       <header className="hero">
         <div className="hero-top">
           <div>
-            <div className="hello">Il tuo locale</div>
+            <div className="hello">Il tuo locale <span className="stars-sm" aria-label={`${star.stars} stelle su 5`}>{'★'.repeat(star.stars)}<i>{'★'.repeat(5 - star.stars)}</i></span></div>
             <h1 className="brand">Core a Core</h1>
           </div>
           <div className="pills">

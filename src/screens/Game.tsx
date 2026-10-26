@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Daily, Dish, DishStat } from '../lib/types';
 import { useApp, type Grade } from '../store';
 import { growthOf } from '../lib/growth';
+import { criticReward, starsFor, tipChance, tipExtra, vipChance } from '../lib/stars';
 import { availableKinds, isPortion, makeQuestion, norm, similarDish, trayFor, trayLevelFor, whereIs, type TrayLevel } from '../lib/questions';
 import { fold, SHELVES, shelfOf } from '../lib/pantry';
 import { PHASES, levelOf, pickWeighted, weight } from '../lib/mastery';
@@ -16,7 +17,7 @@ import { DishPic, Ing } from '../components/Ing';
 import { burst, centerOf, confetti, flyCoins, sfx } from '../lib/fx';
 import { SKINS } from '../lib/skins';
 import { lvlOf } from '../lib/build';
-import { CHEF_LOOK, Person, randomLook, type Mood } from '../components/Person';
+import { CHEF_LOOK, Person, randomLook, type Look, type Mood } from '../components/Person';
 import { Coin, Heart, Icon } from '../components/Icon';
 import { RecipeView } from '../components/Recipe';
 import { Stage3D } from '../three/Stage3D';
@@ -26,6 +27,9 @@ import { isSpread } from '../three/ingredients';
 import { Awning, Bunting, Kitchen, Scene } from '../components/Scene';
 import { currentDaily } from '../lib/missions';
 import { End, FailSheet, GesturePad, NewCard, type CKind, type Cust, type G, type Hint, type Overlay, type Ret, type Tag } from './GameParts';
+
+/** il critico gastronomico: sempre lo stesso, con gli occhiali e la giacca scura */
+const CRITIC_LOOK: Look = { skin: '#e8c3a0', hair: '#9a9a9a', style: 2, shirt: '#2b2b35', extra: 1 };
 
 const MULT: Record<Hint, number> = { full: 1, flash: 1.25, count: 2, none: 3 };
 const GUESS_MULT = 1.5;
@@ -71,7 +75,7 @@ const initial = (maxLives: number, howto: boolean): G => ({
   phase: 'intro', customers: [], spawned: 0, nextSpawn: 900, selected: null, score: 0, coins: 0, combo: 0, bestCombo: 0, fever: false,
   lives: maxLives, maxLives, served: 0, overlay: null, paused: false, pops: [], toast: null, pose: 'idle', poseT: 0, shake: 0,
   missedDishes: [], lastIds: [], returns: [], finals: [], twins: [], newCount: 0, ease: 0, recent: [], ring: null, bake: null, card: null, trophies: [],
-  progress: {}, tally: { memory: 0, revenge: 0, guess: 0, vip: 0, tips: 0, order: 0, cats: [] }, uid: 1, introLeft: 2200, howto,
+  progress: {}, tally: { memory: 0, revenge: 0, guess: 0, vip: 0, tips: 0, order: 0, cats: [] }, uid: 1, introLeft: 2200, howto, critic: false,
 });
 
 const alive = (c: Cust) => c.state === 'in' || c.state === 'wait';
@@ -96,7 +100,9 @@ export function Game(props: GameProps) {
 function Shift({ pool, title, total = 8, coinMult = 1, onExit, again }: GameProps & { again: () => void }) {
   const app = useApp();
   // gli angoli dei banchi e la parete d'oro si vedono anche nel turno (crescono mentre giochi)
-  const growth = useMemo(() => growthOf(app.menu, app.mine, app.save.stats), [app.save.stats]); // eslint-disable-line react-hooks/exhaustive-deps
+  // le stelle del locale si contano all'inizio del turno
+  const [stars] = useState(() => starsFor(app.save, app.mine).stars);
+  const growth = useMemo(() => ({ ...growthOf(app.menu, app.mine, app.save.stats), stars }), [app.save.stats]); // eslint-disable-line react-hooks/exhaustive-deps
   const appRef = useRef(app);
   appRef.current = app;
   const gr = useRef<G>(initial(3 + lvlOf(app.save.build, 'frigo'), app.save.shifts < 3));
@@ -227,12 +233,14 @@ function Shift({ pool, title, total = 8, coinMult = 1, onExit, again }: GameProp
         if (!seen(d)) tag = 'nuovo';
       }
     }
-    const vip = !due && !cust.group && cust.kind === 'build' && tag !== 'nuovo' && g.spawned >= 1 && Math.random() < 0.12;
-    const c: Cust = { ...cust, tag, vip, id: g.uid, look: randomLook(), slot, state: 'in', t: 0 };
+    const vip = !due && !cust.group && cust.kind === 'build' && tag !== 'nuovo' && g.spawned >= 1 && Math.random() < vipChance(appRef.current.save.build, stars);
+    // il critico: una volta per turno, solo da 3 stelle, e ordina sempre un piatto che hai già a memoria
+    const critic = !vip && !g.critic && stars >= 3 && !due && !cust.group && cust.kind === 'build' && tag !== 'nuovo' && box(cust.dish) >= 3 && g.spawned >= 2 && Math.random() < 0.35;
+    const c: Cust = { ...cust, tag, vip, critic, id: g.uid, look: critic ? CRITIC_LOOK : randomLook(), slot, state: 'in', t: 0 };
     if (vip) c.max = c.left = Math.round(c.max * 0.85);
     const ids = [c.dish.id, ...c.queue.map((x) => x.id), ...c.order.map((x) => x.id)];
     return {
-      ...g, uid: g.uid + 1, customers: [...g.customers, c], spawned: g.spawned + 1, lastIds: [...g.lastIds, ...ids],
+      ...g, uid: g.uid + 1, customers: [...g.customers, c], spawned: g.spawned + 1, lastIds: [...g.lastIds, ...ids], critic: g.critic || critic,
       returns: due ? g.returns.filter((r) => r !== due) : g.returns,
       newCount: g.newCount + (tag === 'nuovo' ? 1 : 0),
       card: tag === 'nuovo' ? c.dish : g.card,
@@ -328,7 +336,10 @@ function Shift({ pool, title, total = 8, coinMult = 1, onExit, again }: GameProp
     let coins = Math.max(1, Math.round((pts / 20) * (1 + 0.15 * lvlOf(b, 'cassa')))) * (c.vip ? 3 : 1);
     coins = Math.round(coins * coinMult * (c.group === 'tavolo' ? 1.3 : 1));
     // mancia: ricompensa variabile per chi è veloce
-    const tip = frac > 0.55 && Math.random() < 0.5 ? 1 + Math.floor(Math.random() * 5) : 0;
+    // l'atmosfera del locale la fa lasciare più spesso, i tavolini (e le stelle) la fanno più ricca
+    const tip = frac > 0.55 && Math.random() < tipChance(b) ? 1 + Math.floor(Math.random() * 5) + tipExtra(b, stars) : 0;
+    // forno a legna: la pizza infornata giusta e servita bene vale qualche moneta in più
+    const baked = isPizza(d.category) && grade >= 3 && !v?.ovenWrong.length ? lvlOf(b, 'forno') : 0;
     let n: G = { ...g0, ring: null };
     n = track(n, d.id, d.name, r.prevBox, r.box, r.held);
     // la fase che sale si vede subito
@@ -351,6 +362,13 @@ function Shift({ pool, title, total = 8, coinMult = 1, onExit, again }: GameProp
       trophyCoins += 20;
       setTimeout(() => { sfx.level(); confetti(0.9); }, 300);
     }
+    // il critico gastronomico: lo convince solo un piatto fatto bene, senza aiuti e senza correzioni
+    if (c.critic && grade >= 3 && !c.fixes) {
+      const got = criticReward(stars);
+      n = { ...n, trophies: [...n.trophies, { kind: 'critic', dish: d }], toast: { text: 'Il critico approva!', sub: `${d.name} da manuale. +${got} monete`, t: 2400 } };
+      trophyCoins += got;
+      setTimeout(() => { sfx.level(); confetti(1.4); }, 300);
+    } else if (c.critic) n = addPop(n, 'Il critico prende appunti…', 'bad', c.slot);
     if (r.leveledUp) {
       const u = unlocksAt(r.level);
       n = { ...n, toast: { text: `Livello ${r.level}!`, sub: u.length ? u.map((x) => `Sbloccato: ${x.name}`).join(' · ') : 'A fine turno si apre il forziere del livello', t: 2200 } };
@@ -373,8 +391,8 @@ function Shift({ pool, title, total = 8, coinMult = 1, onExit, again }: GameProp
     const at = centerOf(el);
     if (at && !use3d) burst(at.x, at.y, c.vip || fever ? 1.6 : 1, c.vip ? ['#ffd24a', '#fff3b0', '#ffb300'] : undefined);
     const items = c.kind === 'build' ? (isPortion(d) ? piecesLabel(c.plate) : c.plate) : d.ingredients;
-    stageBus.emit({ type: 'serve', slot: c.slot, items, cat: d.category, coins: coins + tip, vip: c.vip });
-    setTimeout(() => flyCoins(at, coinRef.current, coins + tip), 120);
+    stageBus.emit({ type: 'serve', slot: c.slot, items, cat: d.category, coins: coins + tip + baked, vip: c.vip });
+    setTimeout(() => flyCoins(at, coinRef.current, coins + tip + baked), 120);
     if (fever && !g0.fever) {
       sfx.fever();
       n = { ...n, toast: n.toast ?? { text: 'FEVER!', sub: 'Punti ×1.5 finché non sbagli', t: 1600 } };
@@ -393,7 +411,7 @@ function Shift({ pool, title, total = 8, coinMult = 1, onExit, again }: GameProp
       return alive(x) ? { ...x, left: Math.min(x.max, x.left + 1500 * lvlOf(b, 'cronometro')) } : x;
     });
     n = {
-      ...n, score: n.score + pts, coins: n.coins + coins + tip + trophyCoins, combo, fever, bestCombo: Math.max(n.bestCombo, combo), served: n.served + (nextDish ? 0 : 1),
+      ...n, score: n.score + pts, coins: n.coins + coins + tip + baked + trophyCoins, combo, fever, bestCombo: Math.max(n.bestCombo, combo), served: n.served + (nextDish ? 0 : 1),
       pose: 'cheer', poseT: 900, customers,
       tally: {
         memory: n.tally.memory + (memory ? 1 : 0), revenge: n.tally.revenge + (c.tag === 'rivincita' ? 1 : 0), guess: n.tally.guess + (c.kind === 'guess' ? 1 : 0),
@@ -407,6 +425,7 @@ function Shift({ pool, title, total = 8, coinMult = 1, onExit, again }: GameProp
     if (v?.ovenWrong.length) n = addPop(n, `${cap(v.ovenWrong[0].ing)}: ${v.ovenWrong[0].after ? 'va all\'uscita' : 'va in forno'}`, 'bad', c.slot);
     else if (v?.orderOk === false) n = { ...n, toast: n.toast ?? { text: 'Giusto, ma…', sub: orderNote(target, c.plate), t: 2200 } };
     else if (tip) n = addPop(n, `+${tip} mancia`, 'tip', c.slot);
+    else if (baked) n = addPop(n, `Cotta giusta +${baked}`, 'tip', c.slot);
     else if (combo >= 3) n = addPop(n, `Combo ×${combo}`, 'combo', c.slot);
     commit(n);
   };
@@ -658,13 +677,13 @@ function Shift({ pool, title, total = 8, coinMult = 1, onExit, again }: GameProp
   };
 
   const tagText = (c: Cust) =>
-    c.vip ? 'VIP ×3' : c.group === 'tavolo' ? `Tavolo ${c.part}/${c.parts}` : c.group === 'asporto' ? 'Asporto' : c.kind === 'check' ? 'Controllo' : c.tag === 'nuovo' ? 'Nuovo' : c.tag === 'rivincita' ? 'Rivincita' : c.tag === 'richiamo' ? 'Ricordi?' : c.tag === 'gemello' ? 'Simile!' : c.kind === 'guess' ? 'Indeciso' : c.kind === 'gap' ? 'Cosa manca?' : c.variant ? 'Variante' : '';
+    c.critic ? 'Critico' : c.vip ? 'VIP ×3' : c.group === 'tavolo' ? `Tavolo ${c.part}/${c.parts}` : c.group === 'asporto' ? 'Asporto' : c.kind === 'check' ? 'Controllo' : c.tag === 'nuovo' ? 'Nuovo' : c.tag === 'rivincita' ? 'Rivincita' : c.tag === 'richiamo' ? 'Ricordi?' : c.tag === 'gemello' ? 'Simile!' : c.kind === 'guess' ? 'Indeciso' : c.kind === 'gap' ? 'Cosa manca?' : c.variant ? 'Variante' : '';
 
   const bubbleOf = (c: Cust) => {
     const f = c.left / c.max;
     const t = tagText(c);
     return (
-      <button data-cust={c.id} className={`bubble ${selected?.id === c.id ? 'sel' : ''} ${c.vip ? 'vip' : ''} ${c.tag === 'rivincita' || c.tag === 'richiamo' ? 'retry' : ''} ${f < 0.22 && alive(c) ? 'urgent' : ''}`} onClick={() => select(c.id)}>
+      <button data-cust={c.id} className={`bubble ${selected?.id === c.id ? 'sel' : ''} ${c.vip ? 'vip' : ''} ${c.critic ? 'critic' : ''} ${c.tag === 'rivincita' || c.tag === 'richiamo' ? 'retry' : ''} ${f < 0.22 && alive(c) ? 'urgent' : ''}`} onClick={() => select(c.id)}>
         {t && <span className="b-tag">{t}</span>}
         <span className="b-n">{c.kind === 'guess' ? '«Quello con…»' : c.group === 'asporto' ? <><Icon name="phone" size={14} /> {c.heard > 0 ? c.order.map((x) => x.name).join(' + ') : `${c.order.length} piatti`}</> : <>{catOf(c.dish.category).emoji} {c.dish.name}</>}</span>
         <span className="pbar"><i style={{ width: `${Math.max(0, f * 100)}%`, background: f > 0.5 ? '#6f9a6a' : f > 0.22 ? '#e3a83a' : '#c8463b' }} /></span>

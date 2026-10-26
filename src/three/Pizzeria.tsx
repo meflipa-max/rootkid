@@ -144,7 +144,7 @@ function floorTexture() {
   return floorTex;
 }
 
-function signTexture(lit: boolean) {
+function signTexture(lit: boolean, stars: number) {
   const c = document.createElement('canvas');
   c.width = 512;
   c.height = 96;
@@ -159,18 +159,27 @@ function signTexture(lit: boolean) {
     g.shadowBlur = 18;
     g.fillStyle = '#ffd6e0';
   } else g.fillStyle = '#f6e6c8';
-  g.fillText('CORE A CORE', 256, 52);
+  // le stelle del locale, sotto la scritta
+  if (stars > 0) {
+    g.font = '700 46px Fredoka, Nunito, sans-serif';
+    g.fillText('CORE A CORE', 256, 40);
+    g.font = '24px sans-serif';
+    g.shadowBlur = lit ? 10 : 0;
+    g.shadowColor = '#ffd24a';
+    g.fillStyle = '#ffd24a';
+    g.fillText('★'.repeat(stars) + '☆'.repeat(5 - stars), 256, 78);
+  } else g.fillText('CORE A CORE', 256, 52);
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   return t;
 }
 
-function Sign({ lvl }: { lvl: number }) {
+function Sign({ lvl, stars = 0 }: { lvl: number; stars?: number }) {
   const [fonts, setFonts] = useState(0);
   useEffect(() => {
     void document.fonts?.ready.then(() => setFonts(1));
   }, []);
-  const tex = useMemo(() => signTexture(lvl > 0), [lvl, fonts]);
+  const tex = useMemo(() => signTexture(lvl > 0, stars), [lvl, fonts, stars]);
   return (
     <group position={[-1.0, 2.72, -2.86]}>
       <Box s={[2.5, 0.52, 0.06]} p={[0, 0, -0.02]} c={lvl > 0 ? '#2b1a24' : '#5a341c'} />
@@ -362,7 +371,7 @@ export function Pizzeria({ build, night, cutaway, onPick, growth }: { build: Rec
         </Grow>
       </Pick>
       <Pick id="insegna" onPick={onPick}>
-        <Sign lvl={l('insegna')} />
+        <Sign lvl={l('insegna')} stars={growth?.stars} />
       </Pick>
       <Pick id="cassa" onPick={onPick}>
         <Grow k={l('cassa')}>

@@ -71,6 +71,8 @@ export interface Cust {
   tag: Tag;
   pair?: string;
   vip: boolean;
+  /** il critico gastronomico (locale da 3 stelle): ordina un piatto che sai già */
+  critic?: boolean;
   options: Dish[];
   gap: Gap | null;
   check: (Check & { fix: boolean }) | null;
@@ -86,7 +88,7 @@ export interface Overlay {
   retry: boolean;
   sure: boolean;
 }
-export interface Trophy { kind: 'mem' | 'gold' | 'recovered'; dish: Dish }
+export interface Trophy { kind: 'mem' | 'gold' | 'recovered' | 'critic'; dish: Dish }
 export interface Tally { memory: number; revenge: number; guess: number; vip: number; tips: number; order: number; cats: string[] }
 export interface Ret { id: string; due: number; tag: 'richiamo' | 'rivincita' | 'gemello'; pair?: string }
 export interface Pop { id: number; text: string; kind: string; x: number; t: number }
@@ -132,6 +134,8 @@ export interface G {
   uid: number;
   introLeft: number;
   howto: boolean;
+  /** il critico è già passato in questo turno */
+  critic: boolean;
 }
 
 /** il "Quasi!" quando sbagli di poco */
@@ -347,7 +351,7 @@ export function End({ g, title, total, start, again, onExit }: { g: G; title: st
           {g.trophies.map((t, i) => (
             <div key={i} className={`trophy ${t.kind}`}>
               <DishPic dish={t.dish} />
-              <span><b>{t.kind === 'gold' ? 'Piatto d\'oro' : t.kind === 'mem' ? 'Primo a memoria' : 'Recuperato'}</b> · {t.dish.name}</span>
+              <span><b>{t.kind === 'gold' ? 'Piatto d\'oro' : t.kind === 'mem' ? 'Primo a memoria' : t.kind === 'critic' ? 'Il critico approva' : 'Recuperato'}</b> · {t.dish.name}</span>
             </div>
           ))}
         </div>
