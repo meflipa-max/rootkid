@@ -189,12 +189,13 @@ export function GesturePad({ ing, kind, onDone, onCancel }: { ing: string; kind:
   const [prog, setProg] = useState(0);
   const pad = useRef<HTMLDivElement>(null);
   const st = useRef<{ a: number | null; sum: number }>({ a: null, sum: 0 });
-  const add = (k: number) =>
-    setProg((p) => {
-      const n = Math.min(1, p + k);
-      if (n >= 1 && p < 1) setTimeout(onDone, 120);
-      return n;
-    });
+  const total = useRef(0);
+  const add = (k: number) => {
+    if (total.current >= 1) return;
+    total.current = Math.min(1, total.current + k);
+    setProg(total.current);
+    if (total.current >= 1) setTimeout(onDone, 120);
+  };
   const move = (e: React.PointerEvent) => {
     if (kind !== 'spread' || !pad.current || e.buttons === 0) return;
     const r = pad.current.getBoundingClientRect();

@@ -19,8 +19,7 @@
 
 ## Dispensa e sfida scritta — 21 ottobre 2026
 
-- Il bancone dipende dalla scatola di Leitner (`trayLevelFor`): ≥4 = dispensa, ed è lo stesso livello in cui
-  sparisce il conteggio (hint `none`). Se si cambia una soglia, cambiare anche l'altra.
+- (Superato il 26 ottobre: vedi sotto.) Il bancone dipende dalla fase del piatto (`trayLevelFor`).
 - Il riconoscimento del testo scritto è `matchIngredient` in `src/lib/pantry.ts`; i ripiani sono regole a
   parole chiave (`RULES`): un ingrediente nuovo che finisce in "Altro" va aggiunto lì.
 
@@ -80,3 +79,17 @@ come rigenerare i file: **`public/models/CREDITS.md`**.
 - Il server di sviluppo di Vite va riavviato dopo un `npm install`: la scheda del browser rimasta
   aperta dalla sessione prima mostra errori finti (“Invalid hook call”, due copie di React) finché
   non si apre una scheda nuova.
+
+## Memoria onesta e ricette come al lavoro — 26 ottobre 2026
+
+Piano e stato in **`PIANO.md`**. In breve:
+- Ogni risposta ha un **voto** (`Grade` in `store.tsx`): 0 studio (ricetta visibile: non fa salire), 1 non lo sapevi
+  (anche premere Aiuto), 2 difficile (correzioni o lento), 3 bene, 4 facile. Le **fasi** 0–5 (Nuovo, Riconosci,
+  Ricorda, A memoria, Distingui, Oro) dicono cosa hai dimostrato; **FSRS** (`lib/fsrs.ts`) dice quanto è fresco e
+  quando è da ripassare. Oltre la fase 2 si sale solo dopo l'attesa minima (`ripe`).
+- Aiuto per ordine: `planFor` in `Game.tsx` (fase + freschezza + difficoltà automatica `ease`). Fase 1 = numero
+  visibile e bancone piccolo, 2 = niente numero e bancone largo, ≥3 = dispensa.
+- **Campanello onesto**: serve quando il numero torna, giusto o sbagliato. Le migliorie non devono mai dare risposte.
+- Dati delle ricette: `ingredients` è in ordine di montaggio; `after` (pizze, uscita dal forno), `ordered` (panini),
+  `draft` (bozza mia da far controllare), `popular`, `why`. Nuovi campi → `MENU_VERSION` e `migrateMenu`.
+- Gli effetti collaterali non vanno dentro le funzioni passate a `setState`: in sviluppo React le chiama due volte.

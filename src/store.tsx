@@ -214,7 +214,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
         for (const m of opts.missed ?? []) st.missed[m] = (st.missed[m] || 0) + 1;
         for (const x of opts.extra ?? []) st.confused![x] = (st.confused![x] || 0) + 1;
-        const firstMem = g >= 3 && !!opts.blind && !st.mem1;
+        // primo a memoria: senza aiuti e già nella fase "A memoria" (quindi dopo almeno un giorno di attesa)
+        const firstMem = g >= 3 && !!opts.blind && st.box >= 3 && !st.mem1;
         if (firstMem) st.mem1 = true;
         const gold = st.box >= 5 && !st.gold;
         if (gold) st.gold = true;
@@ -272,13 +273,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
       logReal(date, ids) {
         const s = ref.current;
         const real = { ...s.real };
-        if (ids.length) real[date] = ids;
-        else delete real[date];
+        const realAt = { ...s.realAt };
+        if (ids.length) {
+          real[date] = ids;
+          realAt[date] = Date.now();
+        } else {
+          delete real[date];
+          delete realAt[date];
+        }
         // tieni solo gli ultimi 60 giorni
-        for (const k of Object.keys(real).sort().slice(0, -60)) delete real[k];
+        for (const k of Object.keys(real).sort().slice(0, -60)) {
+          delete real[k];
+          delete realAt[k];
+        }
         const d = currentDaily(s);
         const prog = { ...d.prog, real: ids.length ? 1 : d.prog.real ?? 0 };
-        commit({ ...s, real, daily: { ...d, prog } });
+        commit({ ...s, real, realAt, daily: { ...d, prog } });
       },
       setRealDone(date) {
         commit({ ...ref.current, realDone: date });

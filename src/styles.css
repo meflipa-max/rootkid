@@ -625,3 +625,5 @@ html[data-text="3"] .station-grid { grid-template-columns: repeat(3, 1fr); }
 .vt.dusty { position: relative; }
 .vt.dusty .ing { filter: sepia(.6) saturate(.5) brightness(.95); }
 .vt.dusty::after { content: ''; position: absolute; inset: 0; border-radius: inherit; background: radial-gradient(circle at 30% 30%, #ffffff55 0 2px, transparent 3px) 0 0 / 11px 13px, radial-gradient(circle at 70% 60%, #ffffff44 0 1.5px, transparent 2.5px) 0 0 / 9px 10px; pointer-events: none; }
+.face.back .recipe-view { align-items: center; width: 100%; }
+.face.back .recipe-view .chips { justify-content: center; }

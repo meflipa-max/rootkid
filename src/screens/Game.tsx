@@ -802,7 +802,9 @@ function Shift({ pool, title, total = 8, coinMult = 1, onExit, again }: GameProp
       );
       return (
         <div className="tray check">
-          {k.oven ? [group('In forno', k.oven), group('All\'uscita', k.shown.filter((i) => !k.oven!.includes(i)))] : group(ticket.dish.ordered ? 'Dal basso' : null, k.shown)}
+          {k.oven
+            ? [group('In forno', k.oven), ...(k.shown.some((i) => !k.oven!.includes(i)) ? [group('All\'uscita', k.shown.filter((i) => !k.oven!.includes(i)))] : [])]
+            : group(ticket.dish.ordered ? 'Dal basso' : null, k.shown)}
           <button className="btn good wide" onClick={() => answerCheck('ok')} disabled={ticket.state !== 'wait'}><Icon name="check" /> Va bene così, servilo</button>
         </div>
       );

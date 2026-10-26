@@ -26,77 +26,97 @@ si riparte dal primo passo non spuntato.
 ## Passi
 
 ### Passo 1 — Correzioni piccole, effetto grande
-- [ ] **Campanello onesto**: suona quando sul piatto c'è il numero giusto di ingredienti, *giusto o
+- [x] **Campanello onesto**: suona quando sul piatto c'è il numero giusto di ingredienti, *giusto o
       sbagliato*, con un attimo per ripensarci. Solo dove il numero è visibile.
-- [ ] **Copiare non fa salire**: con la ricetta visibile (piatto nuovo) o il flash la risposta è
+- [x] **Copiare non fa salire**: con la ricetta visibile (piatto nuovo) o il flash la risposta è
       "studio": nessuna tacca. Il piatto torna **2 clienti dopo** senza ricetta (primo richiamo vero) e,
       se va bene, **a fine turno**. Tolto l'aiuto "icone" (era copiare dai disegni).
-- [ ] **Aiuto = non lo sapevo**: premere Aiuto conta come errore lieve e il piatto torna nel turno.
-- [ ] **Massimo 2 piatti nuovi per turno** (3 se se ne conoscono pochissimi); prima i più ordinati.
-- [ ] **Messaggio di livello vero** (niente promesse finte).
-- [ ] Messaggio una tantum: "memoria più precisa" (le tacche gonfiate possono scendere).
+- [x] **Aiuto = non lo sapevo**: premere Aiuto conta come errore lieve e il piatto torna nel turno.
+- [x] **Massimo 2 piatti nuovi per turno** (3 se se ne conoscono pochissimi); prima i più ordinati.
+- [x] **Messaggio di livello vero** (niente promesse finte).
+- [x] Messaggio una tantum: "memoria più precisa" (le tacche gonfiate possono scendere).
 
 ### Passo 2 — Il gioco capisce quanto sai un piatto
-- [ ] **Voto della risposta** (Non lo sapevi / Studio / Difficile / Bene / Facile) da: aiuto visibile,
+- [x] **Voto della risposta** (Non lo sapevi / Studio / Difficile / Bene / Facile) da: aiuto visibile,
       Aiuto premuto, ingredienti tolti e rimessi, tempo rispetto al proprio solito, grandezza del
       bancone, modalità, ordine di montaggio.
-- [ ] **FSRS** (`src/lib/fsrs.ts`, formule FSRS-4.5 con i pesi di default): per piatto stabilità,
+- [x] **FSRS** (`src/lib/fsrs.ts`, formule FSRS-4.5 con i pesi di default): per piatto stabilità,
       difficoltà, probabilità di ricordarlo adesso. Decide quando un piatto è da ripassare.
       Le tacche (0–5) restano come **fase**: dicono cosa hai dimostrato; FSRS dice quanto è fresco.
-- [ ] **Difficoltà automatica verso l'85%**: dentro il turno, se va tutto liscio tolgo un aiuto, se
+- [x] **Difficoltà automatica verso l'85%**: dentro il turno, se va tutto liscio tolgo un aiuto, se
       va male ne do uno; con un piatto poco fresco (probabilità bassa) un aiuto in più. Si vede
       ("Stai andando forte: tolgo un aiuto").
-- [ ] **Fase mostrata subito**: "Diavola → A memoria!" durante il turno, con suono suo.
+- [x] **Fase mostrata subito**: "Diavola → A memoria!" durante il turno, con suono suo.
 
 ### Passo 3 — Fasi del piatto = modalità diverse
 Fasi (tacche): 0 Nuovo · 1 Riconosci · 2 Ricorda · 3 A memoria · 4 Distingui · 5 Oro.
-- [ ] Nuovo: cartolina "Nuovo piatto!" con ingredienti distintivi in evidenza e il perché; ricetta visibile.
-- [ ] Riconosci: bancone piccolo, numero visibile.
-- [ ] Ricorda: bancone largo, niente numero; a volte **"Cosa manca?"** (o "cosa c'è tra X e Y" nei panini).
-- [ ] A memoria: dispensa intera (soglia spostata da 4 a 3: col campanello onesto il numero nascosto non
+- [x] Nuovo: cartolina "Nuovo piatto!" con ingredienti distintivi in evidenza e il perché; ricetta visibile.
+- [x] Riconosci: bancone piccolo, numero visibile.
+- [x] Ricorda: bancone largo, niente numero; a volte **"Cosa manca?"** (o "cosa c'è tra X e Y" nei panini).
+- [x] A memoria: dispensa intera (soglia spostata da 4 a 3: col campanello onesto il numero nascosto non
       è più legato alla dispensa).
-- [ ] Distingui: arriva **in coppia col piatto simile** (Esagerato/Esagerato Pollo, le due Italiana…).
-- [ ] Oro: compare di rado; in vetrina **si impolvera** quando è da ripassare.
-- [ ] **Base rossa** (pomodoro + fior di latte) come pezzo unico: tessera sul bancone delle pizze e
+- [x] Distingui: arriva **in coppia col piatto simile** (Esagerato/Esagerato Pollo, le due Italiana…).
+- [x] Oro: compare di rado; in vetrina **si impolvera** quando è da ripassare.
+- [x] **Base rossa** (pomodoro + fior di latte) come pezzo unico: tessera sul bancone delle pizze e
       gruppo nelle ricette mostrate.
 
 ### Passo 4 — La ricetta come al lavoro
-- [ ] **Montaggio in ordine** (hamburger e focacce): si serve **chiudendo il panino**; ordine giusto =
+- [x] **Montaggio in ordine** (hamburger e focacce): si serve **chiudendo il panino**; ordine giusto =
       bonus "Montato come al banco!" e risposta più forte; ordine sbagliato non è errore, solo una nota.
-- [ ] **Pizza in due tempi**: prepari → **Inforna** → aggiungi quello che va all'uscita → Servi.
+- [x] **Pizza in due tempi**: prepari → **Inforna** → aggiungi quello che va all'uscita → Servi.
       Un ingrediente nel tempo sbagliato è errore di procedura (lieve, non fa perdere vite).
-- [ ] **La tua postazione**: ogni ingrediente sempre nello stesso posto del banco (niente rimescolamento);
+- [x] **La tua postazione**: ogni ingrediente sempre nello stesso posto del banco (niente rimescolamento);
       disposizione modificabile in Impostazioni. **Mise en place** diventa "banco in ordine"
       (ricerca su ogni bancone, etichette dei ripiani), non toglie più ingredienti sbagliati.
-- [ ] **Friggitoria**: si contano i pezzi mettendoli nel cestino uno alla volta.
-- [ ] Sfida scritta: per i panini gli spazi mostrano la posizione (dal basso).
+- [x] **Friggitoria**: si contano i pezzi mettendoli nel cestino uno alla volta.
+- [x] Sfida scritta: per i panini gli spazi mostrano la posizione (dal basso).
 
 ### Passo 5 — Livelli con un senso e ricompense legate all'imparare
-- [ ] **Sblocchi per livello** (solo con piatti nella fase giusta): Lv2 Tavolo da due · Lv3 Varianti
+- [x] **Sblocchi per livello** (solo con piatti nella fase giusta): Lv2 Tavolo da due · Lv3 Varianti
       ("Diavola senza olive") · Lv4 Asporto al telefono (la comanda sparisce) · Lv5 Controllo qualità
       (trova l'errore di Giuseppe) · Lv6 Sabato sera (turno lungo, tutto mischiato).
-- [ ] Ogni livello: forziere + messaggio con lo sblocco vero.
-- [ ] **Titolo legato ai piatti saputi** (fase ≥ 3), non all'XP.
-- [ ] **Momenti-trofeo**: primo piatto a memoria, piatto d'oro (cerimonia), piatto recuperato.
-- [ ] **Puntata "Sicuro!"**: ×2 se giusto, si perde di più se sbagliato; calibrazione nelle Statistiche.
-- [ ] **"Quasi! 4 su 5"** quando si sbaglia di poco.
-- [ ] **Missioni sulla memoria**: porta piatti alla fase dopo, rinfresca piatti impolverati, riscatta
+- [x] Ogni livello: forziere + messaggio con lo sblocco vero.
+- [x] **Titolo legato ai piatti saputi** (fase ≥ 3), non all'XP.
+- [x] **Momenti-trofeo**: primo piatto a memoria, piatto d'oro (cerimonia), piatto recuperato.
+- [x] **Puntata "Sicuro!"**: ×2 se giusto, si perde di più se sbagliato; calibrazione nelle Statistiche.
+- [x] **"Quasi! 4 su 5"** quando si sbaglia di poco.
+- [x] **Missioni sulla memoria**: porta piatti alla fase dopo, rinfresca piatti impolverati, riscatta
       un piatto sbagliato ieri, monta panini come al banco.
 
 ### Passo 6 — Collegare l'app ai turni veri
-- [ ] **"Stasera ho fatto…"**: diario dei piatti fatti al lavoro; il giorno dopo il gioco li chiede.
-- [ ] **"Prima del turno"**: riscaldamento sui più ordinati e su quelli da ripassare.
-- [ ] **La tua foto** del piatto (IndexedDB) nel Ricettario e negli errori.
-- [ ] **Il perché**: una riga per ricetta scritta dall'utente, mostrata quando serve.
-- [ ] Editor ricette: ordine (su/giù), dopo il forno, si ordina spesso, perché, foto.
+- [x] **"Stasera ho fatto…"**: diario dei piatti fatti al lavoro; il giorno dopo il gioco li chiede.
+- [x] **"Prima del turno"**: riscaldamento sui più ordinati e su quelli da ripassare.
+- [x] **La tua foto** del piatto (IndexedDB) nel Ricettario e negli errori.
+- [x] **Il perché**: una riga per ricetta scritta dall'utente, mostrata quando serve.
+- [x] Editor ricette: ordine (su/giù), dopo il forno, si ordina spesso, perché, foto.
 
 ### Passo 7 — Ricettario e gesti
-- [ ] **"Immagina di montarlo"**: il film mentale guidato, uno strato alla volta.
-- [ ] **Gesti facoltativi** (impostazione, spenta di partenza): spalmare la salsa con un giro del dito,
+- [x] **"Immagina di montarlo"**: il film mentale guidato, uno strato alla volta.
+- [x] **Gesti facoltativi** (impostazione, spenta di partenza): spalmare la salsa con un giro del dito,
       spolverare il grana. Mai obbligatori.
 
 ### Alla fine
-- [ ] Prova nel browser (Playwright) dei flussi principali; aggiornare README e CLAUDE.md.
+- [x] Prova nel browser (Playwright) dei flussi principali; aggiornare README e CLAUDE.md.
+
+## Stato al 26 ottobre 2026
+
+Tutti i passi sono fatti e provati nel browser (2D e 3D, con un bot che gioca turni interi giusti e sbagliati,
+un salvataggio "avanzato" per gli sblocchi, e controlli diretti su giudizio del piatto e FSRS).
+
+Da fare con l'utente, non nel codice:
+- **Controllare le bozze** (Impostazioni → Ricette, piatti con l'icona a strati): ordine dei panini e uscita dal forno.
+- Sistemare **la propria postazione** (Impostazioni → La tua postazione).
+- Prova su telefono vero: foto dalla fotocamera, gesti col dito, velocità del 3D.
+
+Idee rimaste fuori (possibili passi futuri): classifica fra colleghi (serve un server), umore dei clienti sui modelli 3D.
+
+## Dove sta cosa
+- Voti e fasi: `store.tsx` (`record`), `lib/mastery.ts` (fasi, `ripe`, `isDue`), `lib/fsrs.ts`.
+- Turno: `screens/Game.tsx` (`planFor` = aiuto per fase/freschezza/difficoltà, `spawn`, `success`, `fail`),
+  tipi e schermate di contorno in `screens/GameParts.tsx`.
+- Giudizio del piatto (ordine, forno, pezzi): `lib/plate.ts`. Ordini speciali: `lib/orders.ts`. Postazione: `lib/station.ts`.
+- Livelli e titoli: `lib/levels.ts`. Diario del turno vero: `lib/real.ts`. Foto: `lib/photos.ts` (IndexedDB).
+- Ricetta "come al lavoro" (base rossa, forno/uscita, strati): `components/Recipe.tsx`.
 
 ## Note per chi riprende
 - Branch di lavoro della sessione cloud: `ccr-cc268492-2dm3k4` (CLAUDE.md dice `main`: unire a fine lavoro).

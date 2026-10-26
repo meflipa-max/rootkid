@@ -106,6 +106,8 @@ export interface Save {
   lvlPaid?: number;
   /** diario del turno vero: giorno -> piatti fatti al lavoro */
   real?: Record<string, string[]>;
+  /** quando è stato scritto il diario di ogni giorno: il ripasso arriva dopo una dormita */
+  realAt?: Record<string, number>;
   /** ultimo giorno di lavoro già ripassato il giorno dopo */
   realDone?: string;
   /** la tua postazione: per ogni banco, gli ingredienti nell'ordine in cui stanno */

@@ -25,10 +25,30 @@ Stile "giocattolo low-poly": tutto è modellato in codice con three.js / React T
 - **Mondo** (`World.tsx`): isola galleggiante con acqua e schiuma sulla riva, cielo dipinto con sole e nuvole, alberi, sentiero, lampioni che si accendono la sera, pontile con la barca.
 - Senza WebGL il gioco torna da solo alla versione 2D.
 
+## Come il gioco capisce quanto sai
+- **Voto della risposta**: copiare dalla ricetta è studio (non fa salire), Aiuto vuol dire "non lo sapevo", correzioni o
+  lentezza = difficile, risposta pulita = bene, pulita e veloce in dispensa o con la puntata = facile.
+- **Fasi del piatto**: Nuovo → Riconosci → Ricorda → A memoria → Distingui → Oro. Ogni fase è un modo diverso di
+  presentarlo (cartolina del piatto nuovo, numero visibile, "cosa manca?", dispensa, coppia col piatto simile).
+- **FSRS** (`lib/fsrs.ts`): per ogni piatto la probabilità di ricordarlo adesso; decide i ripassi, l'aiuto e la
+  vetrina che si impolvera.
+- **Difficoltà automatica**: punta a circa l'85% di ordini giusti, e lo dice ("Stai andando forte", "Ti do una mano").
+- **Richiami**: un piatto studiato torna due clienti dopo senza ricetta, e di nuovo a fine turno.
+
+## Come al lavoro
+- **Panini montati dal basso** e serviti chiudendo il panino; **pizze** infornate e completate all'uscita;
+  **friggitoria** a pezzi contati nel cestino; **base rossa** (pomodoro + fior di latte) come pezzo unico.
+- **La tua postazione**: ogni ingrediente sempre nello stesso posto del banco, sistemabile in Impostazioni.
+- **Il turno vero**: segni i piatti fatti al lavoro e il giorno dopo il gioco te li chiede. **Prima del turno**:
+  riscaldamento sui più ordinati. **Foto** e **perché** di ogni ricetta. **Immagina di montarlo** nel Ricettario.
+- **Gesti** facoltativi: spalmare con un giro del dito, spolverare con tre tocchi.
+
 ## Il turno
 Un cuoco animato, una pizzeria al tramonto (che diventa sera man mano che arrivano i clienti) e 8 clienti da servire prima che perdano la pazienza.
 
-- **Aiuti che si ritirano**: piatto nuovo → ricetta visibile; dopo un errore → la ricetta si vede finché non metti il primo ingrediente (*memorizza!*); poi solo icone, poi solo il numero, infine niente (punti ×3 "a memoria").
+- **Aiuti che si ritirano** con la fase del piatto: ricetta visibile (studio), poi solo il numero, infine niente (punti ×3 "a memoria").
+- **Livelli che cambiano il lavoro**: Tavolo da due, Varianti, Asporto al telefono, Controllo qualità, Sabato sera. Il titolo dipende dai piatti che sai.
+- **Puntata "Sicuro!"** (×2 o -100), **"Quasi! 4 su 5"**, momenti-trofeo (primo a memoria, piatto d'oro, recuperato), missioni sulla memoria.
 - **Rivincita** 🔁: se sbagli un piatto, torna un paio di clienti dopo (punti ×1.5). Richiamo a breve distanza subito dopo il feedback.
 - **Cliente indeciso** 🤔: ti dice gli ingredienti e tu riconosci il piatto (richiamo nel verso opposto).
 - **Cliente VIP** 👑, **mance** e **FEVER** 🔥 (combo ×5 → punti ×1.5): ricompense variabili per tenere alta la motivazione.
@@ -38,8 +58,8 @@ Un cuoco animato, una pizzeria al tramonto (che diventa sera man mano che arriva
 ## Studio
 - **Bancone che cresce con la memoria** (`trayFor` in `questions.ts`): piatto nuovo → giusti + pochi sbagliati; 2–3 tacche → il doppio dei distrattori, presi dai piatti simili; 4–5 tacche → la **dispensa intera** della categoria (pizze classiche e speciali insieme, max 36 voci), divisa in ripiani (`lib/pantry.ts`) e con la ricerca scrivendo. La friggitoria non arriva alla dispensa.
 - **Sfida scritta** (Ricettario → Scrivi a memoria, `screens/Write.tsx`): solo il nome del piatto, gli ingredienti si scrivono. Perdona maiuscole, accenti, "di"/"e" e piccoli errori di battitura; le quantità devono essere esatte. Un ingrediente vero ma sbagliato è un errore, una parola sconosciuta no. Risposta perfetta = 2 tacche.
-- **Coerenza con le migliorie**: la Mise en place toglie distrattori anche dalla dispensa (mai quelli su cui hai già sbagliato); il Campanello non serve da solo quando il numero di ingredienti è nascosto, se no suggerirebbe quando hai finito; la dispensa dà 12 s di tempo in più (e Forno, Garzone, Cronometro si sommano).
-- **Ripetizione dilazionata (Leitner)**: 5 livelli per piatto. Oltre il livello 2 si sale solo quando il ripasso è "maturo" (1, 2, 4, 8 giorni): la padronanza misura la memoria a lungo termine, non la ripetizione nella stessa sessione.
+- **Coerenza con le migliorie**: comprano comodità, mai risposte. La Mise en place mette in ordine il banco (ricerca ed etichette); il Campanello serve quando il numero torna, giusto o sbagliato; la dispensa dà 12 s di tempo in più (e Forno, Garzone, Cronometro si sommano).
+- **Ripetizione dilazionata**: oltre la fase 2 si sale solo dopo un'attesa (1, 2, 4, 8 giorni); quando ripassare lo decide FSRS.
 - **Ripasso** 🧠: prima i piatti in scadenza, poi i più deboli.
 - **Ricettario**: schede da girare con il numero di voci da ricordare, gli ingredienti che dimentichi più spesso e "non confonderlo con…" il piatto più simile. L'autovalutazione non porta oltre il livello 2.
 

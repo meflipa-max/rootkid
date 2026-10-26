@@ -11,7 +11,9 @@ export const isPopular = (s: Save, d: Dish) => !!d.popular || realCount(s, d.id)
 export function pendingReal(s: Save): { date: string; dishes: Dish[] } | null {
   const t = today();
   const limit = new Date(Date.now() - 3 * 864e5).toLocaleDateString('sv');
-  const days = Object.keys(s.real ?? {}).filter((d) => d < t && d >= limit && (!s.realDone || d > s.realDone)).sort();
+  // il ripasso arriva dopo una dormita: almeno 6 ore dopo aver scritto il diario
+  const slept = (d: string) => Date.now() - (s.realAt?.[d] ?? 0) >= 6 * 36e5;
+  const days = Object.keys(s.real ?? {}).filter((d) => d < t && d >= limit && (!s.realDone || d > s.realDone) && slept(d)).sort();
   const date = days[days.length - 1];
   if (!date) return null;
   const dishes = s.real![date].map((id) => s.dishes.find((d) => d.id === id)).filter((d): d is Dish => !!d);
