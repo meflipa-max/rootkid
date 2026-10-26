@@ -2,6 +2,7 @@ import type { Category, Dish } from './types';
 import { PIZZA_INGREDIENTS } from './data';
 import { SHELVES, shelfOf } from './pantry';
 import { pieceOf } from './plate';
+import { aliasList } from './aliases';
 
 /**
  * La tua postazione: ogni ingrediente sta sempre nello stesso posto del banco, come al lavoro.
@@ -25,8 +26,7 @@ export function universeOf(id: StationId, dishes: Dish[]): string[] {
   const own = dishes.filter((d) => cats.includes(d.category));
   const list = id === 'fritti' ? own.flatMap((d) => d.ingredients.map((i) => pieceOf(i).type)) : own.flatMap((d) => d.ingredients);
   if (id === 'pizza') list.push(...PIZZA_INGREDIENTS);
-  const seen = new Set<string>();
-  return list.filter((x) => !seen.has(low(x)) && (seen.add(low(x)), true));
+  return aliasList(list);
 }
 
 /** disposizione di partenza: per ripiani (pane, carni, formaggi, verdure, salse, dolci), poi in ordine alfabetico */

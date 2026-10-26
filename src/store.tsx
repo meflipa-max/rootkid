@@ -3,6 +3,7 @@ import type { Dish, DishStat, MKind, Save, Settings } from './lib/types';
 import { review, fromBox, type FsGrade } from './lib/fsrs';
 import { levelChest } from './lib/levels';
 import { norm } from './lib/questions';
+import { aliasList, aliasName, setUserAliases } from './lib/aliases';
 import { DEFAULT_DISHES, ING_ALIASES, MENU_VERSION, OLD_DEFAULTS } from './lib/data';
 import { emptyStat, isDue, levelOf, ripe } from './lib/mastery';
 import { setFx } from './lib/fx';
@@ -71,6 +72,9 @@ function load(): Save {
         s.dishes = s.dishes.map((d) => ({ ...d, ingredients: [...new Set(d.ingredients.map((i) => ING_ALIASES[i.trim().toLowerCase()] ?? i))] }));
         if ((s.menuV ?? 1) < MENU_VERSION) s.dishes = migrateMenu(s.dishes);
         s.menuV = MENU_VERSION;
+        // le unioni fatte dall'utente valgono anche per i piatti arrivati con l'aggiornamento del menu
+        setUserAliases(s.aliases);
+        if (s.aliases) s.dishes = s.dishes.map((d) => withAliases(d, s.aliases!));
         // salvataggi con le sole scatole di Leitner: la memoria FSRS parte dalla scatola
         for (const st of Object.values(s.stats ?? {})) if (st.seen && !st.fs) st.fs = fromBox(st.box, st.last);
         // la Mise en place ora ha 2 livelli (banco in ordine): il terzo si rimborsa
@@ -88,6 +92,11 @@ function load(): Save {
     /* ignore */
   }
   return fresh();
+}
+
+/** una ricetta con gli ingredienti uniti dall'utente */
+function withAliases(d: Dish, a: Record<string, string>): Dish {
+  return { ...d, ingredients: aliasList(d.ingredients, a), ...(d.after ? { after: aliasList(d.after, a) } : {}) };
 }
 
 /**
@@ -141,6 +150,10 @@ interface Ctx {
   setRealDone(date: string): void;
   setStation(id: string, list: string[] | null): void;
   ackMemory(): void;
+  /** "from" e "to" sono lo stesso ingrediente: in questi piatti (tutti, se `ids` manca) togli "from" e usa "to" */
+  mergeIngredient(from: string, to: string, ids?: string[]): number;
+  /** dimentica un'unione (i piatti restano come sono) */
+  forgetAlias(from: string): void;
   /** avanza le missioni del giorno; combo usa il massimo, il resto si somma */
   track(ev: Partial<Record<MKind, number>>): void;
   claim(id: string): number;
@@ -301,6 +314,45 @@ export function AppProvider({ children }: { children: ReactNode }) {
         else delete station[id];
         commit({ ...s, station });
       },
+      mergeIngredient(from, to, ids) {
+        const s = ref.current;
+        const a = { [from.trim().toLowerCase()]: to.trim() };
+        let n = 0;
+        const dishes = s.dishes.map((d) => {
+          if (ids && !ids.includes(d.id)) return d;
+          if (!d.ingredients.some((i) => aliasName(i, a) !== i)) return d;
+          n++;
+          return withAliases(d, a);
+        });
+        const rename = (r: Record<string, number> | undefined) => {
+          if (!r) return r;
+          const o: Record<string, number> = {};
+          for (const [k, v] of Object.entries(r)) {
+            const k2 = aliasName(k, a);
+            o[k2] = (o[k2] ?? 0) + v;
+          }
+          return o;
+        };
+        const touched = new Set(dishes.filter((d, i) => d !== s.dishes[i]).map((d) => d.id));
+        const stats = Object.fromEntries(Object.entries(s.stats).map(([id, st]) => [id, touched.has(id) ? { ...st, missed: rename(st.missed)!, confused: rename(st.confused) } : st]));
+        // solo se vale per tutti i piatti diventa un'unione permanente
+        let aliases = s.aliases;
+        let station = s.station;
+        if (!ids) {
+          aliases = { ...Object.fromEntries(Object.entries(s.aliases ?? {}).map(([k, v]) => [k, aliasName(v, a)])), ...a };
+          station = s.station && Object.fromEntries(Object.entries(s.station).map(([k, l]) => [k, aliasList(l, a)]));
+          setUserAliases(aliases);
+        }
+        commit({ ...s, dishes, stats, aliases, station });
+        return n;
+      },
+      forgetAlias(from) {
+        const s = ref.current;
+        const aliases = { ...s.aliases };
+        delete aliases[from.trim().toLowerCase()];
+        setUserAliases(aliases);
+        commit({ ...s, aliases });
+      },
       ackMemory() {
         commit({ ...ref.current, memV: MEM_VERSION });
       },
@@ -372,7 +424,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         commit({ ...s, dishes: s.dishes.filter((x) => x.id !== id), stats });
       },
       resetRecipes() {
-        commit({ ...ref.current, dishes: fresh().dishes });
+        const a = ref.current.aliases;
+        commit({ ...ref.current, dishes: a ? fresh().dishes.map((d) => withAliases(d, a)) : fresh().dishes });
       },
       resetStats() {
         const f = fresh();
@@ -385,7 +438,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         try {
           const s = JSON.parse(json) as Save;
           if (!s || s.v !== 1 || !Array.isArray(s.dishes) || s.dishes.some((d) => !d.id || !d.name || !Array.isArray(d.ingredients))) return false;
-          commit({ ...fresh(), ...s, settings: { ...fresh().settings, ...s.settings } });
+          setUserAliases(s.aliases);
+          commit({ ...fresh(), ...s, memV: s.memV, settings: { ...fresh().settings, ...s.settings } });
           return true;
         } catch {
           return false;

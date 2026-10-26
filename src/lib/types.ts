@@ -112,6 +112,8 @@ export interface Save {
   realDone?: string;
   /** la tua postazione: per ogni banco, gli ingredienti nell'ordine in cui stanno */
   station?: Record<string, string[]>;
+  /** ingredienti uniti dall'utente: nome tolto (minuscolo) -> nome da usare */
+  aliases?: Record<string, string>;
   /** puntate "Sicuro!": quante e quante giuste */
   sure?: { n: number; ok: number };
 }

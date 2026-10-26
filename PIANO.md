@@ -137,8 +137,8 @@ Richiesta: rifare gli ingredienti che si confondono o ingannano (Blender dove se
 Principio: un disegno aiuta a ricordare solo se è **diverso dagli altri** e **assomiglia a quello che si vede al banco**.
 
 ### Passo A — Unire due ingredienti (Impostazioni → Ingredienti)
-- [ ] Tocchi un ingrediente → "Sostituisci con…" → scegli quello da tenere → vedi i piatti toccati → confermi.
-- [ ] Cambia tutte le ricette, le statistiche (dimenticati/confusi) e la postazione; il nome tolto non torna più
+- [x] Tocchi un ingrediente → "Sostituisci con…" → scegli quello da tenere → vedi i piatti toccati → confermi.
+- [x] Cambia tutte le ricette, le statistiche (dimenticati/confusi) e la postazione; il nome tolto non torna più
       (alias dell'utente salvati, applicati anche agli aggiornamenti del menu e alla lista ingredienti delle pizze).
 
 ### Passo B — Blender

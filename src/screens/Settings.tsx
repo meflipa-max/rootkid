@@ -5,6 +5,7 @@ import { CATEGORIES, catOf, isPizza, PIZZA_INGREDIENTS } from '../lib/data';
 import { STATIONS, layoutOf, universeOf, type StationId } from '../lib/station';
 import { delPhoto, savePhoto, usePhoto } from '../lib/photos';
 import { sfx } from '../lib/fx';
+import { aliasList } from '../lib/aliases';
 import type { Category, Dish } from '../lib/types';
 import { cap } from '../lib/emoji';
 import { Ing } from '../components/Ing';
@@ -129,6 +130,69 @@ function Editor({ dish, onClose }: { dish: Dish | null; onClose: () => void }) {
 }
 
 /**
+ * Unisci due ingredienti: "from" sparisce e al suo posto si usa quello scelto.
+ * Di partenza vale per tutti i piatti (e resta come unione permanente); si possono anche togliere dei piatti.
+ */
+function MergeSheet({ from, onClose }: { from: string; onClose: () => void }) {
+  const app = useApp();
+  useHoldUpdate(true);
+  const [q, setQ] = useState('');
+  const [to, setTo] = useState<string | null>(null);
+  const low = (x: string) => x.trim().toLowerCase().replace(/^\d+(\/\d+)?\s+/, '');
+  const has = (d: Dish) => d.ingredients.some((i) => low(i) === from);
+  const dishes = app.save.dishes.filter(has);
+  const [ids, setIds] = useState<string[]>(dishes.map((d) => d.id));
+  // tutti i nomi, con le maiuscole come stanno nelle ricette
+  const names = new Map<string, string>();
+  for (const d of app.save.dishes) for (const i of d.ingredients) if (!names.has(low(i))) names.set(low(i), i.replace(/^\d+(\/\d+)?\s+/, ''));
+  for (const i of aliasList(PIZZA_INGREDIENTS)) if (!names.has(low(i))) names.set(low(i), i);
+  names.delete(from);
+  const f = q.trim().toLowerCase();
+  const list = [...names.entries()].filter(([k]) => !f || k.includes(f)).sort((a, b) => a[0].localeCompare(b[0], 'it'));
+  const all = ids.length === dishes.length;
+  const apply = () => {
+    if (!to) return;
+    app.mergeIngredient(from, to, all ? undefined : ids);
+    sfx.win();
+    onClose();
+  };
+  return (
+    <div className="modal" onClick={onClose}>
+      <div className="modal-in" onClick={(e) => e.stopPropagation()}>
+        <h3><Ing name={from} /> {cap(from)}</h3>
+        <div className="muted sm">{dishes.length ? `È in ${dishes.length} ${dishes.length === 1 ? 'piatto' : 'piatti'}.` : 'Non è in nessun piatto: è solo nella lista degli ingredienti delle pizze.'} Se è la stessa cosa di un altro ingrediente, scegli <b>quale usare al suo posto</b>.</div>
+        {!to ? (
+          <>
+            <label className="pantry-q"><Icon name="search" size={20} /><input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cerca l'ingrediente da usare…" aria-label="Cerca l'ingrediente da usare" autoFocus /></label>
+            <div className="chips merge-list">
+              {list.map(([k, n]) => <button key={k} className="chip" onClick={() => { sfx.tap(); setTo(n); }}><Ing name={n} /> {cap(n)}</button>)}
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="merge-pair"><span className="chip bad"><Ing name={from} /> {cap(from)}</span><Icon name="down" size={20} /><span className="chip ok"><Ing name={to} /> {cap(to)}</span></div>
+            {dishes.length > 0 && (
+              <>
+                <div className="setting-h">In quali piatti</div>
+                <div className="chips">
+                  {dishes.map((d) => <button key={d.id} className={`chip ${ids.includes(d.id) ? 'sel' : ''}`} onClick={() => setIds((x) => (x.includes(d.id) ? x.filter((y) => y !== d.id) : [...x, d.id]))}>{ids.includes(d.id) && <Icon name="check" size={14} />} {d.name}</button>)}
+                </div>
+                <div className="muted sm">{all ? `Vale per tutti i piatti e resta ricordato: «${from}» non tornerà più, nemmeno con gli aggiornamenti del menu.` : 'Vale solo per i piatti segnati.'} Se un piatto li aveva tutti e due, ne resta uno. Anche le statistiche (ingredienti dimenticati o confusi) passano al nome nuovo.</div>
+              </>
+            )}
+            <div className="modal-btns">
+              <button className="btn ghost" onClick={() => setTo(null)}>Cambia</button>
+              <button className="btn primary" disabled={dishes.length > 0 && !ids.length} onClick={apply}>Usa «{cap(to)}»</button>
+            </div>
+          </>
+        )}
+        {!to && <button className="btn ghost wide" onClick={onClose}>Chiudi</button>}
+      </div>
+    </div>
+  );
+}
+
+/**
  * La tua postazione: tocchi un ingrediente e poi il posto dove metterlo, come sistemare le vaschette al banco.
  * Nel turno gli ingredienti staranno sempre lì.
  */
@@ -180,6 +244,7 @@ export function Settings() {
   const [msg, setMsg] = useState('');
   const [filter, setFilter] = useState<Category | 'all' | 'pizze'>('all');
   const [showIngs, setShowIngs] = useState(true);
+  const [merge, setMerge] = useState<string | null>(null);
   const allIngs = (() => {
     const m = new Map<string, number>();
     const add = (raw: string, n: number) => {
@@ -187,7 +252,7 @@ export function Settings() {
       if (!k || /^pezz/.test(k)) return;
       m.set(k, (m.get(k) ?? 0) + n);
     };
-    if (filter === 'all' || filter === 'pizze') PIZZA_INGREDIENTS.forEach((i) => add(i, 0));
+    if (filter === 'all' || filter === 'pizze') aliasList(PIZZA_INGREDIENTS).forEach((i) => add(i, 0));
     if (filter !== 'pizze') app.save.dishes.filter((d) => filter === 'all' || d.category === filter).forEach((d) => d.ingredients.forEach((i) => add(i, 1)));
     return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0], 'it'));
   })();
@@ -282,14 +347,28 @@ export function Settings() {
         <button className="btn ghost wide" onClick={() => setShowIngs((v) => !v)}>
           {showIngs ? 'Nascondi' : 'Mostra'} lista ingredienti ({allIngs.length})
         </button>
+        <div className="muted sm">Due nomi per la stessa cosa (es. mozzarella e fior di latte)? <b>Tocca quello da togliere</b> e scegli quale usare al suo posto.</div>
         {showIngs && (
           <div className="chips">
             {allIngs.map(([name, n]) => (
-              <span key={name} className="chip"><Ing name={name} /> {cap(name)} {n > 0 && <span className="muted sm">×{n}</span>}</span>
+              <button key={name} className="chip" onClick={() => setMerge(name)}><Ing name={name} /> {cap(name)} {n > 0 && <span className="muted sm">×{n}</span>}</button>
             ))}
           </div>
         )}
+        {Object.keys(app.save.aliases ?? {}).length > 0 && (
+          <>
+            <div className="setting-h">Ingredienti uniti</div>
+            {Object.entries(app.save.aliases!).map(([from, to]) => (
+              <div key={from} className="alias-row">
+                <span><s>{cap(from)}</s> → <b>{cap(to)}</b></span>
+                <button className="btn ghost sm" onClick={() => app.forgetAlias(from)}>Dimentica</button>
+              </div>
+            ))}
+            <div className="muted sm">"Dimentica" non cambia le ricette: serve solo se vuoi che il nome tolto possa tornare con gli aggiornamenti del menu.</div>
+          </>
+        )}
       </section>
+      {merge && <MergeSheet from={merge} onClose={() => setMerge(null)} />}
 
       <h3 className="h3">Dati</h3>
       <section className="card">
