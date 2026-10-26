@@ -62,7 +62,7 @@ export function Learn({ pool, onExit }: { pool: Dish[]; onExit: () => void }) {
   const cat = catOf(dish.category);
   const st = app.save.stats[dish.id];
   const weak = new Set(Object.entries(st?.missed ?? {}).filter(([, n]) => n >= 1).map(([k]) => norm(k)));
-  const sim = similarDish(dish, app.save.dishes);
+  const sim = similarDish(dish, app.menu);
   const rate = (knew: boolean) => {
     sfx[knew ? 'ok' : 'bad']();
     // l'autovalutazione è meno affidabile di un ordine vero: non porta oltre la fase 2 e per FSRS vale poco

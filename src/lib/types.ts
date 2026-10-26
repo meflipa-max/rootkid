@@ -18,6 +18,8 @@ export interface Dish {
   popular?: boolean;
   /** perché si fa così, scritto dall'utente (es. "il cheddar sopra la carne calda, così si scioglie") */
   why?: string;
+  /** fuori menu (piatto che non si fa più): resta salvato con le statistiche, ma il gioco non lo propone */
+  off?: boolean;
 }
 
 /** stato FSRS di un piatto: stabilità in giorni, difficoltà 1..10, ultimo ripasso */

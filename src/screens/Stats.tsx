@@ -9,9 +9,9 @@ import { RecipeView } from '../components/Recipe';
 import { Bar, Chip, Pips, Ring } from '../components/ui';
 
 export function Stats({ focus }: { focus: () => void }) {
-  const { save } = useApp();
+  const { save, menu } = useApp();
   const [open, setOpen] = useState<string | null>(null);
-  const rows = save.dishes
+  const rows = menu
     .map((d) => ({ d, s: save.stats[d.id], m: mastery(save.stats[d.id]) }))
     .sort((a, b) => a.m - b.m || (a.s?.seen ? 1 : 0) - (b.s?.seen ? 1 : 0));
   const avg = rows.length ? rows.reduce((a, r) => a + r.m, 0) / rows.length : 0;
@@ -58,7 +58,7 @@ export function Stats({ focus }: { focus: () => void }) {
       <h3 className="h3">La tua vetrina <span className="muted sm">{mastered}/{rows.length} a memoria</span></h3>
       <section className="card vetrina">
         {CATEGORIES.map((c) => {
-          const list = save.dishes.filter((d) => d.category === c.id);
+          const list = menu.filter((d) => d.category === c.id);
           if (!list.length) return null;
           return (
             <div key={c.id} className="shelf">
@@ -79,6 +79,7 @@ export function Stats({ focus }: { focus: () => void }) {
             </div>
           );
         })}
+        {save.dishes.length > menu.length && <div className="muted sm">{save.dishes.length - menu.length} {save.dishes.length - menu.length === 1 ? 'piatto è' : 'piatti sono'} fuori menu e non {save.dishes.length - menu.length === 1 ? 'conta' : 'contano'} (si rimettono da Impostazioni → Ricette).</div>}
         <div className="muted sm">I piatti mai serviti sono sagome: servili per sbloccarli, portali alla fase Oro per la cornice d'oro. Quelli impolverati sono da rinfrescare: basta un ripasso.</div>
       </section>
 

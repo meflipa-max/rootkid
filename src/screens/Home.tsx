@@ -55,11 +55,11 @@ function Shop({ onClose }: { onClose: () => void }) {
 
 /** Ricettario: prima si sceglie quali schede ripassare (solo i piatti già incontrati, oppure tutti) e la categoria */
 function Deck({ onPick, onClose }: { onPick: (mode: 'learn' | 'write' | 'imagine', pool: Dish[]) => void; onClose: () => void }) {
-  const { save } = useApp();
-  const known = save.dishes.filter((d) => save.stats[d.id]?.seen);
+  const { save, menu } = useApp();
+  const known = menu.filter((d) => save.stats[d.id]?.seen);
   const [onlyKnown, setOnlyKnown] = useState(known.length > 0);
   const [mode, setMode] = useState<'learn' | 'write' | 'imagine'>('learn');
-  const base = onlyKnown ? known : save.dishes;
+  const base = onlyKnown ? known : menu;
   const pick = (list: Dish[]) => {
     if (!list.length) return;
     sfx.tap();
@@ -80,7 +80,7 @@ function Deck({ onPick, onClose }: { onPick: (mode: 'learn' | 'write' | 'imagine
         <div className="setting-h">Quali piatti vuoi ripassare?</div>
         <div className="seg two">
           <button className={onlyKnown ? 'on' : ''} disabled={!known.length} onClick={() => { sfx.tap(); setOnlyKnown(true); }}>Già incontrati<small>{known.length} piatti</small></button>
-          <button className={onlyKnown ? '' : 'on'} onClick={() => { sfx.tap(); setOnlyKnown(false); }}>Tutto il menu<small>{save.dishes.length} piatti</small></button>
+          <button className={onlyKnown ? '' : 'on'} onClick={() => { sfx.tap(); setOnlyKnown(false); }}>Tutto il menu<small>{menu.length} piatti</small></button>
         </div>
         {!known.length && <div className="muted sm">Non hai ancora servito nessun piatto: gioca un turno e qui troverai quelli che hai incontrato.</div>}
         <div className="setting-h">Scegli la categoria</div>
@@ -179,7 +179,7 @@ function RealLog({ onClose }: { onClose: () => void }) {
         </div>
         <label className="pantry-q"><Icon name="search" size={20} /><input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cerca un piatto…" aria-label="Cerca un piatto" /></label>
         {CATEGORIES.map((c) => {
-          const list = save.dishes.filter((d) => d.category === c.id && (!f || d.name.toLowerCase().includes(f)));
+          const list = app.menu.filter((d) => d.category === c.id && (!f || d.name.toLowerCase().includes(f)));
           if (!list.length) return null;
           return (
             <div key={c.id}>
@@ -208,18 +208,19 @@ export function Home({ cat, setCat, start }: { cat: Category | 'all'; setCat: (c
   const [chest, setChest] = useState<number | null>(null);
   const [real, setReal] = useState(false);
   const lvl = levelOf(save.xp);
-  const known = knownCount(save.stats, save.dishes.map((d) => d.id));
+  const { menu } = app;
+  const known = knownCount(save.stats, menu.map((d) => d.id));
   const rank = titleFor(known);
   const nextUnlock = UNLOCKS.find((u) => u.lvl > lvl);
   const yesterday = pendingReal(save);
-  const dusty = save.dishes.filter((d) => isDusty(save.stats[d.id])).length;
+  const dusty = menu.filter((d) => isDusty(save.stats[d.id])).length;
   const sabato = unlocked(lvl, 'sabato');
   const [lo, hi] = levelBounds(lvl);
   const active = save.todayDate === new Date().toLocaleDateString('sv') ? save.todayCount : 0;
   const goal = save.settings.dailyGoal;
-  const pool = save.dishes.filter((d) => cat === 'all' || d.category === cat);
+  const pool = menu.filter((d) => cat === 'all' || d.category === cat);
   const avg = pool.length ? pool.reduce((a, d) => a + mastery(save.stats[d.id]), 0) / pool.length : 0;
-  const mastered = save.dishes.filter((d) => (save.stats[d.id]?.box ?? 0) >= 5).length;
+  const mastered = menu.filter((d) => (save.stats[d.id]?.box ?? 0) >= 5).length;
   const due = dueCount(save.stats, pool.map((d) => d.id));
   const skin = SKINS.find((s) => s.id === save.skin) ?? SKINS[0];
   const daily = currentDaily(save);
@@ -354,7 +355,7 @@ export function Home({ cat, setCat, start }: { cat: Category | 'all'; setCat: (c
           {due > 0 && <span className="hub-badge">{due}</span>}
           <span className="hub-e"><Icon name="brain" size={26} /></span><b>Ripasso</b><small>{due ? `${due} piatti da rinfrescare` : 'I tuoi punti deboli'}</small>
         </button>
-        <button className="hub learn" disabled={!save.dishes.length} onClick={() => { sfx.tap(); setDeck(true); }}>
+        <button className="hub learn" disabled={!menu.length} onClick={() => { sfx.tap(); setDeck(true); }}>
           <span className="hub-e"><Icon name="book" size={26} /></span><b>Ricettario</b><small>Schede e scrittura</small>
         </button>
         <button className="hub build" onClick={() => openBuild(null)}>
@@ -363,7 +364,7 @@ export function Home({ cat, setCat, start }: { cat: Category | 'all'; setCat: (c
         <button className="hub wardrobe" onClick={() => { sfx.tap(); setShop(true); }}>
           <span className="hub-e"><Icon name="shirt" size={26} /></span><b>Guardaroba</b><small>{save.skins.length}/{SKINS.length} divise</small>
         </button>
-        <button className="hub warmup" disabled={!save.dishes.length} onClick={() => go('warmup')}>
+        <button className="hub warmup" disabled={!menu.length} onClick={() => go('warmup')}>
           <span className="hub-e"><Icon name="clock" size={26} /></span><b>Prima del turno</b><small>3 minuti sui più ordinati</small>
         </button>
         <button className="hub real" onClick={() => { sfx.tap(); setReal(true); }}>
@@ -376,8 +377,8 @@ export function Home({ cat, setCat, start }: { cat: Category | 'all'; setCat: (c
       </div>
 
       <section className="card collection">
-        <div className="row-between"><div className="card-h">Menu a memoria</div><b className="coll-n">{mastered}/{save.dishes.length}</b></div>
-        <Bar value={save.dishes.length ? mastered / save.dishes.length : 0} color="#6f9a6a" h={10} />
+        <div className="row-between"><div className="card-h">Menu a memoria</div><b className="coll-n">{mastered}/{menu.length}</b></div>
+        <Bar value={menu.length ? mastered / menu.length : 0} color="#6f9a6a" h={10} />
         {dusty > 0 && <div className="note dust"><Icon name="sparkle" size={16} /><span>{dusty} {dusty === 1 ? 'piatto a memoria si sta' : 'piatti a memoria si stanno'} impolverando: un ripasso e tornano a brillare</span></div>}
         <div className="muted sm">Un piatto è tuo quando lo servi a memoria in giorni diversi: la ripetizione distanziata lo fissa per sempre. Scriverlo a memoria nel Ricettario vale doppio.</div>
       </section>

@@ -28,6 +28,7 @@ function Editor({ dish, onClose }: { dish: Dish | null; onClose: () => void }) {
   const [ordered, setOrdered] = useState(dish?.ordered ?? false);
   const [popular, setPopular] = useState(dish?.popular ?? false);
   const [why, setWhy] = useState(dish?.why ?? '');
+  const [inMenu, setInMenu] = useState(!dish?.off);
   const [busy, setBusy] = useState(false);
   const id0 = useRef(dish?.id ?? `new-${Date.now()}`);
   const photo = usePhoto(dish?.id);
@@ -62,6 +63,7 @@ function Editor({ dish, onClose }: { dish: Dish | null; onClose: () => void }) {
       ...(panino && ordered ? { ordered: true } : {}),
       ...(popular ? { popular: true } : {}),
       ...(why.trim() ? { why: why.trim() } : {}),
+      ...(inMenu ? {} : { off: true }),
     });
     onClose();
   };
@@ -101,6 +103,8 @@ function Editor({ dish, onClose }: { dish: Dish | null; onClose: () => void }) {
         {category === 'fritti' && <div className="muted sm">Friggitoria: scrivi le quantità, es. “3 crocchette”, “3/4 pittule” o “8 pezzi”.</div>}
         {panino && <label className="toggle"><span><Icon name="layers" size={20} /> L'ordine di montaggio conta</span><input type="checkbox" checked={ordered} onChange={(e) => setOrdered(e.target.checked)} /></label>}
         {panino && <div className="setting-d">Accendilo solo se al lavoro questo panino si monta sempre nello stesso ordine.</div>}
+        <label className="toggle"><span><Icon name="store" size={20} /> In menu</span><input type="checkbox" checked={inMenu} onChange={(e) => setInMenu(e.target.checked)} /></label>
+        <div className="setting-d">{inMenu ? 'Spegnilo se il piatto non si fa più: resta salvato, ma il gioco non lo propone e non lo conta.' : 'Fuori menu: non compare nei turni, nei ripassi, nel Ricettario e nei conteggi. Le statistiche restano, se un giorno torna.'}</div>
         <label className="toggle"><span><Icon name="star" size={20} /> Si ordina spesso</span><input type="checkbox" checked={popular} onChange={(e) => setPopular(e.target.checked)} /></label>
         <label>Il perché <span className="muted sm">(facoltativo: si ricorda meglio quello che si capisce)</span>
           <textarea rows={2} value={why} onChange={(e) => setWhy(e.target.value)} placeholder={panino ? 'Es. il cheddar sopra la carne calda, così si scioglie' : 'Es. la rucola dopo il forno, se no appassisce'} />
@@ -199,7 +203,7 @@ function MergeSheet({ from, onClose }: { from: string; onClose: () => void }) {
 function StationEditor({ id, onClose }: { id: StationId; onClose: () => void }) {
   const app = useApp();
   useHoldUpdate(true);
-  const universe = universeOf(id, app.save.dishes);
+  const universe = universeOf(id, app.menu);
   const [list, setList] = useState(() => layoutOf(app.save.station?.[id], universe));
   const [pick, setPick] = useState<number | null>(null);
   const st = STATIONS.find((s) => s.id === id)!;
@@ -261,7 +265,7 @@ export function Settings() {
       <button className={`chip ${filter === 'all' ? 'sel' : ''}`} onClick={() => setFilter('all')}>Tutti</button>
       {CATEGORIES.map((c) => (
         <button key={c.id} className={`chip ${filter === c.id ? 'sel' : ''}`} onClick={() => setFilter(c.id)}>
-          <Ing name={CAT_ING[c.id]} /> {c.name} ({app.save.dishes.filter((d) => d.category === c.id).length})
+          <Ing name={CAT_ING[c.id]} /> {c.name} ({app.menu.filter((d) => d.category === c.id).length})
         </button>
       ))}
       <button className={`chip ${filter === 'pizze' ? 'sel' : ''}`} onClick={() => setFilter('pizze')}>Pizze</button>
@@ -292,7 +296,7 @@ export function Settings() {
         {STATIONS.map((st) => (
           <button key={st.id} className="recipe" onClick={() => setStation(st.id)}>
             <div className="recipe-n">{st.name} {app.save.station?.[st.id] && <span className="badge">tua</span>}</div>
-            <div className="muted sm">{universeOf(st.id, app.save.dishes).length} {st.id === 'fritti' ? 'pezzi' : 'ingredienti'}</div>
+            <div className="muted sm">{universeOf(st.id, app.menu).length} {st.id === 'fritti' ? 'pezzi' : 'ingredienti'}</div>
           </button>
         ))}
       </section>
@@ -326,17 +330,29 @@ export function Settings() {
       {filter === 'pizze' && <div className="card muted sm">Le pizze non sono ancora piatti dell'app: qui trovi solo i loro ingredienti, nella sezione Ingredienti.</div>}
       {CATEGORIES.map((c) => {
         if (filter === 'pizze' || (filter !== 'all' && filter !== c.id)) return null;
-        const list = app.save.dishes.filter((d) => d.category === c.id);
-        if (!list.length) return null;
+        const all = app.save.dishes.filter((d) => d.category === c.id);
+        if (!all.length) return null;
+        const row = (d: Dish) => (
+          <div key={d.id} className={`recipe-wrap ${d.off ? 'off' : ''}`}>
+            <button className="recipe" onClick={() => setEdit(d)}>
+              <div className="recipe-n">{d.verify && <Icon name="warn" size={15} />} {d.draft && <Icon name="layers" size={15} />} {d.name} {d.popular && <Icon name="star" size={14} />}</div>
+              <div className="muted sm">{d.ordered ? d.ingredients.map(cap).join(' ↑ ') : d.ingredients.filter((i) => !d.after?.includes(i)).map(cap).join(' · ')}{d.after?.length ? ` · all'uscita: ${d.after.map(cap).join(', ')}` : ''}</div>
+            </button>
+            {d.off && <button className="btn ghost sm" onClick={() => { sfx.tap(); app.setDishOff(d.id, false); }}>Rimetti</button>}
+          </div>
+        );
+        const on = all.filter((d) => !d.off);
+        const off = all.filter((d) => d.off);
         return (
           <section key={c.id} className="card">
             <div className="card-h cat-h"><Ing name={CAT_ING[c.id]} /> {c.name}</div>
-            {list.map((d) => (
-              <button key={d.id} className="recipe" onClick={() => setEdit(d)}>
-                <div className="recipe-n">{d.verify && <Icon name="warn" size={15} />} {d.draft && <Icon name="layers" size={15} />} {d.name} {d.popular && <Icon name="star" size={14} />}</div>
-                <div className="muted sm">{d.ordered ? d.ingredients.map(cap).join(' ↑ ') : d.ingredients.filter((i) => !d.after?.includes(i)).map(cap).join(' · ')}{d.after?.length ? ` · all'uscita: ${d.after.map(cap).join(', ')}` : ''}</div>
-              </button>
-            ))}
+            {on.map(row)}
+            {off.length > 0 && (
+              <>
+                <div className="setting-h off-h">Fuori menu ({off.length})</div>
+                {off.map(row)}
+              </>
+            )}
           </section>
         );
       })}

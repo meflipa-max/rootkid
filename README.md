@@ -20,6 +20,9 @@ Gioco mobile-first per memorizzare le ricette della pizzeria (hamburger, insalat
 ## Ingredienti fatti in Blender
 Quelli che disegnati in codice si confondevano (latticini bianchi, funghi, creme, salumi, verdure cotte, fritti, patate, kebab e pulled pork, Grana e Parmigiano) sono modellati in Blender con `tools/ingredients.py` e caricati da `src/three/models.ts`; se il file non arriva resta il disegno in codice. Come rigenerarli: `public/models/CREDITS.md`.
 
+## Piatti fuori menu
+Un piatto che non si fa più si spegne nella sua ricetta (Impostazioni → Ricette → "In menu"): resta salvato con le statistiche ma non compare in turni, ripassi, Ricettario e conteggi. "Rimetti" lo riporta in menu.
+
 ## Ingredienti uniti
 Due nomi per la stessa cosa (es. mozzarella e fior di latte)? Impostazioni → Ingredienti → tocca quello da togliere e scegli quale usare. Cambiano ricette, statistiche e postazione; l'unione resta ricordata.
 

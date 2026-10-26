@@ -22,7 +22,7 @@ type Note = { text: string; kind: 'ok' | 'bad' | 'unknown' | 'dup' };
 export function Write({ pool, onExit }: { pool: Dish[]; onExit: () => void }) {
   const app = useApp();
   const [queue] = useState<Dish[]>(() => [...pool].sort((a, b) => mastery(app.save.stats[a.id]) - mastery(app.save.stats[b.id]) || Math.random() - 0.5));
-  const universe = useRef([...new Set(app.save.dishes.flatMap((d) => d.ingredients))]).current;
+  const universe = useRef([...new Set(app.menu.flatMap((d) => d.ingredients))]).current;
   const [i, setI] = useState(0);
   const [found, setFound] = useState<string[]>([]);
   const [wrong, setWrong] = useState<string[]>([]);

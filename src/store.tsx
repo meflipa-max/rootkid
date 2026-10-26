@@ -54,7 +54,8 @@ function migrateMenu(saved: Dish[]): Dish[] {
       continue;
     }
     const cur = out[i];
-    if (cur.verify || OLD_DEFAULTS[def.id]?.some((o) => setKey(o) === setKey(cur.ingredients))) out[i] = clone(def);
+    // un piatto messo fuori menu resta fuori anche quando la ricetta si aggiorna
+    if (cur.verify || OLD_DEFAULTS[def.id]?.some((o) => setKey(o) === setKey(cur.ingredients))) out[i] = { ...clone(def), ...(cur.off ? { off: true } : {}) };
     // stessi ingredienti della ricetta di default: prende l'ordine "come al lavoro" (bozza) e i dati nuovi
     else if (setKey(cur.ingredients) === setKey(def.ingredients) && cur.after === undefined && cur.ordered === undefined)
       out[i] = { ...cur, ingredients: [...def.ingredients], after: def.after && [...def.after], ordered: def.ordered, draft: def.draft };
@@ -143,6 +144,9 @@ export interface RecordOpts {
 
 interface Ctx {
   save: Save;
+  /** i piatti in menu (senza quelli messi fuori menu): è l'elenco da usare per giocare e contare */
+  menu: Dish[];
+  setDishOff(id: string, off: boolean): void;
   record(dishId: string, opts: RecordOpts): RecordResult;
   /** forzieri dei livelli raggiunti e non ancora aperti */
   claimLevels(): { coins: number; levels: number[] };
@@ -195,9 +199,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [save]);
 
+  const menu = useMemo(() => save.dishes.filter((d) => !d.off), [save.dishes]);
   const api = useMemo<Ctx>(
     () => ({
       save,
+      menu,
+      setDishOff(id, off) {
+        const s = ref.current;
+        commit({ ...s, dishes: s.dishes.map((d) => (d.id === id ? { ...d, off: off || undefined } : d)) });
+      },
       record(dishId, opts) {
         const s = ref.current;
         const t = today();
@@ -447,7 +457,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       },
       exportSave: () => JSON.stringify(ref.current),
     }),
-    [save, commit],
+    [save, menu, commit],
   );
 
   return <AppCtx.Provider value={api}>{children}</AppCtx.Provider>;

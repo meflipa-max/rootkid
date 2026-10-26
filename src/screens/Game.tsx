@@ -117,14 +117,16 @@ function Shift({ pool, title, total = 8, coinMult = 1, onExit, again }: GameProp
   const stageRef = useRef<HTMLDivElement>(null);
 
   const layoutFor = (d: Dish) => {
-    const { station, dishes } = appRef.current.save;
+    const { station } = appRef.current.save;
+    const dishes = appRef.current.menu;
     const id = stationOf(d.category);
     return layoutOf(station?.[id], universeOf(id, dishes));
   };
 
   /** prepara il cliente per un piatto: aiuto, bancone, tempo */
   const setup = (g: G, d: Dish, forced: boolean, kind: CKind, extra: Partial<Cust> = {}): Omit<Cust, 'id' | 'look' | 'slot' | 'state' | 't'> => {
-    const { stats, dishes, xp, build, settings } = appRef.current.save;
+    const { stats, xp, build, settings } = appRef.current.save;
+    const dishes = appRef.current.menu;
     const st = stats[d.id];
     const now = Date.now();
     const group = extra.group ?? null;
@@ -159,7 +161,8 @@ function Shift({ pool, title, total = 8, coinMult = 1, onExit, again }: GameProp
     const taken = new Set(g.customers.map((c) => c.slot));
     const slot = [0, 1, 2].find((s) => !taken.has(s));
     if (slot === undefined) return g;
-    const { stats, dishes, xp } = appRef.current.save;
+    const { stats, xp } = appRef.current.save;
+    const dishes = appRef.current.menu;
     const now = Date.now();
     const lvl = levelOf(xp);
     const onScreen = g.customers.filter(alive).flatMap((c) => [c.dish.id, ...c.queue.map((x) => x.id), ...c.order.map((x) => x.id)]);
@@ -249,7 +252,7 @@ function Shift({ pool, title, total = 8, coinMult = 1, onExit, again }: GameProp
   };
 
   const fail = (g: G, c: Cust, kind: Overlay['kind'], v: Verdict | null, notes0: string[] = [], d = c.dish, chosen?: Dish): G => {
-    const { dishes } = appRef.current.save;
+    const dishes = appRef.current.menu;
     const severity = kind === 'wrong' && v && v.missing.length + v.extra.length > 1 ? 2 : 1;
     const r = appRef.current.record(d.id, { grade: 1, missed: v?.missing ?? [], extra: v?.extra ?? [], severity, sure: c.sure });
     sfx.bad();
@@ -281,7 +284,8 @@ function Shift({ pool, title, total = 8, coinMult = 1, onExit, again }: GameProp
   };
 
   const success = (g0: G, c: Cust, v: Verdict | null, d = c.dish) => {
-    const { stats, dishes } = appRef.current.save;
+    const { stats } = appRef.current.save;
+    const dishes = appRef.current.menu;
     const st = stats[d.id];
     const study = studyOf(c);
     const target = d === c.dish ? c.target : d.ingredients;

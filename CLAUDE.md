@@ -107,3 +107,5 @@ Piano e stato in **`PIANO.md`**. In breve:
 - **Ingredienti uniti** (Impostazioni → Ingredienti → tocca il nome): `mergeIngredient` in `store.tsx`, alias
   dell'utente in `save.aliases` applicati al caricamento, agli aggiornamenti del menu e alla lista delle pizze
   (`lib/aliases.ts`).
+- **Piatti fuori menu** (`dish.off`): per giocare e contare usare `menu` dal contesto (`useApp().menu`), non
+  `save.dishes`, che contiene anche i piatti spenti (servono solo a Impostazioni e alle unioni di ingredienti).
