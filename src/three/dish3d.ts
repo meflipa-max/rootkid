@@ -1,9 +1,12 @@
 import * as THREE from 'three';
 import { BASE_OF, STACKED, buildIng, isSpread, parseIng } from './ingredients';
+import { onModels } from './models';
 
 /** Come si compone un piatto in 3D: base della categoria + ingredienti impilati (panini) o sparsi (pizze, ciotole, cestini). */
 
 const heights = new Map<string, number>();
+// quando arrivano i modelli di Blender le altezze degli strati cambiano
+onModels(() => heights.clear());
 export function heightOf(name: string) {
   let h = heights.get(name);
   if (h === undefined) {
@@ -23,7 +26,7 @@ export interface Placed {
 
 export function layoutDish(items: string[], cat: string | null): { out: Placed[]; baseKey: string | null; top: number; stacked: boolean } {
   const baseKey = cat ? BASE_OF[cat] : null;
-  const baseH = baseKey ? heightOf(baseKey) * (baseKey === 'ciotola' ? 0.75 : 1) : 0;
+  const baseH = baseKey ? heightOf(baseKey) : 0;
   const out: Placed[] = [];
   const look = (n: string) => (baseKey === 'pizza' && parseIng(n).key === 'pomodoro' && !/pomodorini/i.test(n) ? 'salsa di pomodoro' : n);
   if (cat && STACKED.has(cat)) {

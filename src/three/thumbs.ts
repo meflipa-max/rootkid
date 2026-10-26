@@ -3,6 +3,7 @@ import { useSyncExternalStore } from 'react';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { buildIng, parseIng } from './ingredients';
 import { buildDish } from './dish3d';
+import { onModels } from './models';
 
 /**
  * Icone degli ingredienti renderizzate dai modelli 3D (una volta sola, poi in cache come immagini):
@@ -23,6 +24,8 @@ export function hasWebGL() {
 
 const SIZE = 144;
 const cache = new Map<string, string>();
+/** icone fatte prima che arrivassero i modelli di Blender: restano finché non sono rifatte */
+const stale = new Set<string>();
 const queue: string[] = [];
 /** come costruire ciò che va fotografato: ingredienti (chiave = nome) o piatti interi (chiave "dish|…") */
 const makers = new Map<string, () => string>();
@@ -57,12 +60,12 @@ function setup() {
 const box = new THREE.Box3();
 const sphere = new THREE.Sphere();
 
-function shoot(obj: THREE.Object3D, up = 0.62) {
+function shoot(obj: THREE.Object3D, up = 0.62, fill = 1.02) {
   if (!renderer) setup();
   obj.rotation.y = -0.35;
   scene.add(obj);
   box.setFromObject(obj).getBoundingSphere(sphere);
-  const dist = (sphere.radius / Math.sin(THREE.MathUtils.degToRad(14))) * 1.02;
+  const dist = (sphere.radius / Math.sin(THREE.MathUtils.degToRad(14))) * fill;
   const dir = new THREE.Vector3(0, up, 1).normalize();
   camera.position.copy(sphere.center).addScaledVector(dir, dist);
   camera.lookAt(sphere.center);
@@ -114,7 +117,8 @@ function pump() {
     const t0 = performance.now();
     while (queue.length && performance.now() - t0 < 12) {
       const n = queue.shift()!;
-      if (cache.has(n)) continue;
+      if (cache.has(n) && !stale.has(n)) continue;
+      stale.delete(n);
       try {
         cache.set(n, (makers.get(n) ?? (() => render(n)))());
       } catch {
@@ -140,7 +144,7 @@ export function prewarm(names: string[]) {
 export function thumbOf(name: string): string | undefined {
   const k = norm(name);
   const v = cache.get(k);
-  if (v === undefined && !queue.includes(k)) {
+  if ((v === undefined || stale.has(k)) && !queue.includes(k)) {
     queue.push(k);
     pump();
   }
@@ -150,9 +154,19 @@ export function thumbOf(name: string): string | undefined {
 /** icona del piatto finito (base + ingredienti), per scelte, vetrina e riepiloghi */
 export function dishThumbOf(items: string[], cat: string): string | undefined {
   const k = `dish|${cat}|${items.map(norm).join(',')}`;
-  if (!makers.has(k)) makers.set(k, () => shoot(buildDish(items, cat), cat === 'hamburger' || cat === 'focacce' ? 0.5 : 0.95).toDataURL('image/png'));
+  // le pizze sono piatte: inquadrate più da vicino, se no in vetrina e nelle scelte sembrano tutte uguali
+  const flat = cat === 'classiche' || cat === 'speciali' || cat === 'dolci';
+  // le insalatone si guardano dall'alto, dentro la ciotola, se no si vede solo il bordo
+  const up = cat === 'hamburger' || cat === 'focacce' ? 0.5 : cat === 'insalatone' ? 2.2 : flat ? 1.25 : 0.95;
+  if (!makers.has(k)) makers.set(k, () => shoot(buildDish(items, cat), up, flat ? 0.8 : 1.02).toDataURL('image/png'));
   return thumbOf(k);
 }
+
+// arrivati i modelli di Blender: tutte le icone vanno rifatte (intanto restano le vecchie)
+onModels(() => {
+  for (const k of cache.keys()) stale.add(k);
+  subs.forEach((f) => f());
+});
 
 const subscribe = (f: () => void) => {
   subs.add(f);

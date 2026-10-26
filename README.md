@@ -17,6 +17,12 @@ Gioco mobile-first per memorizzare le ricette della pizzeria (hamburger, insalat
 - **Sempre aggiornata**: controlla se c'è una versione nuova all'avvio, quando si torna sull'app e ogni 30 minuti, e la applica da sola ricaricando la pagina, ma mai durante un turno o mentre si modifica una ricetta (`useHoldUpdate`).
 - Icone in `public/` (`favicon.svg` è il disegno di partenza).
 
+## Ingredienti fatti in Blender
+Quelli che disegnati in codice si confondevano (latticini bianchi, funghi, creme, salumi, verdure cotte, fritti, patate, kebab e pulled pork, Grana e Parmigiano) sono modellati in Blender con `tools/ingredients.py` e caricati da `src/three/models.ts`; se il file non arriva resta il disegno in codice. Come rigenerarli: `public/models/CREDITS.md`.
+
+## Ingredienti uniti
+Due nomi per la stessa cosa (es. mozzarella e fior di latte)? Impostazioni → Ingredienti → tocca quello da togliere e scegli quale usare. Cambiano ricette, statistiche e postazione; l'unione resta ricordata.
+
 ## Grafica 3D
 Stile "giocattolo low-poly": tutto è modellato in codice con three.js / React Three Fiber (`src/three/`), quindi stessa mano per ogni oggetto, anche per i prodotti locali che non esistono nei pacchetti di modelli.
 

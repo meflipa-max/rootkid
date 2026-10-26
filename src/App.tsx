@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { CAT_ING, Icon } from './components/Icon';
 import { dishThumbOf, hasWebGL, prewarm } from './three/thumbs';
 import { askTilt } from './three/bus';
+import { loadIngredientModels } from './three/models';
 import { AppProvider, useApp } from './store';
 import type { Category, Dish } from './lib/types';
 import { Home, type Mode } from './screens/Home';
@@ -48,6 +49,9 @@ function Shell() {
   const [cat, setCat] = useState<Category | 'all'>('all');
   const app = useApp();
   const [run, setRun] = useState<{ mode: Mode; pool: Dish[]; n: number } | null>(null);
+  useEffect(() => {
+    if (hasWebGL()) loadIngredientModels();
+  }, []);
   useEffect(() => {
     prewarm([...Object.values(CAT_ING), ...save.dishes.flatMap((d) => d.ingredients)]);
     if (hasWebGL()) save.dishes.forEach((d) => dishThumbOf(d.ingredients, d.category));

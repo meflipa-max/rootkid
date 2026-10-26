@@ -93,3 +93,17 @@ Piano e stato in **`PIANO.md`**. In breve:
 - Dati delle ricette: `ingredients` è in ordine di montaggio; `after` (pizze, uscita dal forno), `ordered` (panini),
   `draft` (bozza mia da far controllare), `popular`, `why`. Nuovi campi → `MENU_VERSION` e `migrateMenu`.
 - Gli effetti collaterali non vanno dentro le funzioni passate a `setState`: in sviluppo React le chiama due volte.
+
+## Ingredienti in Blender e ingredienti uniti — 26 ottobre 2026
+
+- **Modelli Blender degli ingredienti**: `tools/ingredients.py` (Blender in codice, gira anche col modulo `bpy` da
+  pip, Blender 5.2) → `tools/pack-ingredients.mjs` (meshopt) → `public/models/ingredients/ingredients.glb`.
+  Nel gioco: `src/three/models.ts` lo carica all'avvio in una cache sincrona; `buildIng` usa il modello se c'è
+  (`MODEL_KEYS` = quale nome usa quale modello, `ICON_ONLY` = solo icona, sulla pizza resta il disegno in codice),
+  altrimenti il disegno di prima. Quando arriva il file le icone si rifanno (`onModels` in `thumbs.ts`).
+- Regola per i disegni: ogni ingrediente **diverso dagli altri** e **come si vede al banco** (vaschetta d'acciaio
+  per il fior di latte, burrata sulle foglie, salsiccia a ruota cruda, panzerotti di patate = crocchette…).
+  Per controllare: fogli con tutte le icone (thumbOf) renderizzati con Playwright, vedi PIANO.md.
+- **Ingredienti uniti** (Impostazioni → Ingredienti → tocca il nome): `mergeIngredient` in `store.tsx`, alias
+  dell'utente in `save.aliases` applicati al caricamento, agli aggiornamenti del menu e alla lista delle pizze
+  (`lib/aliases.ts`).

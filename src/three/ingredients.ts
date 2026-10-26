@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three-stdlib';
 import { keyOf } from '../components/Ing';
+import { modelFor } from './models';
 
 /**
  * Ingredienti 3D low-poly, costruiti in codice: stesso stile "giocattolo opaco" per tutto il menu,
@@ -111,6 +112,25 @@ function bottle(b: B, body: string, capc: string) {
   b.add(G.cone(0.035, 0.1, 8), capc, [0, 0.51, 0]);
   return 0.56;
 }
+/** il disegnino sull'etichetta: senza, maionese, caesar, boscaiola e burger erano bottiglie quasi uguali */
+function sauceMark(b: B, k: string) {
+  const z = 0.12;
+  if (k === 'mayo') {
+    b.ball(0.05, '#fbf7ef', [0, 0.17, z], [0.8, 1, 0.5], 1);
+    b.ball(0.025, '#f2b81c', [0, 0.16, z + 0.02], [1, 1, 0.5], 1);
+  } else if (k === 'cesar') {
+    b.ball(0.045, '#6fae4a', [-0.02, 0.17, z], [1.2, 1, 0.4], 1);
+    b.add(G.rbox(0.04, 0.04, 0.04, 0.008), '#d9a04a', [0.03, 0.15, z + 0.01], [0.3, 0.5, 0]);
+  } else if (k === 'bosc') {
+    b.cyl(0.015, 0.04, '#efe3cf', [0, 0.13, z]);
+    b.add(G.dome(0.04), '#8a5a3a', [0, 0.165, z], [0, 0, 0], [1, 0.8, 0.6]);
+  } else if (k === 'sburger') {
+    b.cyl(0.045, 0.025, '#6b3a22', [0, 0.14, z], [1, 1, 0.5]);
+    b.add(G.rbox(0.07, 0.008, 0.05), '#f0a032', [0, 0.168, z], [0, 0.6, 0]);
+  } else if (k === 'bbq') {
+    b.add(G.cone(0.03, 0.08, 8), '#f07a1a', [0, 0.17, z], [0, 0, 0], [1, 1, 0.5]);
+  }
+}
 function blob(b: B, c: string, n = 7, spread = 0.22) {
   for (let i = 0; i < n; i++) {
     const a = (i / n) * Math.PI * 2 + b.r(0, 0.6);
@@ -124,6 +144,22 @@ function spread(b: B, c: string) {
   b.add(G.torus(0.13, 0.025, Math.PI * 1.6), c, [0, 0.03, 0], [Math.PI / 2, 0, 0]);
   return 0.04;
 }
+/** crema spalmata sulla pizza, con il segno che la distingue dalle altre (pepe, venature, semi…) */
+const CREAM_MARK: Record<string, [string, number, V3]> = {
+  ccacio: ['#2b211c', 26, [1, 0.6, 1]],
+  cgorgo: ['#4f8a86', 9, [3, 0.4, 0.8]],
+  czucca: ['#f3e6c0', 8, [1.8, 0.5, 1]],
+  pesto: ['#f1e3b8', 8, [1.5, 0.6, 1]],
+  cradicchio: ['#f0c9d4', 9, [2, 0.5, 1]],
+  czucchine: ['#3f7a2e', 9, [1.4, 0.5, 1]],
+};
+function creamLayer(b: B, k: string, c: string) {
+  const h = spread(b, c);
+  const m = CREAM_MARK[k];
+  if (m) for (let i = 0; i < m[1]; i++) b.ball(0.012, m[0], [b.r(-0.22, 0.22), 0.03, b.r(-0.22, 0.22)], m[2], 0);
+  return h;
+}
+
 /** n pezzi uguali disposti in cerchio */
 function pieces(b: B, n: number, make: (x: number, z: number, i: number) => void) {
   for (let i = 0; i < n; i++) {
@@ -184,7 +220,7 @@ function bits(b: B, n: number, r: number, c: string, c2 = c, s: V3 = [1, 0.7, 1]
 }
 
 const ART: Record<string, Build> = {
-  ...Object.fromEntries(Object.entries(CREAMS).map(([k, c]): [string, Build] => [k, (b, o) => (o.layer ? spread(b, c) : jar(b, c))])),
+  ...Object.fromEntries(Object.entries(CREAMS).map(([k, c]): [string, Build] => [k, (b, o) => (o.layer ? creamLayer(b, k, c) : jar(b, c))])),
   cotto: (b) => {
     for (let i = 0; i < 3; i++) {
       const p: V3 = [b.r(-0.06, 0.06), 0.02 + i * 0.015, (i - 1) * 0.1];
@@ -195,7 +231,7 @@ const ART: Record<string, Build> = {
   },
   cipolla: (b) => {
     for (let i = 0; i < 6; i++)
-      b.add(G.torus(0.06 + (i % 3) * 0.02, 0.008, Math.PI * 2, 14), i % 2 ? '#c98fb8' : '#efe1ea', [b.r(-0.16, 0.16), 0.012, b.r(-0.16, 0.16)], [Math.PI / 2, 0, 0]);
+      b.add(G.torus(0.06 + (i % 3) * 0.02, 0.013, Math.PI * 2, 14), i % 2 ? '#9a3f86' : '#c77fb6', [b.r(-0.16, 0.16), 0.014, b.r(-0.16, 0.16)], [Math.PI / 2, 0, 0]);
     return 0.03;
   },
   salame: (b) => slices(b, 6, 0.075, '#b8352a', '#7a1f18', '#f1c8b8'),
@@ -248,8 +284,11 @@ const ART: Record<string, Build> = {
   },
   noci: (b) => bits(b, 7, 0.04, '#9a6a3a', '#7d5230', [1.2, 0.7, 1]),
   mandorle: (b) => {
-    for (let i = 0; i < 9; i++) b.ball(0.035, '#d9b483', [b.r(-0.18, 0.18), 0.012, b.r(-0.18, 0.18)], [1.5, 0.35, 0.8], 1);
-    return 0.03;
+    for (let i = 0; i < 9; i++) {
+      const p: V3 = [b.r(-0.18, 0.18), 0.016, b.r(-0.18, 0.18)];
+      b.ball(0.04, i % 3 ? '#b07a42' : '#e9cf9e', p, [1.4, 0.4, 0.8], 1);
+    }
+    return 0.035;
   },
   burrata: (b) => {
     b.ball(0.16, '#fbf8ef', [0, 0.13, 0], [1, 0.8, 1], 1);
@@ -355,8 +394,9 @@ const ART: Record<string, Build> = {
     for (let i = 0; i < 20; i++) b.add(G.dodeca(0.03), i % 2 ? '#c99358' : '#e3bd84', [b.r(-0.22, 0.22), b.r(0.02, 0.05), b.r(-0.22, 0.22)], [b.r(0, 3), b.r(0, 3), 0]);
     return 0.06;
   },
-  scaglie: (b) => {
-    for (let i = 0; i < 14; i++) b.add(G.rbox(0.08, 0.012, 0.05), '#f8f1de', [b.r(-0.2, 0.2), b.r(0.01, 0.05), b.r(-0.2, 0.2)], [b.r(-0.4, 0.4), b.r(0, 3), b.r(-0.4, 0.4)]);
+  scaglie: (b, o) => {
+    if (!o.layer) b.cyl(0.27, 0.02, '#5a3a2a', [0, -0.02, 0], [1, 1, 1], 20);
+    for (let i = 0; i < 14; i++) b.add(G.rbox(0.08, 0.012, 0.05), '#f3e3b8', [b.r(-0.2, 0.2), b.r(0.01, 0.05), b.r(-0.2, 0.2)], [b.r(-0.4, 0.4), b.r(0, 3), b.r(-0.4, 0.4)]);
     return 0.05;
   },
   nocciola: (b) => {
@@ -602,9 +642,10 @@ const ART: Record<string, Build> = {
     return 0.1;
   },
   ciotola: (b) => {
-    b.cyl(0.36, 0.24, '#f2e9da', [0, 0, 0], [1, 1, 1], 14, 0.22);
-    b.cyl(0.31, 0.02, '#e9dcc6', [0, 0.2, 0], [1, 1, 1], 14);
-    return 0.22;
+    // la ciotola è piena: gli ingredienti si appoggiano sopra, sul bordo (prima finivano sepolti dentro)
+    b.cyl(0.36, 0.2, '#f2e9da', [0, 0, 0], [1, 1, 1], 14, 0.22);
+    b.add(G.torus(0.35, 0.025, Math.PI * 2, 18), '#e9dcc6', [0, 0.2, 0], [Math.PI / 2, 0, 0]);
+    return 0.2;
   },
   pizza: (b) => {
     b.cyl(0.42, 0.04, '#ecc98f', [0, 0, 0], [1, 1, 1], 16);
@@ -677,6 +718,9 @@ export const isSpread = (name: string) => {
 
 /** modello 3D di un ingrediente (o di una base: bun, focaccia, ciotola, pizza, cestino) */
 export function buildIng(name: string, layer = false): { obj: THREE.Group; h: number } {
+  // gli ingredienti rifatti in Blender, se il file è arrivato
+  const blend = modelFor(name, layer);
+  if (blend) return blend;
   const info = parseIng(name);
   const lname = name.toLowerCase();
   const b = new B(hash(lname));
@@ -684,6 +728,7 @@ export function buildIng(name: string, layer = false): { obj: THREE.Group; h: nu
   if (info.key in SAUCE) {
     const [body, capc] = SAUCE[info.key];
     h = layer ? blob(b, body) : bottle(b, body, capc);
+    if (!layer) sauceMark(b, info.key);
   } else if (ART[info.key]) h = ART[info.key](b, { layer, n: info.n, name: lname });
   else h = fallback(b, lname, layer);
   if (info.onlyCount && info.count) {

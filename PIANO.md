@@ -142,27 +142,35 @@ Principio: un disegno aiuta a ricordare solo se è **diverso dagli altri** e **a
       (alias dell'utente salvati, applicati anche agli aggiornamenti del menu e alla lista ingredienti delle pizze).
 
 ### Passo B — Blender
-- [ ] Installare Blender nella sessione (pacchetto `bpy` o binario ufficiale).
-- [ ] Script `tools/ingredients.py`: modella in codice Blender gli ingredienti organici e li esporta in un solo
+- [x] Installare Blender nella sessione (pacchetto `bpy` o binario ufficiale).
+- [x] Script `tools/ingredients.py`: modella in codice Blender gli ingredienti organici e li esporta in un solo
       `public/models/ingredients/ingredients.glb` (nodi con il nome della chiave).
-- [ ] Nel gioco: il file si carica all'avvio in una cache sincrona; `buildIng` usa il modello se c'è, altrimenti il
+- [x] Nel gioco: il file si carica all'avvio in una cache sincrona; `buildIng` usa il modello se c'è, altrimenti il
       disegno in codice di oggi. Le icone si rifanno quando arriva il file.
 
 ### Passo C — Ingredienti da rifare (Blender)
-- [ ] Latticini: fior di latte, Bufala DOP (più grande e lucida), burrata (sacchetto col nodo), stracciatella (filante).
-- [ ] Funghi: champignon (funghi/freschi), misti, porcini (cappello scuro e gambo grosso), porcini panati fritti.
-- [ ] Creme: ciotolina con crema e un segno suo (zucca, zucchine, cacio e pepe col pepe, gorgonzola venato,
+- [x] Latticini: fior di latte, Bufala DOP (più grande e lucida), burrata (sacchetto col nodo), stracciatella (filante).
+- [x] Funghi: champignon (funghi/freschi), misti, porcini (cappello scuro e gambo grosso), porcini panati fritti.
+- [x] Creme: ciotolina con crema e un segno suo (zucca, zucchine, cacio e pepe col pepe, gorgonzola venato,
       radicchio e speck, funghi, pesto, pistacchio, San Marzano, pelato giallo); glassa in bottiglietta.
-- [ ] Salumi: salamino (fettine piccole a coppetta), spianata (fette grandi ovali), capocollo (marezzato), speck
+- [x] Salumi: salamino (fettine piccole a coppetta), spianata (fette grandi ovali), capocollo (marezzato), speck
       (fetta con cotenna), crudo (nastro col grasso), cotto (fetta rosa chiaro), pancetta a dadini, pancetta coppata
       (arrotolata), guanciale croccante, salsiccia sbriciolata, salsiccia di Norcia.
-- [ ] Verdure: friarielli, cicoria, spinaci, peperoncino (curvo col picciolo), pomodorini scattarisciati.
-- [ ] Fritti e patate: pittule irregolari, panzerotto a mezzaluna, patate al forno a spicchi, patate saltate a cubetti.
-- [ ] Panini: kebab (falde sottili), pulled pork (sfilacciato scuro).
+- [x] Verdure: friarielli, cicoria, spinaci, peperoncino (curvo col picciolo), pomodorini scattarisciati.
+- [x] Fritti e patate: pittule irregolari, panzerotto a mezzaluna, patate al forno a spicchi, patate saltate a cubetti.
+- [x] Panini: kebab (falde sottili), pulled pork (sfilacciato scuro).
 
 ### Passo D — Ritocchi in codice
-- [ ] Grana e Parmigiano diversi; salse in bottiglia con etichette diverse (boscaiola, caesar, maionese, burger).
-- [ ] Contrasto per cipolla, mandorle, scaglie; pizze intere inquadrate più da vicino nelle icone.
+- [x] Grana e Parmigiano diversi; salse in bottiglia con etichette diverse (boscaiola, caesar, maionese, burger).
+- [x] Contrasto per cipolla, mandorle, scaglie; pizze intere inquadrate più da vicino nelle icone.
 
 ### Passo E — Verifica
-- [ ] Fogli con tutte le icone prima/dopo, partita di prova, build, push su `main`.
+- [x] Fogli con tutte le icone prima/dopo, partita di prova, build, push su `main`.
+
+### Fatto anche (richieste durante il lavoro)
+- [x] Panzerotti di patate fatti come crocchette di patate (stesso modello delle crocchette della friggitoria).
+- [x] Salsiccia "a ruota", cruda, col grasso a scaglie (la tipologia usata in pizzeria); la salsiccia di Norcia a catenella.
+- [x] Insalatone: gli ingredienti finivano sepolti dentro la ciotola; ora stanno sopra e l'icona guarda dall'alto.
+- [x] Salse con un segno diverso sull'etichetta; creme spalmate sulla pizza con il loro segno (pepe, venature, semi).
+
+Peso: `ingredients.glb` circa 850 kB (meshopt), si scarica una volta e resta in cache con gli altri modelli.

@@ -8,6 +8,7 @@ I crediti qui sotto ci sono lo stesso, perché è giusto così.
 |---|---|---|---|
 | `characters/` | [Mini Characters](https://kenney.nl/assets/mini-characters) | [Kenney](https://kenney.nl) | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) |
 | `furniture/` | [Furniture Kit](https://kenney.nl/assets/furniture-kit) | [Kenney](https://kenney.nl) | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) |
+| `ingredients/` | fatti per questo gioco con Blender (`tools/ingredients.py`) | Core a Core | come il resto del gioco |
 | `hdri/` | [Artist Workshop](https://polyhaven.com/a/artist_workshop) | Oliksiy Yakovlyev · [Poly Haven](https://polyhaven.com) | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) |
 
 ## Cosa è stato fatto ai file
@@ -47,3 +48,17 @@ quindi usa le stesse animazioni): berretto girato, occhiali, faccia dipinta con 
 maglietta bianca e pantaloni a quadretti. Per rigenerarlo:
 
     blender -b --python tools/giuseppe.py -- public/models/characters/character-male-a.glb public/models/characters/giuseppe.glb [anteprima.png]
+
+
+## Ingredienti (Blender)
+
+`ingredients/ingredients.glb` non viene da un pacchetto: è modellato **in codice** da `tools/ingredients.py`
+(latticini, funghi, creme, salumi, verdure cotte, fritti, patate, kebab e pulled pork, formaggi duri).
+Un oggetto per ingrediente; `<nome>__layer` è la versione bassa da mettere su pizza e panini.
+Per rigenerarlo:
+
+    pip install bpy                     # Blender come modulo Python (oppure: blender -b --python …)
+    python tools/ingredients.py public/models/ingredients/ingredients.raw.glb
+    node tools/pack-ingredients.mjs public/models/ingredients/ingredients.raw.glb public/models/ingredients/ingredients.glb
+
+Il file `.raw.glb` non va nel repo: serve solo come passaggio intermedio.
