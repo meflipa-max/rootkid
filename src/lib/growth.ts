@@ -43,6 +43,9 @@ export interface Growth {
   gold: GoldDish[];
   /** stelle del locale (lib/stars.ts): le aggiunge chi chiama, si vedono sull'insegna */
   stars?: number;
+  /** pezzi rari (lib/rare.ts) e rinnovi del locale: li aggiunge chi chiama */
+  rare?: string[];
+  renew?: number;
 }
 
 /** quanti piatti d'oro stanno in parete */
@@ -69,8 +72,13 @@ export function growthOf(menu: Dish[], mine: Dish[], stats: Record<string, DishS
 }
 
 /** cosa è cambiato dall'ultima volta che l'hai visto: un banco salito di grado o un piatto d'oro nuovo */
-export function growthNews(g: Growth, seen: { tiers: Record<string, number>; gold: string[]; stars?: number } | undefined): { kind: 'stelle'; stars: number } | { kind: 'banco'; b: BancoGrowth } | { kind: 'oro'; d: GoldDish } | null {
+export function growthNews(
+  g: Growth,
+  seen: { tiers: Record<string, number>; gold: string[]; stars?: number; rare?: string[] } | undefined,
+): { kind: 'stelle'; stars: number } | { kind: 'raro'; id: string } | { kind: 'banco'; b: BancoGrowth } | { kind: 'oro'; d: GoldDish } | null {
   if (!seen) return null;
+  const r = seen.rare && g.rare?.find((x) => !seen.rare!.includes(x));
+  if (r) return { kind: 'raro', id: r };
   if (g.stars && seen.stars && g.stars > seen.stars) return { kind: 'stelle', stars: g.stars };
   const b = g.banchi.find((x) => x.tier > (seen.tiers[x.id] ?? 0));
   if (b) return { kind: 'banco', b };
@@ -78,4 +86,4 @@ export function growthNews(g: Growth, seen: { tiers: Record<string, number>; gol
   return d ? { kind: 'oro', d } : null;
 }
 
-export const seenOf = (g: Growth) => ({ tiers: Object.fromEntries(g.banchi.map((b) => [b.id, b.tier])), gold: g.gold.map((d) => d.id), stars: g.stars });
+export const seenOf = (g: Growth) => ({ tiers: Object.fromEntries(g.banchi.map((b) => [b.id, b.tier])), gold: g.gold.map((d) => d.id), stars: g.stars, rare: g.rare });

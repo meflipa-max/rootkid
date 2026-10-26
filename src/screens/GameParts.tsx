@@ -277,6 +277,7 @@ export function End({ g, title, total, start, again, onExit }: { g: G; title: st
   const [best, setBest] = useState(false);
   const [done, setDone] = useState<Mission[]>([]);
   const [chest, setChest] = useState<{ coins: number; levels: number[] } | null>(null);
+  const [gift, setGift] = useState<ReturnType<typeof app.supplier>>(null);
   const startLvl = useRef(levelOf(app.save.xp));
   const coinsBefore = useRef(app.save.coins);
   const reported = useRef(false);
@@ -300,6 +301,9 @@ export function End({ g, title, total, start, again, onExit }: { g: G; title: st
       .map(missionById)
       .filter((m): m is Mission => !!m && (start.date !== cur.date || progressOf(start, m) < m.goal) && Math.min(m.goal, (m.kind === 'combo' ? Math.max(cur.prog.combo ?? 0, ev.combo ?? 0) : (cur.prog[m.kind] ?? 0) + (ev[m.kind] ?? 0))) >= m.goal);
     setDone(newly);
+    // a volte passa il fornitore con un pezzo raro per il locale (più turni senza, più è probabile)
+    const got = g.served > 0 ? a.supplier() : null;
+    if (got) setTimeout(() => { setGift(got); sfx.chest(); confetti(1.2); }, 1500 + stars * 280);
     // forziere di ogni livello raggiunto
     setTimeout(() => {
       const c = a.claimLevels();
@@ -338,6 +342,12 @@ export function End({ g, title, total, start, again, onExit }: { g: G; title: st
         <div className="stat end-coins"><b><Coin size={20} /> {coins}</b><span>{stars ? `+${bonusCoins} stelle` : 'Monete'}{g.tally.tips ? ` · ${g.tally.tips} mance` : ''}</span></div>
       </div>
       <EndGoal before={coinsBefore.current} delay={1700 + stars * 280} />
+      {gift && (
+        <div className="card chest-card">
+          <div className="card-h"><Icon name="gift" /> È passato il fornitore!</div>
+          <div className="note"><Icon name="sparkle" size={16} />{'rare' in gift ? <span><b>{gift.rare.name}</b>: {gift.rare.text.toLowerCase()}. Lo trovi nel locale.</span> : <span>Hai già tutti i suoi pezzi rari: ti lascia <b>{gift.coins} monete</b>.</span>}</div>
+        </div>
+      )}
       {chest && (
         <div className="card chest-card">
           <div className="card-h"><Icon name="gift" /> Forziere {chest.levels.length > 1 ? 'dei livelli' : `del livello ${chest.levels[0]}`}: +{chest.coins} <Coin size={16} /></div>

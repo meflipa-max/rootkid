@@ -7,7 +7,8 @@ import { aliasList, aliasName, setUserAliases } from './lib/aliases';
 import { DEFAULT_DISHES, ING_ALIASES, MENU_VERSION, OLD_DEFAULTS } from './lib/data';
 import { emptyStat, isDue, levelOf, ripe } from './lib/mastery';
 import { setFx } from './lib/fx';
-import { UPGRADES, dealOf, lvlOf, priceOf } from './lib/build';
+import { UPGRADES, dealOf, lvlOf, priceOf, totalBuilt, totalMax } from './lib/build';
+import { SET_COINS, TRATTORIA, rareById, supplierRoll, type Rare } from './lib/rare';
 import { currentDaily, missionById, progressOf } from './lib/missions';
 
 const KEY = 'pizzamaster-v1';
@@ -170,6 +171,10 @@ interface Ctx {
   selectSkin(id: string): void;
   upgrade(id: string): boolean;
   setGoal(id: string | undefined): void;
+  /** a fine turno: passa il fornitore? */
+  supplier(): { rare: Rare } | { coins: number } | null;
+  /** tutto costruito: si riparte con un locale nuovo e un bonus per sempre */
+  renew(): boolean;
   setSeenGrowth(seen: Save['seenGrowth']): void;
   saveDish(d: Dish): void;
   deleteDish(id: string): void;
@@ -427,7 +432,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (lvl >= u.max || s.coins < cost) return false;
         // l'obiettivo raggiunto al massimo si libera: il prossimo lo sceglie il gioco (o tu)
         const goal = s.goal === id && lvl + 1 >= u.max ? undefined : s.goal;
-        commit({ ...s, coins: s.coins - cost, build: { ...s.build, [id]: lvl + 1 }, goal, dealUsed: deal === id ? day : s.dealUsed });
+        const build = { ...s.build, [id]: lvl + 1 };
+        // set "Angolo trattoria" completo: il mandolino e un premio in monete (la festa la fa la home)
+        const set = TRATTORIA.every((x) => lvlOf(build, x) >= UPGRADES.find((y) => y.id === x)!.max) && !s.rare?.includes('mandolino');
+        commit({
+          ...s, coins: s.coins - cost + (set ? SET_COINS : 0), build, goal, dealUsed: deal === id ? day : s.dealUsed,
+          rare: set ? [...(s.rare ?? []), 'mandolino'] : s.rare,
+        });
+        return true;
+      },
+      supplier() {
+        const s = ref.current;
+        const got = supplierRoll(s.rare ?? [], s.shifts - (s.rareAt ?? 0));
+        if (!got) return null;
+        if ('coins' in got) commit({ ...s, coins: s.coins + got.coins, rareAt: s.shifts });
+        else commit({ ...s, rare: [...(s.rare ?? []), got.id], rareAt: s.shifts });
+        return 'id' in got ? { rare: rareById(got.id)! } : got;
+      },
+      renew() {
+        const s = ref.current;
+        if (totalBuilt(s.build) < totalMax) return false;
+        commit({ ...s, build: {}, goal: undefined, renew: (s.renew ?? 0) + 1 });
         return true;
       },
       setGoal(id) {

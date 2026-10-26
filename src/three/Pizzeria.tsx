@@ -9,6 +9,8 @@ import { Kit } from './Kit';
 import type { Look } from '../components/Person';
 import type { Growth } from '../lib/growth';
 import { GrowthDecor } from './Growth';
+import { RareDecor, SeasonDecor, seasonBulbs } from './Rare';
+import { seasonOf, type Season } from '../lib/rare';
 
 /** Il locale in miniatura: stanza, esterno al tramonto e tutte le migliorie come oggetti veri. */
 
@@ -258,8 +260,8 @@ function Plant({ p, s = 1 }: { p: V3; s?: number }) {
   );
 }
 
-function Bulbs({ n, night }: { n: number; night: number }) {
-  const cols = ['#ffd24a', '#ff8fb0', '#8fd6ff', '#a6f0b4', '#ffb35c'];
+function Bulbs({ n, night, season }: { n: number; night: number; season: Season }) {
+  const cols = seasonBulbs(season) ?? ['#ffd24a', '#ff8fb0', '#8fd6ff', '#a6f0b4', '#ffb35c'];
   return (
     <group>
       {Array.from({ length: n }, (_, i) => {
@@ -309,18 +311,29 @@ function Pick({ id, onPick, children }: { id: string; onPick?: (id: string) => v
   );
 }
 
+/** pareti (fondo, lati) e fascia bassa: la prima è il locale di sempre, le altre arrivano coi rinnovi */
+const PALETTES: [string, string, string][] = [
+  ['#f1e4cf', '#ead9bf', '#8fae84'],
+  ['#f3dcd2', '#ecd0c4', '#b8432f'],
+  ['#dfe7ef', '#d3dde8', '#5b8db8'],
+  ['#efe6c8', '#e6dbb5', '#4f7f6a'],
+];
+
 const GARZONE: Look = { skin: '#d8a070', hair: '#2b1b12', style: 3, shirt: '#6f9a6a', extra: 0 };
 
 export function Pizzeria({ build, night, cutaway, onPick, growth }: { build: Record<string, number>; night: number; cutaway?: boolean; onPick?: (id: string) => void; growth?: Growth }) {
   const l = (id: string) => lvlOf(build, id);
-  const W = '#f1e4cf';
-  const SAGE = '#8fae84';
+  // ogni rinnovo del locale cambia i colori delle pareti
+  const [W, SIDE, SAGE] = PALETTES[(growth?.renew ?? 0) % PALETTES.length];
+  const season = useMemo(() => seasonOf(), []);
   return (
     <group>
       <World night={night} tables={l('tavolini')} />
       <Dehors tables={l('tavolini')} />
       <Props night={night} />
       {growth && <GrowthDecor growth={growth} />}
+      {growth?.rare && <RareDecor rare={growth.rare} night={night} />}
+      <SeasonDecor season={season} />
       <Pick id="tavolini" onPick={onPick}>
         <mesh position={[-1.0, 0.5, -4.4]} visible={false}>
           <boxGeometry args={[4, 1, 1]} />
@@ -352,9 +365,9 @@ export function Pizzeria({ build, night, cutaway, onPick, growth }: { build: Rec
       <Box s={[1.4, 0.1, 0.26]} p={[2.15, 2.3, -3]} c="#8a5a34" />
 
       {/* parete sinistra (e destra solo dentro il turno) */}
-      <Box s={[0.2, 3, 6.4]} p={[-3.8, 1.5, 0.1]} c="#ead9bf" />
+      <Box s={[0.2, 3, 6.4]} p={[-3.8, 1.5, 0.1]} c={SIDE} />
       <Box s={[0.06, 0.9, 6.4]} p={[-3.68, 0.45, 0.1]} c={SAGE} />
-      {!cutaway && <Box s={[0.2, 3, 6.4]} p={[3.8, 1.5, 0.1]} c="#ead9bf" />}
+      {!cutaway && <Box s={[0.2, 3, 6.4]} p={[3.8, 1.5, 0.1]} c={SIDE} />}
       {!cutaway && <Box s={[0.06, 0.9, 6.4]} p={[3.68, 0.45, 0.1]} c={SAGE} />}
 
       {/* bancone del servizio */}
@@ -469,7 +482,7 @@ export function Pizzeria({ build, night, cutaway, onPick, growth }: { build: Rec
       )}
       {l('luci') > 0 && (
         <Pick id="luci" onPick={onPick}>
-          <Bulbs n={8 + l('luci') * 4} night={night} />
+          <Bulbs n={8 + l('luci') * 4} night={night} season={season} />
         </Pick>
       )}
     </group>

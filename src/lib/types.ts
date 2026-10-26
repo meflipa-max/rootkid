@@ -127,5 +127,11 @@ export interface Save {
   /** giorno in cui hai già usato l'offerta del giorno */
   dealUsed?: string;
   /** il locale com'era l'ultima volta che l'hai visto (gradi dei banchi e piatti d'oro), per far festa ai cambi */
-  seenGrowth?: { tiers: Record<string, number>; gold: string[]; stars?: number };
+  seenGrowth?: { tiers: Record<string, number>; gold: string[]; stars?: number; rare?: string[] };
+  /** pezzi rari del locale (lib/rare.ts) */
+  rare?: string[];
+  /** a quale turno è passato l'ultima volta il fornitore */
+  rareAt?: number;
+  /** quante volte hai rinnovato il locale */
+  renew?: number;
 }

@@ -203,5 +203,7 @@ Peso: `ingredients.glb` circa 850 kB (meshopt), si scarica una volta e resta in 
 - [x] Stelle del locale (1–5) con sblocchi; il critico gastronomico. Le stelle vogliono migliorie **e** piatti a memoria
   (`STARS` in `lib/stars.ts`); si vedono in Home, nel foglio Costruisci e sull'insegna; festa quando salgono. Il critico
   (da 3★, una volta per turno, solo piatti già a memoria) paga bene se il piatto è fatto bene senza correzioni.
-- [ ] Sorprese: il fornitore con pezzi rari, set da completare. (Offerta del giorno fatta: `dealOf`/`priceOf`, una al giorno, −30%, `save.dealUsed`.)
-- [ ] Arredi di stagione e rinnovo del locale.
+- [x] Sorprese: il fornitore con pezzi rari a fine turno (più turni senza, più è probabile), set "Angolo trattoria"
+  (mandolino + monete), offerta del giorno (`dealOf`/`priceOf`). `lib/rare.ts`, `three/Rare.tsx`.
+- [x] Arredi di stagione (Halloween 20 ott–3 nov: zucche e luci arancio; Natale 1 dic–6 gen: albero e luci) e
+  "Rinnova il locale" quando è tutto costruito (migliorie da zero, pareti nuove, +10% monete per sempre, stelle tenute).

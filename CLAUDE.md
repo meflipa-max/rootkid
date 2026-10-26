@@ -122,6 +122,9 @@ Piano e stato in **`PIANO.md`**. In breve:
   in fase ≥ 3, parete dei piatti d'oro (fase 5). Non si comprano. `save.seenGrowth` = ultimo stato visto, per la festa.
 - **Stelle del locale** (`lib/stars.ts`): servono migliorie *e* piatti a memoria dei miei banchi. Effetti nel turno
   (`tipChance`, `tipExtra`, `vipChance`, `criticReward`): solo monete e comodità. Il critico (`Cust.critic`) da 3★.
+- **Sorprese** (`lib/rare.ts` → `three/Rare.tsx`): pezzi rari in `save.rare` (fornitore a fine turno = `supplier()`,
+  set trattoria in `upgrade()`), addobbi da `seasonOf()`, `renew()` = rinnovo (palette pareti `PALETTES` in Pizzeria,
+  +10% monete per rinnovo). Le novità del locale (stelle, pezzi rari, banchi, oro) fanno festa in Home via `growthNews`.
 - Le divise colorano i materiali di Giuseppe per nome (`berretto`, `maglietta`, `logo`, `cuciture`; Blender aggiunge `.001`).
 - Nel browser di prova senza scheda video i fotogrammi sono lentissimi: per vedere la camera della festa allungare per
   un momento `HOLD` in `Diorama.tsx`.

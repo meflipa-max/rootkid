@@ -11,6 +11,7 @@ import type { ChefSkin } from '../lib/skins';
 import { reduced } from '../lib/fx';
 import type { Growth } from '../lib/growth';
 import { GROWTH_SPOTS } from './Growth';
+import { RARE_SPOTS } from './Rare';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 
 const REGULAR: Look = { skin: '#f1c27d', hair: '#b23a2e', style: 1, shirt: '#5b8db8', extra: 1 };
@@ -51,7 +52,7 @@ function Fly({ show }: { show?: { id: string; n: number } }) {
   const camera = useThree((s) => s.camera);
   const st = useRef<{ t: number; from: THREE.Vector3; fromT: THREE.Vector3; to: THREE.Vector3; toT: THREE.Vector3 } | null>(null);
   useEffect(() => {
-    const spot = show && (SPOTS[show.id] ?? GROWTH_SPOTS[show.id]);
+    const spot = show && (SPOTS[show.id] ?? GROWTH_SPOTS[show.id] ?? RARE_SPOTS[show.id.replace('raro:', '')]);
     if (!spot || !controls || reduced()) return;
     // lo stesso gruppo del locale è abbassato di 0.6
     const toT = new THREE.Vector3(spot[0], spot[1] - 0.6, spot[2]);

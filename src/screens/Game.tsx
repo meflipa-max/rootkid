@@ -3,6 +3,7 @@ import type { Daily, Dish, DishStat } from '../lib/types';
 import { useApp, type Grade } from '../store';
 import { growthOf } from '../lib/growth';
 import { criticReward, starsFor, tipChance, tipExtra, vipChance } from '../lib/stars';
+import { RENEW_BONUS } from '../lib/rare';
 import { availableKinds, isPortion, makeQuestion, norm, similarDish, trayFor, trayLevelFor, whereIs, type TrayLevel } from '../lib/questions';
 import { fold, SHELVES, shelfOf } from '../lib/pantry';
 import { PHASES, levelOf, pickWeighted, weight } from '../lib/mastery';
@@ -102,7 +103,7 @@ function Shift({ pool, title, total = 8, coinMult = 1, onExit, again }: GameProp
   // gli angoli dei banchi e la parete d'oro si vedono anche nel turno (crescono mentre giochi)
   // le stelle del locale si contano all'inizio del turno
   const [stars] = useState(() => starsFor(app.save, app.mine).stars);
-  const growth = useMemo(() => ({ ...growthOf(app.menu, app.mine, app.save.stats), stars }), [app.save.stats]); // eslint-disable-line react-hooks/exhaustive-deps
+  const growth = useMemo(() => ({ ...growthOf(app.menu, app.mine, app.save.stats), stars, rare: app.save.rare ?? [], renew: app.save.renew ?? 0 }), [app.save.stats]); // eslint-disable-line react-hooks/exhaustive-deps
   const appRef = useRef(app);
   appRef.current = app;
   const gr = useRef<G>(initial(3 + lvlOf(app.save.build, 'frigo'), app.save.shifts < 3));
@@ -334,7 +335,7 @@ function Shift({ pool, title, total = 8, coinMult = 1, onExit, again }: GameProp
     const bonus = (c.variant ? 1.3 : 1) * (c.group === 'asporto' && !c.relisten ? 1.5 : 1) * (c.tag === 'gemello' ? 1.3 : 1) * (c.sure ? 2 : 1) * (c.tag === 'rivincita' ? 1.5 : 1);
     const pts = Math.round((100 * mult * (1 + Math.min(combo - 1, 10) * 0.1) + frac * 60) * (1 + 0.05 * lvlOf(b, 'insegna')) * (fever ? 1.5 : 1) * bonus) + (v?.orderOk ? 30 : 0);
     let coins = Math.max(1, Math.round((pts / 20) * (1 + 0.15 * lvlOf(b, 'cassa')))) * (c.vip ? 3 : 1);
-    coins = Math.round(coins * coinMult * (c.group === 'tavolo' ? 1.3 : 1));
+    coins = Math.round(coins * coinMult * (c.group === 'tavolo' ? 1.3 : 1) * (1 + RENEW_BONUS * (appRef.current.save.renew ?? 0)));
     // mancia: ricompensa variabile per chi è veloce
     // l'atmosfera del locale la fa lasciare più spesso, i tavolini (e le stelle) la fanno più ricca
     const tip = frac > 0.55 && Math.random() < tipChance(b) ? 1 + Math.floor(Math.random() * 5) + tipExtra(b, stars) : 0;

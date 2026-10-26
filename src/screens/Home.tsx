@@ -23,6 +23,7 @@ import { ShareCard } from '../components/Share';
 import { growthNews, growthOf, seenOf, type Growth } from '../lib/growth';
 import { BANCO_COLOR } from '../three/Growth';
 import { STARS, starsFor } from '../lib/stars';
+import { RARE, RENEW_BONUS, SET_COINS, TRATTORIA, rareById } from '../lib/rare';
 
 export type Mode = 'game' | 'focus' | 'learn' | 'write' | 'imagine' | 'sabato' | 'warmup' | 'yesterday';
 
@@ -128,6 +129,10 @@ function Build({ focus, onClose, onBought }: { focus: string | null; onClose: ()
     sfx.tap();
     app.setGoal(app.save.goal === u.id ? undefined : u.id);
   };
+  const [sure, setSure] = useState(false);
+  const allBuilt = totalBuilt(build) >= totalMax;
+  const renew = app.save.renew ?? 0;
+  const setDone = app.save.rare?.includes('mandolino');
   // l'offerta in cima, poi l'ordine di sempre
   const rows = [...UPGRADES].sort((a, b) => +(b.id === deal) - +(a.id === deal));
   return (
@@ -148,6 +153,21 @@ function Build({ focus, onClose, onBought }: { focus: string | null; onClose: ()
           ) : <div className="sm"><b>Locale a 5 stelle!</b> {STARS[4].perk}.</div>}
           <div className="muted sm">Le stelle vogliono sia il locale sia la memoria. Gli angoli dei banchi e la parete dei piatti d'oro non si comprano: crescono quando impari.</div>
         </div>
+        {allBuilt && (
+          <div className="star-box renew">
+            <b>Hai costruito tutto!</b>
+            <div className="sm">Rinnova il locale: le migliorie ripartono da zero e il locale cambia colori, ma tieni stelle, pezzi rari, banchi e piatti d'oro. Ogni rinnovo dà <b>+{Math.round(RENEW_BONUS * 100)}% monete per sempre</b>{renew ? ` (ora +${Math.round(RENEW_BONUS * 100 * renew)}%)` : ''}.</div>
+            <button className={`btn ${sure ? 'primary' : ''} wide`} onClick={() => { if (!sure) { sfx.tap(); setSure(true); return; } if (app.renew()) { sfx.level(); confetti(1.6); setSure(false); onClose(); } }}>
+              {sure ? 'Sì, rinnova il locale' : 'Rinnova il locale'}
+            </button>
+          </div>
+        )}
+        {!setDone && (
+          <div className="muted sm"><Icon name="sparkle" size={13} /> Set <b>Angolo trattoria</b>: {TRATTORIA.map((id) => UPGRADES.find((u) => u.id === id)!.name.toLowerCase()).join(', ')} al massimo = un pezzo raro e {SET_COINS} monete ({TRATTORIA.filter((id) => lvlOf(build, id) >= UPGRADES.find((u) => u.id === id)!.max).length}/{TRATTORIA.length}).</div>
+        )}
+        {(app.save.rare?.length ?? 0) > 0 && (
+          <div className="muted sm"><Icon name="gift" size={13} /> Pezzi rari: {app.save.rare!.map((id) => rareById(id)?.name).filter(Boolean).join(', ')} ({app.save.rare!.length}/{RARE.length})</div>
+        )}
         {rows.map((u) => {
           const lvl = lvlOf(build, u.id);
           const maxed = lvl >= u.max;
@@ -338,7 +358,10 @@ export function Home({ cat, setCat, start }: { cat: Category | 'all'; setCat: (c
   };
   // il locale cresce con la memoria: quando un banco sale o arriva un piatto d'oro, si fa festa (una volta)
   const star = starsFor(save, mine);
-  const growth = useMemo(() => ({ ...growthOf(menu, mine, save.stats), stars: star.stars }), [menu, mine, save.stats, star.stars]);
+  const growth = useMemo(
+    () => ({ ...growthOf(menu, mine, save.stats), stars: star.stars, rare: save.rare ?? [], renew: save.renew ?? 0 }),
+    [menu, mine, save.stats, star.stars, save.rare, save.renew],
+  );
   const gkey = JSON.stringify(seenOf(growth));
   useEffect(() => {
     const seen = save.seenGrowth;
@@ -351,7 +374,11 @@ export function Home({ cat, setCat, start }: { cat: Category | 'all'; setCat: (c
       const n = Date.now();
       sfx.phase();
       confetti(g.kind !== 'banco' || g.b.tier >= 4 ? 1.3 : 0.8);
-      if (g.kind === 'stelle') {
+      if (g.kind === 'raro') {
+        const r = rareById(g.id);
+        setShow({ id: `raro:${g.id}`, n });
+        setNews(r?.from === 'set' ? { title: 'Set completo: Angolo trattoria!', text: `${r.name} in parete e ${SET_COINS} monete`, n } : { title: `Nuovo nel locale: ${r?.name ?? g.id}`, text: r?.text ?? '', n });
+      } else if (g.kind === 'stelle') {
         setShow({ id: 'insegna', n });
         setNews({ title: `Il locale sale a ${g.stars} stelle!`, text: STARS[g.stars - 1].perk, n });
       } else if (g.kind === 'oro') {

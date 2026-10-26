@@ -1,4 +1,4 @@
-import { lvlOf, totalBuilt } from './build';
+import { lvlOf, totalBuilt, totalMax } from './build';
 import { knownCount } from './levels';
 import type { Dish, Save } from './types';
 
@@ -23,8 +23,9 @@ export interface StarState {
   next: { built: number; known: number } | null;
 }
 
-export function starsOf(build: Record<string, number>, known: number, total: number): StarState {
-  const built = totalBuilt(build);
+export function starsOf(build: Record<string, number>, known: number, total: number, renew = 0): StarState {
+  // chi ha rinnovato il locale l'aveva già costruito tutto: quelle migliorie contano ancora
+  const built = renew ? totalMax : totalBuilt(build);
   const frac = total ? known / total : 0;
   let stars = 1;
   for (let k = 1; k < STARS.length; k++) {
@@ -35,7 +36,7 @@ export function starsOf(build: Record<string, number>, known: number, total: num
   return { stars, built, known, total, next: n ? { built: Math.max(0, n.built - built), known: Math.max(0, Math.ceil(n.mem * total) - known) } : null };
 }
 
-export const starsFor = (save: Save, mine: Dish[]) => starsOf(save.build, knownCount(save.stats, mine.map((d) => d.id)), mine.length);
+export const starsFor = (save: Save, mine: Dish[]) => starsOf(save.build, knownCount(save.stats, mine.map((d) => d.id)), mine.length, save.renew);
 
 /** effetti delle migliorie e delle stelle durante il turno: comodità e monete, mai risposte */
 export const tipChance = (b: Record<string, number>) => Math.min(0.9, 0.5 + 0.05 * (lvlOf(b, 'piante') + lvlOf(b, 'quadri') + lvlOf(b, 'luci')));

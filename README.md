@@ -80,7 +80,8 @@ Un cuoco animato, una pizzeria al tramonto (che diventa sera man mano che arriva
 
 ## Meta-gioco
 - **Missioni giornaliere** (3 al giorno) con monete e **forziere a sorpresa** quando le completi tutte.
-- **Costruisci**: forno, cassa, insegna, frigo, campanello, mise en place, garzone, cronometro, e decorazioni visibili nella scena (luci, bandierine, piante, tavolini).
+- **Costruisci**: forno, cassa, insegna, frigo, campanello, mise en place, garzone, cronometro, e decorazioni visibili nella scena (luci, bandierine, piante, tavolini) che nel turno portano mance e VIP. Comprando, la camera vola sull'oggetto. Prossimo acquisto sempre in vista, offerta del giorno, set "Angolo trattoria", pezzi rari del fornitore, addobbi di stagione e "Rinnova il locale".
+- **Il locale cresce con la memoria**: angoli dei banchi che si riempiono coi piatti a memoria, parete dei piatti d'oro (impolverati se da ripassare), stelle del locale (servono migliorie *e* memoria) e il critico gastronomico da 3 stelle.
 - **Guardaroba**, livelli, serie di giorni, obiettivo giornaliero.
 - **Statistiche** e **Impostazioni** (modifica ricette, suoni, vibrazione, backup JSON).
 
