@@ -80,7 +80,8 @@ function load(): Save {
         }
         // chi non aveva mai giocato non ha bisogno del messaggio "memoria più precisa"
         if (!s.memV && !Object.keys(s.stats ?? {}).length) s.memV = MEM_VERSION;
-        return { ...fresh(), ...s, settings: { ...fresh().settings, ...s.settings } };
+        // memV va preso dal salvataggio: se manca, il messaggio va mostrato
+        return { ...fresh(), ...s, memV: s.memV, settings: { ...fresh().settings, ...s.settings } };
       }
     }
   } catch {
