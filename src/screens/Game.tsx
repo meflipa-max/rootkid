@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Daily, Dish, DishStat } from '../lib/types';
 import { useApp, type Grade } from '../store';
 import { growthOf } from '../lib/growth';
@@ -240,14 +240,26 @@ function Shift({ pool, title, total = 8, coinMult = 1, onExit, again }: GameProp
     const c: Cust = { ...cust, tag, vip, critic, id: g.uid, look: critic ? CRITIC_LOOK : randomLook(), slot, state: 'in', t: 0 };
     if (vip) c.max = c.left = Math.round(c.max * 0.85);
     const ids = [c.dish.id, ...c.queue.map((x) => x.id), ...c.order.map((x) => x.id)];
+    // se stai già preparando un piatto, il nuovo aspetta: la sua scheda si apre quando lo scegli
+    const cur = g.customers.find((x) => x.id === g.selected && alive(x));
+    const busy = !!cur && (cur.plate.length > 0 || g.bake?.id === cur.id);
+    if (tag === 'nuovo' && busy) c.cardDue = true;
+    const show = tag === 'nuovo' && !busy;
     return {
       ...g, uid: g.uid + 1, customers: [...g.customers, c], spawned: g.spawned + 1, lastIds: [...g.lastIds, ...ids], critic: g.critic || critic,
       returns: due ? g.returns.filter((r) => r !== due) : g.returns,
       newCount: g.newCount + (tag === 'nuovo' ? 1 : 0),
-      card: tag === 'nuovo' ? c.dish : g.card,
-      selected: tag === 'nuovo' ? c.id : g.selected,
+      card: show ? c.dish : g.card,
+      selected: show ? c.id : g.selected,
       nextSpawn: Math.max(3500, 5500 + Math.random() * 3000 - g.spawned * 250) + (appRef.current.save.settings.calm ? 4000 : 0) + (total > 8 ? -800 : 0),
     };
+  };
+
+  /** sceglie un cliente; se il suo piatto nuovo aspettava, apre adesso la scheda */
+  const pick = (g: G, id: number): G => {
+    const c = g.customers.find((x) => x.id === id);
+    if (!c?.cardDue) return { ...g, selected: id };
+    return { ...g, selected: id, card: c.dish, customers: g.customers.map((x) => (x.id === id ? { ...x, cardDue: false } : x)) };
   };
 
   const track = (g: G, id: string, name: string, prevBox: number, box: number, held = false): G => ({
@@ -475,7 +487,7 @@ function Shift({ pool, title, total = 8, coinMult = 1, onExit, again }: GameProp
     const sel = g.customers.find((c) => c.id === g.selected && alive(c));
     if (!sel) {
       const a = g.customers.filter(alive).sort((x, y) => x.left - y.left)[0];
-      g = { ...g, selected: a ? a.id : null };
+      g = a ? pick(g, a.id) : { ...g, selected: null };
     }
     if (!g.overlay && (g.lives <= 0 || (g.spawned >= total && g.customers.length === 0))) g = { ...g, phase: 'end' };
     // il campanello onesto: suona quando il numero torna, giusto o sbagliato che sia
@@ -587,7 +599,7 @@ function Shift({ pool, title, total = 8, coinMult = 1, onExit, again }: GameProp
     const g0 = gr.current;
     if (g0.overlay || g0.paused || g0.card) return;
     sfx.tap();
-    commit({ ...g0, selected: id, ring: g0.ring?.id === id ? g0.ring : null });
+    commit({ ...pick(g0, id), ring: g0.ring?.id === id ? g0.ring : null });
   };
 
   const bake = () => {
@@ -715,6 +727,15 @@ function Shift({ pool, title, total = 8, coinMult = 1, onExit, again }: GameProp
     const c = gr.current.customers.find((x) => x.id === gr.current.selected);
     if (r && e.clientY < r.bottom && c && (isPortion(c.dish) || !c.plate.includes(d.ing))) tap(d.ing);
   };
+
+  // il bancone scorre se gli ingredienti non ci stanno: allora le tessere lasciano scorrere in verticale
+  const trayRef = useRef<HTMLDivElement>(null);
+  const [trayScroll, setTrayScroll] = useState(false);
+  useLayoutEffect(() => {
+    const el = trayRef.current;
+    const s = !!el && el.scrollHeight > el.clientHeight + 1;
+    if (s !== trayScroll) setTrayScroll(s);
+  });
 
   // ricerca scrivendo: in dispensa sempre, sugli altri banconi con la Mise en place; si svuota a ogni ingrediente
   const [q, setQ] = useState('');
@@ -845,7 +866,7 @@ function Shift({ pool, title, total = 8, coinMult = 1, onExit, again }: GameProp
         </div>
       );
       return (
-        <div className="tray check">
+        <div className={`tray check ${trayScroll ? 'scrolls' : ''}`} ref={trayRef}>
           {k.oven
             ? [group('In forno', k.oven), ...(k.shown.some((i) => !k.oven!.includes(i)) ? [group('All\'uscita', k.shown.filter((i) => !k.oven!.includes(i)))] : [])]
             : group(ticket.dish.ordered ? 'Dal basso' : null, k.shown)}
@@ -855,7 +876,7 @@ function Shift({ pool, title, total = 8, coinMult = 1, onExit, again }: GameProp
     }
     const list = pizza && !counted ? [BASE_TILE, ...shownTray] : shownTray;
     return (
-      <div className={`tray ${ticket.level === 'pantry' ? 'pantry' : ''} ${search ? 'searchable' : ''}`}>
+      <div className={`tray ${ticket.level === 'pantry' ? 'pantry' : ''} ${search ? 'searchable' : ''} ${trayScroll ? 'scrolls' : ''}`} ref={trayRef}>
         {search && (
           <label className="pantry-q">
             <Icon name="search" size={20} />

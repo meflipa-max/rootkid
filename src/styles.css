@@ -318,7 +318,7 @@ hr { border: 0; border-top: 2px dashed #2b211c33; width: 100%; margin: 4px 0; }
 .cmeter i.on { background: var(--terra); border-color: var(--ink); }
 .cmeter.fever b { font-family: 'Fredoka'; font-size: 0.9375rem; color: #fff; background: var(--terra); border: 2px solid var(--ink); padding: 2px 10px; border-radius: 99px; display: flex; align-items: center; gap: 4px; animation: beat .6s ease-in-out infinite; }
 
-.stage { position: relative; flex: none; height: clamp(220px, 38dvh, 400px); margin: 0 10px; border-radius: 22px; border: 2px solid var(--ink); box-shadow: var(--pop); overflow: hidden; background: #2b1a3a; }
+.stage { --stage-h: clamp(220px, 38dvh, 400px); position: relative; flex: none; height: var(--stage-h); margin: 0 10px; border-radius: 22px; border: 2px solid var(--ink); box-shadow: var(--pop); overflow: hidden; background: #2b1a3a; }
 .stage:not(.is3d) { display: flex; flex-direction: column; height: auto; background: var(--paper2); }
 .stage3d { position: absolute !important; inset: 0; }
 .is-fever .stage { border-color: var(--terra); box-shadow: 0 4px 0 var(--terra-d); }
@@ -339,6 +339,10 @@ hr { border: 0; border-top: 2px dashed #2b211c33; width: 100%; margin: 4px 0; }
 .bubble.retry { background: #dde8f1; }
 .bubble.sel.retry { background: var(--mustard); }
 .bubble.urgent { animation: urgent .5s ease-in-out infinite; }
+/* nella scena 3D i clienti distano circa 0,31 × l'altezza della scena (fov verticale fisso): i fumetti stanno nel loro spazio */
+.stage.is3d .bubble { min-width: 0; max-width: none; width: calc(var(--stage-h) * 0.29); padding: 4px 4px 6px; }
+.stage.is3d .bubble.sel { transform: none; }
+.stage.is3d .b-n { overflow-wrap: break-word; hyphens: auto; }
 .b-tag { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-family: 'Fredoka'; font-size: 0.8125rem; padding: 0 7px; border-radius: 99px; background: var(--ink); color: var(--card); }
 .bubble.vip .b-tag { background: var(--mustard); color: var(--ink); border: 1.5px solid var(--ink); }
 .b-n { font-family: 'Fredoka'; font-size: 0.8125rem; line-height: 1.1; text-align: center; }
@@ -369,11 +373,14 @@ hr { border: 0; border-top: 2px dashed #2b211c33; width: 100%; margin: 4px 0; }
 .itile:active { transform: translateY(3px); box-shadow: 0 0 0 var(--ink); }
 .itile.used { background: var(--mustard); transform: translateY(3px); box-shadow: 0 0 0 var(--ink); }
 .itile.dragging { opacity: .4; }
+/* bancone più lungo dello spazio: si scorre col dito (il trascinamento parte in orizzontale, il tocco funziona sempre) */
+.tray.scrolls .itile { touch-action: pan-y; }
+.tray.scrolls { padding-bottom: 24px; -webkit-mask-image: linear-gradient(#000 calc(100% - 20px), transparent); mask-image: linear-gradient(#000 calc(100% - 20px), transparent); }
 .t-e { display: flex; }
 .t-l { font-size: 0.8125rem; line-height: 1.1; text-align: center; font-weight: 800; overflow-wrap: anywhere; hyphens: auto; }
 .drag-ghost { position: fixed; left: -36px; top: -36px; width: 72px; height: 72px; z-index: 80; pointer-events: none; filter: drop-shadow(0 8px 6px #2b211c55); }
 .drag-ghost .ing { width: 72px; height: 72px; animation: beat .5s ease-in-out infinite; }
-.gopts { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: minmax(84px, auto); gap: 10px; padding: 6px 10px 12px; align-content: start; }
+.gopts { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: minmax(84px, auto); gap: 10px; padding: 6px 10px 12px; align-content: start; }
 .gopt { background: var(--card); border: 2px solid var(--ink); border-radius: 16px; font-family: 'Fredoka'; font-size: 1rem; line-height: 1.1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 6px; box-shadow: 0 4px 0 var(--ink); animation: pop .35s both; }
 .gopt .ing { width: 34px; height: 34px; }
 .gopt:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 0 0 var(--ink); }
@@ -399,7 +406,7 @@ hr { border: 0; border-top: 2px dashed #2b211c33; width: 100%; margin: 4px 0; }
 @keyframes starIn { 0% { transform: scale(0) rotate(-90deg); } 60% { transform: scale(1.35) rotate(10deg); } 100% { transform: scale(1) rotate(0); } }
 
 @media (max-height: 760px) {
-  .stage { height: clamp(200px, 36dvh, 340px); }
+  .stage { --stage-h: clamp(200px, 36dvh, 340px); }
   .tray { grid-auto-rows: minmax(66px, auto); gap: 6px; }
   .ticket { margin-top: 8px; padding: 6px 10px; min-height: 48px; }
   .serve { min-height: 54px; margin-bottom: 6px; }

@@ -73,6 +73,8 @@ export interface Cust {
   vip: boolean;
   /** il critico gastronomico (locale da 3 stelle): ordina un piatto che sai già */
   critic?: boolean;
+  /** piatto nuovo arrivato mentre ne preparavi un altro: la scheda si apre quando lo scegli */
+  cardDue?: boolean;
   options: Dish[];
   gap: Gap | null;
   check: (Check & { fix: boolean }) | null;
