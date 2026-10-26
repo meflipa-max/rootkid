@@ -9,6 +9,8 @@ import { Person3D, type Pose3 } from './Person3D';
 import { CHEF_LOOK, type Look } from '../components/Person';
 import type { ChefSkin } from '../lib/skins';
 import { reduced } from '../lib/fx';
+import type { Growth } from '../lib/growth';
+import { GROWTH_SPOTS } from './Growth';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 
 const REGULAR: Look = { skin: '#f1c27d', hair: '#b23a2e', style: 1, shirt: '#5b8db8', extra: 1 };
@@ -49,7 +51,7 @@ function Fly({ show }: { show?: { id: string; n: number } }) {
   const camera = useThree((s) => s.camera);
   const st = useRef<{ t: number; from: THREE.Vector3; fromT: THREE.Vector3; to: THREE.Vector3; toT: THREE.Vector3 } | null>(null);
   useEffect(() => {
-    const spot = show && SPOTS[show.id];
+    const spot = show && (SPOTS[show.id] ?? GROWTH_SPOTS[show.id]);
     if (!spot || !controls || reduced()) return;
     // lo stesso gruppo del locale è abbassato di 0.6
     const toT = new THREE.Vector3(spot[0], spot[1] - 0.6, spot[2]);
@@ -75,7 +77,7 @@ function Fly({ show }: { show?: { id: string; n: number } }) {
   return null;
 }
 
-export function Diorama({ build, skin, onPick, ghosts = [], show }: { build: Record<string, number>; skin: ChefSkin; onPick: (id: string) => void; ghosts?: { id: string; can: boolean }[]; show?: { id: string; n: number } }) {
+export function Diorama({ build, skin, onPick, ghosts = [], show, growth }: { build: Record<string, number>; skin: ChefSkin; onPick: (id: string) => void; ghosts?: { id: string; can: boolean }[]; show?: { id: string; n: number }; growth?: Growth }) {
   // fuori dallo schermo non disegna: niente batteria sprecata mentre scorri la home
   const ref = useRef<HTMLCanvasElement>(null);
   const [vis, setVis] = useState(true);
@@ -101,7 +103,7 @@ export function Diorama({ build, skin, onPick, ghosts = [], show }: { build: Rec
       <Lights night={0.12} />
       <Post bloom={0.5} />
       <group position={[0, -0.6, 0]}>
-        <Pizzeria build={build} night={0.12} cutaway onPick={onPick} />
+        <Pizzeria build={build} night={0.12} cutaway onPick={onPick} growth={growth} />
         {ghosts.filter((g) => SPOTS[g.id]).map((g) => (
           <Html key={g.id} position={SPOTS[g.id]} center zIndexRange={[5, 0]}>
             <button className={`ghost-up ${g.can ? 'can' : ''}`} onClick={() => onPick(g.id)} aria-label={`Costruisci ${g.id}`}>+</button>

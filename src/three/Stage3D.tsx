@@ -6,6 +6,7 @@ import { BASE_OF, G, buildIng, mat } from './ingredients';
 import { layoutDish } from './dish3d';
 import { Person3D, type Pose3 } from './Person3D';
 import { Lights, Pizzeria } from './Pizzeria';
+import type { Growth } from '../lib/growth';
 import { EnvLight, GL_PROPS, Post } from './look';
 import { skyColors } from './World';
 import { stageBus, startTilt, tilt, type StageEvent } from './bus';
@@ -305,7 +306,7 @@ function Rig({ fever }: { fever: boolean }) {
 }
 
 export function Stage3D({
-  customers, onSelect, plate, cat, onRemove, build, night, skin, chefPose, fever,
+  customers, onSelect, plate, cat, onRemove, build, night, skin, chefPose, fever, growth,
 }: {
   customers: StageCust[];
   onSelect: (id: number) => void;
@@ -317,6 +318,7 @@ export function Stage3D({
   skin: ChefSkin;
   chefPose: 'idle' | 'work' | 'cheer' | 'sad';
   fever: boolean;
+  growth?: Growth;
 }) {
   useEffect(startTilt, []);
   return (
@@ -326,7 +328,7 @@ export function Stage3D({
       <Lights night={night} />
       <Post bloom={0.6 + night * 0.6} />
       <Rig fever={fever} />
-      <Pizzeria build={build} night={night} />
+      <Pizzeria build={build} night={night} growth={growth} />
       {customers.map((c) => <Customer key={c.id} c={c} onSelect={onSelect} />)}
       <Plate items={plate} cat={cat} onRemove={onRemove} />
       <Chef skin={skin} pose={chefPose} />

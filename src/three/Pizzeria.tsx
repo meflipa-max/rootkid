@@ -7,6 +7,8 @@ import { Person3D } from './Person3D';
 import { World } from './World';
 import { Kit } from './Kit';
 import type { Look } from '../components/Person';
+import type { Growth } from '../lib/growth';
+import { GrowthDecor } from './Growth';
 
 /** Il locale in miniatura: stanza, esterno al tramonto e tutte le migliorie come oggetti veri. */
 
@@ -300,7 +302,7 @@ function Pick({ id, onPick, children }: { id: string; onPick?: (id: string) => v
 
 const GARZONE: Look = { skin: '#d8a070', hair: '#2b1b12', style: 3, shirt: '#6f9a6a', extra: 0 };
 
-export function Pizzeria({ build, night, cutaway, onPick }: { build: Record<string, number>; night: number; cutaway?: boolean; onPick?: (id: string) => void }) {
+export function Pizzeria({ build, night, cutaway, onPick, growth }: { build: Record<string, number>; night: number; cutaway?: boolean; onPick?: (id: string) => void; growth?: Growth }) {
   const l = (id: string) => lvlOf(build, id);
   const W = '#f1e4cf';
   const SAGE = '#8fae84';
@@ -309,6 +311,7 @@ export function Pizzeria({ build, night, cutaway, onPick }: { build: Record<stri
       <World night={night} tables={l('tavolini')} />
       <Dehors tables={l('tavolini')} />
       <Props night={night} />
+      {growth && <GrowthDecor growth={growth} />}
       <Pick id="tavolini" onPick={onPick}>
         <mesh position={[-1.0, 0.5, -4.4]} visible={false}>
           <boxGeometry args={[4, 1, 1]} />

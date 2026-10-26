@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Daily, Dish, DishStat } from '../lib/types';
 import { useApp, type Grade } from '../store';
+import { growthOf } from '../lib/growth';
 import { availableKinds, isPortion, makeQuestion, norm, similarDish, trayFor, trayLevelFor, whereIs, type TrayLevel } from '../lib/questions';
 import { fold, SHELVES, shelfOf } from '../lib/pantry';
 import { PHASES, levelOf, pickWeighted, weight } from '../lib/mastery';
@@ -94,6 +95,8 @@ export function Game(props: GameProps) {
 
 function Shift({ pool, title, total = 8, coinMult = 1, onExit, again }: GameProps & { again: () => void }) {
   const app = useApp();
+  // gli angoli dei banchi e la parete d'oro si vedono anche nel turno (crescono mentre giochi)
+  const growth = useMemo(() => growthOf(app.menu, app.mine, app.save.stats), [app.save.stats]); // eslint-disable-line react-hooks/exhaustive-deps
   const appRef = useRef(app);
   appRef.current = app;
   const gr = useRef<G>(initial(3 + lvlOf(app.save.build, 'frigo'), app.save.shifts < 3));
@@ -888,6 +891,7 @@ function Shift({ pool, title, total = 8, coinMult = 1, onExit, again }: GameProp
             skin={skin}
             chefPose={g.pose}
             fever={g.fever}
+            growth={growth}
           />
         ) : (
           <>

@@ -194,8 +194,10 @@ Peso: `ingredients.glb` circa 850 kB (meshopt), si scarica una volta e resta in 
 - [x] Momento dell'acquisto: la camera vola sull'oggetto, coriandoli, applauso, cosa cambia. (`Fly` in `Diorama.tsx`, `bought` in Home)
 - [x] Obiettivo sempre in vista: "Prossimo: … mancano N monete" con la barra; a fine turno le monete ci volano dentro.
   (`goalOf` in `build.ts`, `GoalCard` in Home, `EndGoal` in GameParts; "Punta" nel foglio Costruisci = `save.goal`)
-- [ ] Il locale cresce con la memoria: angoli dei banchi che si accendono coi piatti a memoria, parete dei piatti d'oro
-      (si impolverano se da ripassare).
+- [x] Il locale cresce con la memoria: angoli dei banchi (pizze, piastra, friggitoria, insalate) con le vaschette dei
+  loro ingredienti che si riempiono coi piatti a memoria (d'oro quando sono tutti), posto segnato a terra per i miei banchi
+  ancora vuoti, parete dei piatti d'oro (impolverati quando sono da ripassare), festa con la camera quando cambia qualcosa
+  (`lib/growth.ts`, `three/Growth.tsx`, `save.seenGrowth`), legenda toccabile sotto il diorama.
 - [ ] Migliorie che si vedono nel turno (tavolini = clienti seduti e mance, insegna = più VIP, forno = pizza perfetta, atmosfera).
 - [ ] Stelle del locale (1–5) con sblocchi; il critico gastronomico.
 - [ ] Sorprese: il fornitore con pezzi rari, set da completare. (Offerta del giorno fatta: `dealOf`/`priceOf`, una al giorno, −30%, `save.dealUsed`.)

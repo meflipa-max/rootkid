@@ -112,3 +112,14 @@ Piano e stato in **`PIANO.md`**. In breve:
 - **I miei banchi** (`settings.banchi`, manca = tutte le categorie): per *contare* (titolo, menu a memoria,
   statistiche, missioni, Prima del turno, Sabato sera) usare `mine` dal contesto; per *giocare* una categoria
   scelta usare `menu`. Missioni con `cats`/`minCats` escono solo se possibili coi banchi scelti.
+
+## Costruzione e locale che cresce — 26 ottobre 2026
+
+- Migliorie (`lib/build.ts`): `priceOf` = costo con l'offerta del giorno (`dealOf`, −30%, una al giorno, `save.dealUsed`);
+  `goalOf` = prossimo acquisto (scelto con "Punta" → `save.goal`, se no il più economico). Comprando: `bought` in Home →
+  `Diorama show={{id, n}}` fa volare la camera (`Fly`, punti in `SPOTS`/`GROWTH_SPOTS`) e fa esultare cuoco e cliente.
+- **Il locale cresce solo con la memoria** (`lib/growth.ts` → `three/Growth.tsx`): angoli dei banchi con grado 0–4 dai piatti
+  in fase ≥ 3, parete dei piatti d'oro (fase 5). Non si comprano. `save.seenGrowth` = ultimo stato visto, per la festa.
+- Le divise colorano i materiali di Giuseppe per nome (`berretto`, `maglietta`, `logo`, `cuciture`; Blender aggiunge `.001`).
+- Nel browser di prova senza scheda video i fotogrammi sono lentissimi: per vedere la camera della festa allungare per
+  un momento `HOLD` in `Diorama.tsx`.

@@ -170,6 +170,7 @@ interface Ctx {
   selectSkin(id: string): void;
   upgrade(id: string): boolean;
   setGoal(id: string | undefined): void;
+  setSeenGrowth(seen: Save['seenGrowth']): void;
   saveDish(d: Dish): void;
   deleteDish(id: string): void;
   resetRecipes(): void;
@@ -431,6 +432,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       },
       setGoal(id) {
         commit({ ...ref.current, goal: id });
+      },
+      setSeenGrowth(seen) {
+        commit({ ...ref.current, seenGrowth: seen });
       },
       selectSkin(id) {
         if (ref.current.skins.includes(id)) commit({ ...ref.current, skin: id });

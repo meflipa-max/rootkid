@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../store';
 import { CATEGORIES, catOf } from '../lib/data';
 import { dueCount, freshness, isDue, isDusty, levelBounds, levelOf, mastery } from '../lib/mastery';
@@ -20,6 +20,8 @@ import { hasWebGL } from '../three/thumbs';
 import { ChefPreview, Diorama } from '../three/Diorama';
 import { InstallCard } from '../components/Install';
 import { ShareCard } from '../components/Share';
+import { growthNews, growthOf, seenOf, type Growth } from '../lib/growth';
+import { BANCO_COLOR } from '../three/Growth';
 
 export type Mode = 'game' | 'focus' | 'learn' | 'write' | 'imagine' | 'sabato' | 'warmup' | 'yesterday';
 
@@ -131,6 +133,7 @@ function Build({ focus, onClose, onBought }: { focus: string | null; onClose: ()
       <div className="modal-in" onClick={(e) => e.stopPropagation()} ref={list}>
         <div className="row-between"><h3>Il tuo locale</h3><span className="coins-big"><Coin /> {coins}</span></div>
         <Bar value={totalBuilt(build) / totalMax} color="#c65a3c" h={10} />
+        <div className="muted sm">Gli angoli dei banchi e la parete dei piatti d'oro non si comprano: crescono quando impari.</div>
         {rows.map((u) => {
           const lvl = lvlOf(build, u.id);
           const maxed = lvl >= u.max;
@@ -172,6 +175,25 @@ function Build({ focus, onClose, onBought }: { focus: string | null; onClose: ()
         })}
         <button className="btn ghost wide" onClick={onClose}>Chiudi</button>
       </div>
+    </div>
+  );
+}
+
+/** sotto il diorama: i banchi del locale e quanti piatti sai di ognuno; toccandone uno la camera ci va */
+function GrowthLegend({ growth, onPick }: { growth: Growth; onPick: (id: string) => void }) {
+  const list = growth.banchi.filter((b) => b.total > 0 && (b.mine || b.tier > 0));
+  return (
+    <div className="growth-legend" aria-label="Il locale cresce con la memoria">
+      {list.map((b) => (
+        <button key={b.id} className={`station-tag ${b.tier >= 4 ? 'gold' : ''} ${b.tier === 0 ? 'ghost' : ''}`} onClick={() => onPick(`banco:${b.id}`)}>
+          <i style={{ background: BANCO_COLOR[b.id] }} /> {b.short} <b>{b.known}/{b.total}</b>
+        </button>
+      ))}
+      {growth.gold.length > 0 && (
+        <button className="station-tag gold" onClick={() => onPick('oro')}>
+          <Icon name="frame" size={13} /> Piatti d'oro <b>{growth.gold.length}</b>
+        </button>
+      )}
     </div>
   );
 }
@@ -300,6 +322,34 @@ export function Home({ cat, setCat, start }: { cat: Category | 'all'; setCat: (c
     setShow({ id: u.id, n });
     setNews({ title: lvl >= u.max ? `${u.name} al massimo!` : lvl === 1 ? `${u.name}!` : `${u.name} · livello ${lvl}`, text: u.desc(lvl), n });
   };
+  // il locale cresce con la memoria: quando un banco sale o arriva un piatto d'oro, si fa festa (una volta)
+  const growth = useMemo(() => growthOf(menu, mine, save.stats), [menu, mine, save.stats]);
+  const gkey = JSON.stringify(seenOf(growth));
+  useEffect(() => {
+    const seen = save.seenGrowth;
+    if (seen && JSON.stringify(seen) === gkey) return;
+    app.setSeenGrowth(seenOf(growth));
+    // la prima volta si prende nota in silenzio: niente festa per quello che sapevi già
+    const g = growthNews(growth, seen);
+    if (!g) return;
+    setTimeout(() => {
+      const n = Date.now();
+      sfx.phase();
+      confetti(g.kind === 'oro' || g.b.tier >= 4 ? 1.3 : 0.8);
+      if (g.kind === 'oro') {
+        setShow({ id: 'oro', n });
+        setNews({ title: `In parete: ${g.d.name}`, text: 'Piatto d\'oro: ora è incorniciato nel locale', n });
+      } else {
+        const { b } = g;
+        setShow({ id: `banco:${b.id}`, n });
+        setNews(
+          b.tier >= 4 ? { title: `${b.name} completo!`, text: `Tutti i ${b.total} piatti a memoria: l'angolo è d'oro`, n }
+          : b.tier === 1 ? { title: `Nuovo angolo: ${b.name}`, text: `Il primo piatto a memoria (${b.known}/${b.total})`, n }
+          : { title: `${b.name}: si riempie!`, text: `${b.known}/${b.total} piatti a memoria, nuove vaschette sul banco`, n },
+        );
+      }
+    }, 900);
+  }, [gkey]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!news) return;
     const t = setTimeout(() => setNews(null), 3400);
@@ -344,6 +394,7 @@ export function Home({ cat, setCat, start }: { cat: Category | 'all'; setCat: (c
                 onPick={(id) => openBuild(id)}
                 ghosts={UPGRADES.filter((u) => lvlOf(save.build, u.id) === 0).map((u) => ({ id: u.id, can: save.coins >= priceOf(u, 0, dealOf(today(), save.build, save.dealUsed)) }))}
                 show={show}
+                growth={growth}
               />
               <span className="diorama-hint">Trascina per girare · tocca un oggetto per migliorarlo</span>
             </>
@@ -357,6 +408,7 @@ export function Home({ cat, setCat, start }: { cat: Category | 'all'; setCat: (c
           {news && <div className="build-news" key={news.n}><b>{news.title}</b><span>{news.text}</span></div>}
         </div>
       </header>
+      {hasWebGL() && <GrowthLegend growth={growth} onPick={(id) => { sfx.tap(); setShow({ id, n: Date.now() }); }} />}
 
       <GoalCard onOpen={openBuild} />
 
